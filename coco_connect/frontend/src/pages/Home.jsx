@@ -1,84 +1,82 @@
-function Home() {
+import { useState, useEffect } from "react";
+
+const slides = [
+  {
+    id: 1,
+    title: "Connecting Sri Lanka’s Coconut Industry Into One Smart Ecosystem.",
+    subtitle:
+      "Bringing farmers, investors, and innovators together on one trusted digital platform.",
+    buttonLabel: "Explore Ecosystem",
+    image: "/hero_1.jpg",
+  },
+  {
+    id: 2,
+    title: "Unlocking New Opportunities for Farmers, Investors, and Innovators.",
+    subtitle:
+      "Invest in coconut projects, discover new products, and grow with the CocoConnect community.",
+    buttonLabel: "Discover Opportunities",
+    image: "/hero_2.jpg",
+  },
+];
+
+export default function Home() {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % slides.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const goToNext = () => setCurrent((prev) => (prev + 1) % slides.length);
+  const goToPrev = () => setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+
   return (
-    <main className="text-slate-50 pt-24">
-      {/* HERO SECTION - FULL SCREEN WIDTH */}
-      <section id="home" className="w-full bg-slate-950 py-20">
-        <div className="max-w-[1600px] mx-auto px-8 flex flex-col md:flex-row items-center gap-12">
-          {/* Left Side */}
-          <div className="flex-1">
-            <p className="uppercase text-xs tracking-widest text-indigo-300 mb-4">
-              Welcome to Coco Connect
-            </p>
+    <div className="home-page">
 
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-              Connect, collaborate, <br />
-              and grow with your <br />
-              campus community.
-            </h1>
+      {/* Hero-Section CAROUSEL */}
+      <section className="relative w-full h-[380px] sm:h-[450px] md:h-[520px] lg:h-[600px] overflow-hidden">
 
-            <p className="text-slate-300 text-lg mb-8">
-              Coco Connect helps students, teachers, and admins stay organized,
-              share resources, and communicate easily in one simple platform.
-            </p>
+        {slides.map((slide, index) => (
+          <div  key={slide.id}  className={`absolute inset-0 transition-opacity duration-700 ease-out ${    index === current ? "opacity-100 z-20" : "opacity-0 z-10"  }`}>
+            {/* Full-width background image */}
+            <img  src={slide.image}   alt="hero"   className="w-full h-full object-cover"  />
 
-            <div className="flex gap-5">
-              <button className="bg-indigo-500 hover:bg-indigo-600 px-6 py-3 rounded-md font-medium">
-                Get Started
-              </button>
-              <button className="border border-slate-600 hover:border-indigo-400 px-6 py-3 rounded-md font-medium">
-                Learn More
-              </button>
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+            {/* Overlay text */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center px-4 max-w-3xl">
+                <h1 className="font-mont font-bold text-2xl sm:text-3xl md:text-4xl lg:text-[2.7rem]  text-white leading-snug mb-3">
+                  {slide.title}
+                </h1>
+                <p className="font-mont text-white/90 text-sm sm:text-base md:text-lg mb-6">
+                  {slide.subtitle}
+                </p>
+                <button className="px-7 py-3 rounded-full bg-[#ece7e1] text-gray-900 text-sm font-medium shadow hover:bg-gray-100 transition">
+                  {slide.buttonLabel}
+                </button>
+              </div>
             </div>
           </div>
+        ))}
 
-          {/* Right Side Card */}
-          <div className="flex-1">
-            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8 shadow-xl">
-              <h2 className="text-xl font-semibold mb-4">Quick Overview</h2>
+        {/* Arrows */}
+        <button  onClick={goToPrev}  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-gray-900 w-10 h-10 rounded-full shadow z-30 flex items-center justify-center text-xl"  >  ‹  </button>
+        <button   onClick={goToNext}  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white text-gray-900 w-10 h-10 rounded-full shadow z-30 flex items-center justify-center text-xl"  >  › </button>
 
-              <ul className="space-y-4 text-slate-300 text-base">
-                <li>✔️ Create and join groups & clubs</li>
-                <li>✔️ Share announcements and events</li>
-                <li>✔️ Message classmates and lecturers</li>
-                <li>✔️ Keep all your campus info in one place</li>
-              </ul>
-            </div>
-          </div>
+        {/* Dots */}
+        <div className="absolute bottom-4 inset-x-0 flex justify-center gap-2 z-30">
+          {slides.map((_, index) => (
+            <button  key={index}  onClick={() => setCurrent(index)}  className={`w-3 h-3 rounded-full transition border border-white ${  index === current ? "bg-white" : "bg-white/30"  }`}  />
+          ))}
         </div>
       </section>
 
-      {/* FEATURES SECTION */}
-      <section id="features" className="w-full bg-slate-950 py-20">
-        <div className="max-w-[1600px] mx-auto px-8">
-          <h2 className="text-3xl font-semibold mb-10">Key Features</h2>
+      
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-3">Announcements</h3>
-              <p className="text-slate-300">
-                Lecturers and admins can post important updates and students can
-                see everything in one place.
-              </p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-3">Groups & Clubs</h3>
-              <p className="text-slate-300">
-                Join course groups, clubs, and communities instantly.
-              </p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <h3 className="font-semibold text-lg mb-3">Messaging</h3>
-              <p className="text-slate-300">
-                Chat with classmates and teachers in real-time.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
+    </div>
   );
 }
-
-export default Home;
