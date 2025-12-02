@@ -10,12 +10,12 @@ const Navbar = () => {
   return (
     <header className="bg-accent4 shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center py-2">
+        <div className="flex justify-between items-center py-4">
           {/* Logo Section */}
           <div className="flex items-center">
             <div className="flex items-center">
               {/* Logo Image */}
-              <img src="/tree.png"  alt="Cococonnect Logo"  className="w-14 h-auto mr-3" />
+              <img src="/tree.png"  alt="Cococonnect Logo"  className="w-16 h-auto mr-3" />
 
               {/* Logo Text */}
               <div className="logo-text">

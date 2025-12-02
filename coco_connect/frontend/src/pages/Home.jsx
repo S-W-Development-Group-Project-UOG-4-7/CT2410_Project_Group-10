@@ -75,7 +75,12 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ABOUT */}
       
+      {/* FEATURES */}
+      {/* MARKETPLACE */}
+      {/* COMMUNITY */}
+      {/* NEWS */}
 
     </div>
   );
