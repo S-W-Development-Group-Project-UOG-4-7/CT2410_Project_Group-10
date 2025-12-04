@@ -24,6 +24,7 @@ module.exports = {
       fontFamily: {
         logo: ["Bangers", "cursive"],
         nunito: ["Nunito", "sans-serif"],
+        mont: ["Montserrat", "sans-serif"],
       },
     },
   },
