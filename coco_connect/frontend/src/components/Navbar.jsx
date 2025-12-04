@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 
 const Navbar = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -31,42 +32,40 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-8 text-sm lg:text-base">
-            {/* Home & Shop -> Nunito */}
-            <a
-              href="#"
-              className="font-nunito font-bold  text-accent2 hover:text-[#4caf50] transition-colors"
+            <Link
+              to="/"
+              className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors"
             >
-              {" "}
               Home
-            </a>
-            <a
-              href="#"
-              className="text-accent2 font-bold hover:text-[#4caf50]  transition-colors"
+            </Link>
+
+            <Link
+              to="/about"
+              className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
             >
-              {" "}
               About Us
-            </a>
-            <a
-              href="#"
-              className="font-nunito font-bold text-accent2 hover:text-[#4caf50]  transition-colors"
+            </Link>
+
+            <Link
+              to="/shop"
+              className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors"
             >
-              {" "}
               Shop
-            </a>
-            <a
-              href="#"
-              className="text-accent2 font-bold hover:text-[#4caf50]  transition-colors"
+            </Link>
+
+            <Link
+              to="/ideas"
+              className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
             >
-              {" "}
-              Idea Sharing{" "}
-            </a>
-            <a
-              href="#"
-              className="text-accent2 font-bold hover:text-[#4caf50]  transition-colors"
+              Idea Sharing
+            </Link>
+
+            <Link
+              to="/news"
+              className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
             >
-              {" "}
-              News Corner{" "}
-            </a>
+              News Corner
+            </Link>
           </nav>
 
           {/* Right Icons */}

@@ -54,7 +54,7 @@ export default function Footer() {
                   <span className="connect-text">CONNECT</span>
                 </div>
               </div>
-              <p className="text-xs text-#ece7e1 leading-relaxed">
+              <p className="text-xs leading-relaxed text-black">
                 Empowering the coconut industry through smart collaboration and
                 connectivity.
               </p>
@@ -62,7 +62,7 @@ export default function Footer() {
 
             {/* Quick Links */}
             <div>
-              <h3 className="text-#f9faf7 font-semibold text-sm mb-3">
+              <h3 className="font-semibold text-sm mb-3 text-black">
                 Quick Links
               </h3>
               <ul className="space-y-2">
@@ -70,7 +70,7 @@ export default function Footer() {
                   <li key={index}>
                     <a
                       href={link.href}
-                      className="text-#f9faf7 hover:text-connect transition-colors duration-200 text-xs inline-block"
+                      className="hover:text-connect transition-colors duration-200 text-xs inline-block text-black"
                     >
                       {link.name}
                     </a>
@@ -81,7 +81,7 @@ export default function Footer() {
 
             {/* Resources */}
             <div>
-              <h3 className="text-#f9faf7 font-semibold text-sm mb-3">
+              <h3 className="font-semibold text-sm mb-3 text-black">
                 Resources
               </h3>
               <ul className="space-y-2">
@@ -89,7 +89,7 @@ export default function Footer() {
                   <li key={index}>
                     <a
                       href={link.href}
-                      className="text-#f9faf7 hover:text-connect transition-colors duration-200 text-xs inline-block"
+                      className="hover:text-connect transition-colors duration-200 text-xs inline-block text-black"
                     >
                       {link.name}
                     </a>
@@ -100,14 +100,12 @@ export default function Footer() {
 
             {/* Contact */}
             <div>
-              <h3 className="text-#f9faf7 font-semibold text-sm mb-3">
-                Contact
-              </h3>
+              <h3 className="font-semibold text-sm mb-3 text-black">Contact</h3>
               <ul className="space-y-2 text-xs">
                 <li>
                   <a
                     href="mailto:support@cococonnect.com"
-                    className="text-#f9faf7 hover:text-connect transition-colors duration-200"
+                    className="hover:text-connect transition-colors duration-200 text-black"
                   >
                     support@cococonnect.com
                   </a>
@@ -115,12 +113,12 @@ export default function Footer() {
                 <li>
                   <a
                     href="tel:+94712345678"
-                    className="text-#f9faf7 hover:text-connect transition-colors duration-200"
+                    className="hover:text-connect transition-colors duration-200 text-black"
                   >
                     +94 71 234 5678
                   </a>
                 </li>
-                <li className="text-#f9faf7">Colombo, Sri Lanka</li>
+                <li className="text-black">Colombo, Sri Lanka</li>
               </ul>
 
               {/* Social Links */}
@@ -132,7 +130,7 @@ export default function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.name}
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-#f9faf7 hover:bg-white/20 hover:text-connect transition-all duration-300"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 hover:text-connect transition-all duration-300 text-black"
                   >
                     <i className={`${social.icon} text-sm`}></i>
                   </a>
@@ -142,21 +140,24 @@ export default function Footer() {
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-white/10 mt-6 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-#f9faf7/70">
+          <div className="border-t border-white/10 mt-6 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-black">
             <p>© {currentYear} CocoConnect. All rights reserved.</p>
             <div className="flex gap-4">
               <a
                 href="/privacy"
-                className="hover:text-connect transition-colors"
+                className="hover:text-connect transition-colors text-black"
               >
                 Privacy
               </a>
-              <a href="/terms" className="hover:text-connect transition-colors">
+              <a
+                href="/terms"
+                className="hover:text-connect transition-colors text-black"
+              >
                 Terms
               </a>
               <a
                 href="/cookies"
-                className="hover:text-connect transition-colors"
+                className="hover:text-connect transition-colors text-black"
               >
                 Cookies
               </a>
