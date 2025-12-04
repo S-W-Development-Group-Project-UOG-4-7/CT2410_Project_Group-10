@@ -37,7 +37,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="footer-bg mt-12">
+    <footer className="footer-bg font-nunito">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-12 py-8">
         <div className="footer-glass rounded-2xl shadow-xl border border-white/5 px-6 sm:px-8 lg:px-16 py-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -54,15 +54,14 @@ export default function Footer() {
                   <span className="connect-text">CONNECT</span>
                 </div>
               </div>
-              <p className="text-xs leading-relaxed text-black">
+              <p className="text-nunito text-xs leading-relaxed text-[#f9faf7]">
                 Empowering the coconut industry through smart collaboration and
                 connectivity.
               </p>
             </div>
-
             {/* Quick Links */}
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-black">
+              <h3 className="font-semibold text-sm mb-3 text-[#f9faf7]">
                 Quick Links
               </h3>
               <ul className="space-y-2">
@@ -70,7 +69,7 @@ export default function Footer() {
                   <li key={index}>
                     <a
                       href={link.href}
-                      className="hover:text-connect transition-colors duration-200 text-xs inline-block text-black"
+                      className="hover:text-[#e0d9d2] transition-colors duration-200 text-xs inline-block text-[#f9faf7]"
                     >
                       {link.name}
                     </a>
@@ -81,7 +80,7 @@ export default function Footer() {
 
             {/* Resources */}
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-black">
+              <h3 className="font-semibold text-sm mb-3 text-[#f9faf7]">
                 Resources
               </h3>
               <ul className="space-y-2">
@@ -89,7 +88,7 @@ export default function Footer() {
                   <li key={index}>
                     <a
                       href={link.href}
-                      className="hover:text-connect transition-colors duration-200 text-xs inline-block text-black"
+                      className="hover:text-[#e0d9d2] transition-colors duration-200 text-xs inline-block text-[#f9faf7]"
                     >
                       {link.name}
                     </a>
@@ -100,12 +99,12 @@ export default function Footer() {
 
             {/* Contact */}
             <div>
-              <h3 className="font-semibold text-sm mb-3 text-black">Contact</h3>
+              <h3 className="font-semibold text-sm mb-3 text-[#f9faf7]">Contact</h3>
               <ul className="space-y-2 text-xs">
                 <li>
                   <a
                     href="mailto:support@cococonnect.com"
-                    className="hover:text-connect transition-colors duration-200 text-black"
+                    className="hover:text-[#e0d9d2] transition-colors duration-200 text-[#f9faf7]"
                   >
                     support@cococonnect.com
                   </a>
@@ -113,12 +112,12 @@ export default function Footer() {
                 <li>
                   <a
                     href="tel:+94712345678"
-                    className="hover:text-connect transition-colors duration-200 text-black"
+                    className="hover:text-[#e0d9d2] transition-colors duration-200 text-[#f9faf7]"
                   >
                     +94 71 234 5678
                   </a>
                 </li>
-                <li className="text-black">Colombo, Sri Lanka</li>
+                <li className="text-[#f9faf7]">Colombo, Sri Lanka</li>
               </ul>
 
               {/* Social Links */}
@@ -130,7 +129,7 @@ export default function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={social.name}
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 hover:text-connect transition-all duration-300 text-black"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 hover:text-[#e0d9d2] transition-all duration-300 text-[#f9faf7]"
                   >
                     <i className={`${social.icon} text-sm`}></i>
                   </a>
@@ -140,24 +139,24 @@ export default function Footer() {
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-white/10 mt-6 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-black">
+          <div className="border-t border-white/10 mt-6 pt-4 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-[#f9faf7]">
             <p>© {currentYear} CocoConnect. All rights reserved.</p>
             <div className="flex gap-4">
               <a
                 href="/privacy"
-                className="hover:text-connect transition-colors text-black"
+                className="hover:text-[#e0d9d2] transition-colors text-[#f9faf7]"
               >
                 Privacy
               </a>
               <a
                 href="/terms"
-                className="hover:text-connect transition-colors text-black"
+                className="hover:text-[#e0d9d2] transition-colors text-[#f9faf7]"
               >
                 Terms
               </a>
               <a
                 href="/cookies"
-                className="hover:text-connect transition-colors text-black"
+                className="hover:text-[#e0d9d2] transition-colors text-[#f9faf7]"
               >
                 Cookies
               </a>
