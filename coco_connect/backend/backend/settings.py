@@ -81,15 +81,16 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'coco_db',
-        'USER': 'postgres',
-        'PASSWORD': '1234',  # <-- ✔️ match this
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "coco_db",
+        "USER": "admin",
+        "PASSWORD": "admin123",  # same as in ALTER ROLE
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
     }
 }
+
 
 
 
