@@ -2,7 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
-import IdeaSharing from "./pages/IdeaSharing"; // I can create this for you
+import IdeaSharing from "./pages/IdeaSharing";
+import About from "./pages/About"; // I can create this for you
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/ideas" element={<IdeaSharing />} />
+          <Route path="/about" element={<About />} />
         </Routes>
       </div>
 
