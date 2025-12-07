@@ -11,26 +11,39 @@ const TEAM = [
 
 export default function AboutUs() {
   const [isDark, setIsDark] = useState(false);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
   }, [isDark]);
 
-  // Beautiful coconut-themed images that work properly
+  // Fixed image URLs using reliable sources
   const images = {
-    // Hero images
-    heroBanner: "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=1600&h=900&fit=crop&crop=center", // Farmer with coconuts
-    coconutPlantation: "https://images.unsplash.com/photo-1578589335612-5a7642f4d8c7?w=1600&h=900&fit=crop&crop=center",
+    // Hero images - using Pexels (more reliable)
+    heroBanner: "https://images.pexels.com/photos/188188/pexels-photo-188188.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&fit=crop&crop=center",
+    coconutPlantation: "https://images.pexels.com/photos/2518893/pexels-photo-2518893.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&fit=crop&crop=center",
     
     // Process images
-    farming: "https://images.unsplash.com/photo-1568678580791-7f926c91e4e5?w=800&h=600&fit=crop", // Farmer working
-    processing: "https://images.unsplash.com/photo-1585007600263-71228e40c8d1?w=800&h=600&fit=crop", // Factory processing
-    technology: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=800&h=600&fit=crop", // Tech concept
-    export: "https://images.unsplash.com/photo-1551836026-d5c2a37edcf5?w=800&h=600&fit=crop", // Shipping containers
+    farming: "https://images.pexels.com/photos/2132250/pexels-photo-2132250.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop",
+    processing: "https://images.pexels.com/photos/6758516/pexels-photo-6758516.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop",
+    technology: "https://images.pexels.com/photos/669615/pexels-photo-669615.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop",
+    export: "https://images.pexels.com/photos/4480527/pexels-photo-4480527.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop",
     
     // Team/About images
-    teamCollaboration: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&h=600&fit=crop", // Team meeting
-    sriLanka: "https://images.unsplash.com/photo-1593693396805-8c5c71228c8d?w=800&h=600&fit=crop", // Sri Lankan landscape
+    teamCollaboration: "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop",
+    sriLanka: "https://images.pexels.com/photos/4275885/pexels-photo-4275885.jpeg?auto=compress&cs=tinysrgb&w=800&h=600&fit=crop",
+  };
+
+  // Alternative backup images from different sources
+  const backupImages = {
+    heroBanner: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1600&h=900&q=80",
+    coconutPlantation: "https://images.unsplash.com/photo-1590561599751-8d6e0e4e0c3d?auto=format&fit=crop&w=1600&h=900&q=80",
+    farming: "https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&w=800&h=600&q=80",
+    processing: "https://images.unsplash.com/photo-1569931726767-8d9c3323ac5a?auto=format&fit=crop&w=800&h=600&q=80",
+    technology: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&h=600&q=80",
+    export: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?auto=format&fit=crop&w=800&h=600&q=80",
+    teamCollaboration: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=800&h=600&q=80",
+    sriLanka: "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=800&h=600&q=80",
   };
 
   // Mission points
@@ -47,28 +60,125 @@ export default function AboutUs() {
     { 
       stage: "Cultivation",
       image: images.farming,
+      backupImage: backupImages.farming,
       description: "Sustainable farming with modern techniques",
       icon: "🌱"
     },
     { 
       stage: "Processing",
       image: images.processing,
+      backupImage: backupImages.processing,
       description: "Modern facilities meeting international standards",
       icon: "🏭"
     },
     { 
       stage: "Trading",
       image: images.technology,
+      backupImage: backupImages.technology,
       description: "Blockchain-enabled transparent transactions",
       icon: "🔗"
     },
     { 
       stage: "Export",
       image: images.export,
+      backupImage: backupImages.export,
       description: "Global distribution network",
       icon: "🌍"
     },
   ];
+
+  // Preload images with fallback
+  useEffect(() => {
+    const preloadImages = async () => {
+      const imagePromises = Object.entries(images).map(([key, src]) => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.src = src;
+          img.onload = () => resolve({ key, success: true, src });
+          img.onerror = () => {
+            // Try backup image if primary fails
+            const backupSrc = backupImages[key];
+            if (backupSrc) {
+              const backupImg = new Image();
+              backupImg.src = backupSrc;
+              backupImg.onload = () => resolve({ key, success: true, src: backupSrc });
+              backupImg.onerror = () => resolve({ key, success: false, src: null });
+            } else {
+              resolve({ key, success: false, src: null });
+            }
+          };
+        });
+      });
+
+      try {
+        const results = await Promise.all(imagePromises);
+        const failedImages = results.filter(r => !r.success);
+        
+        if (failedImages.length > 0) {
+          console.warn("Some images failed to load:", failedImages.map(r => r.key));
+        }
+        
+        setImagesLoaded(true);
+      } catch (error) {
+        console.error("Error loading images:", error);
+        setImagesLoaded(true); // Show page anyway
+      }
+    };
+
+    preloadImages();
+  }, []);
+
+  // Loading skeleton
+  if (!imagesLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-accent5 via-accent4 to-white dark:from-[#0b0b0b] dark:via-[#071014] dark:to-[#0a0a0a]">
+        <div className="text-center">
+          <div className="inline-flex items-center gap-3 mb-8 animate-pulse">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-connect to-primary flex items-center justify-center">
+              <span className="text-2xl">🥥</span>
+            </div>
+            <div>
+              <div className="h-6 w-32 bg-gray-300 dark:bg-gray-700 rounded mb-2"></div>
+              <div className="h-4 w-24 bg-gray-200 dark:bg-gray-600 rounded"></div>
+            </div>
+          </div>
+          <div className="text-connect text-4xl font-bold mb-4 animate-pulse">
+            Loading CocoConnect...
+          </div>
+          <div className="flex justify-center">
+            <div className="w-8 h-8 border-4 border-connect border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <div className="mt-8 text-accent6 dark:text-accent3 text-sm">
+            Loading beautiful coconut imagery from Sri Lanka...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Image component with error handling
+  const ImageWithFallback = ({ src, fallbackSrc, alt, className, ...props }) => {
+    const [imgSrc, setImgSrc] = useState(src);
+    const [hasError, setHasError] = useState(false);
+
+    const handleError = () => {
+      if (!hasError && fallbackSrc) {
+        setImgSrc(fallbackSrc);
+        setHasError(true);
+      }
+    };
+
+    return (
+      <img
+        src={imgSrc}
+        alt={alt}
+        className={className}
+        onError={handleError}
+        loading="lazy"
+        {...props}
+      />
+    );
+  };
 
   return (
     <div className="min-h-screen font-nunito bg-gradient-to-b from-accent5 via-accent4 to-white dark:from-[#0b0b0b] dark:via-[#071014] dark:to-[#0a0a0a] text-[#13221b] dark:text-accent4 scroll-smooth overflow-x-hidden">
@@ -97,13 +207,11 @@ export default function AboutUs() {
       <section className="relative min-h-screen flex items-center overflow-hidden">
         {/* Animated Background */}
         <div className="absolute inset-0">
-          <motion.img 
+          <ImageWithFallback 
             src={images.heroBanner}
+            fallbackSrc={backupImages.heroBanner}
             alt="Coconut farmer in Sri Lanka"
             className="w-full h-full object-cover"
-            initial={{ scale: 1.1 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 2 }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent"></div>
           
@@ -207,11 +315,11 @@ export default function AboutUs() {
               className="relative"
             >
               <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-                <img 
+                <ImageWithFallback 
                   src={images.sriLanka}
+                  fallbackSrc={backupImages.sriLanka}
                   alt="Sri Lankan coconut plantation"
                   className="w-full h-[500px] object-cover"
-                  loading="lazy"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
               </div>
@@ -312,11 +420,11 @@ export default function AboutUs() {
                 <div className="bg-white dark:bg-[#081018] rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 h-full">
                   {/* Stage Image */}
                   <div className="relative h-56 overflow-hidden">
-                    <img 
+                    <ImageWithFallback 
                       src={stage.image}
+                      fallbackSrc={stage.backupImage}
                       alt={stage.stage}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      loading="lazy"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
                     <div className="absolute top-4 right-4 text-3xl">
@@ -351,11 +459,11 @@ export default function AboutUs() {
             className="mt-20"
           >
             <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-              <img 
+              <ImageWithFallback 
                 src={images.coconutPlantation}
+                fallbackSrc={backupImages.coconutPlantation}
                 alt="Beautiful coconut plantation in Sri Lanka"
                 className="w-full h-[500px] object-cover"
-                loading="lazy"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
               <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
@@ -465,11 +573,11 @@ export default function AboutUs() {
             viewport={{ once: true }}
             className="mt-20 relative rounded-3xl overflow-hidden shadow-2xl"
           >
-            <img 
+            <ImageWithFallback 
               src={images.teamCollaboration}
+              fallbackSrc={backupImages.teamCollaboration}
               alt="Our team collaborating on projects"
               className="w-full h-[400px] object-cover"
-              loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-primary/60 to-connect/60"></div>
             <div className="absolute inset-0 flex items-center justify-center">
