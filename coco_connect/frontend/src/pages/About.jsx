@@ -286,23 +286,5 @@ const About = () => {
   );
 };
 
-// Add to your global CSS or create a custom CSS file
-// Add these styles to your global CSS for animations:
-/*
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.6s ease-out forwards;
-}
-*/
 
 export default About;
