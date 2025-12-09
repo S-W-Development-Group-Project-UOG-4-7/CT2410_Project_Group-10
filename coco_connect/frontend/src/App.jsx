@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import IdeaSharing from "./pages/IdeaSharing"; // I can create this for you
+import NewsCorner from "./pages/News-corner";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/ideas" element={<IdeaSharing />} />
+          <Route path="/news" element={<NewsCorner/>} />
         </Routes>
       </div>
 
