@@ -2,16 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------
+   GLOBAL STYLES
+---------------------------------------------- */
 :root {
-  font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #ece7e1; /* accent4 */
-  color: #2f3e46; /* accent6 */
+
+  background-color: #ece7e1; /* Accent background */
+  color: #2f3e46; /* Primary text color */
 }
 
 body {
@@ -20,7 +23,9 @@ body {
   min-height: 100vh;
 }
 
-/* Logo */
+/* ---------------------------------------------
+   TYPOGRAPHY
+---------------------------------------------- */
 .logo-text {
   font-family: "Bangers", cursive;
   font-size: 2.5rem;
@@ -28,45 +33,64 @@ body {
 }
 
 .coco-text {
-  color: #2e1d1a;
+  color: #2e1d1a; /* Dark brown */
 }
 
 .connect-text {
-  color: #8bc34a;
+  color: #8bc34a; /* Fresh green */
 }
 
-/* Footer background */
+/* ---------------------------------------------
+   FOOTER BACKGROUND (GLASS + PALM BG)
+---------------------------------------------- */
 .footer-bg {
-    background-image: url('/palms-bg.png');
-    background-size: cover;
-    background-repeat: repeat;
-    background-position: center;
-    position: relative;
+  background-image: url('/palms-bg.png');
+  background-size: cover;
+  background-repeat: repeat;
+  background-position: center;
+  position: relative;
+  font-family: 'Nunito', sans-serif;
 }
+
 .footer-bg::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.1); /* adjust level */
+  background: rgba(255, 255, 255, 0.1); /* Blur overlay */
   backdrop-filter: blur(0.05px);
   pointer-events: none;
 }
 
-/* Glass panel */
 .footer-glass {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  z-index: 10;
 }
 
-/* Apply Nunito globally inside footer */
-.footer-bg {
-    font-family: 'Nunito', sans-serif;
+/* ---------------------------------------------
+   COMPONENT UTILITIES (REUSABLE)
+---------------------------------------------- */
+
+/* Card with shadow */
+.card-box {
+  @apply bg-white rounded-xl shadow hover:shadow-lg transition duration-300;
 }
 
-/* Logo text uses your special font — not Nunito 
-.logo-text {
-    font-family: 'YourLogoFont', sans-serif;
+/* Glass UI Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-*/
+
+/* Accent colors */
+.bg-accent {
+  background-color: #ece7e1;
+}
+.text-accent {
+  color: #2f3e46;
+}
