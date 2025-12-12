@@ -9,16 +9,18 @@ function getInitials(name) {
 }
 
 function IdeaSharing() {
-  const loggedInUser = "Niven Asmitha"; // Owner of created ideas
+  const loggedInUser = "Niven Asmitha"; // Logged-in user
 
-  // ---------------- DEMO IDEAS ------------------
+  // ---------------------------------------------------------------------------
+  // DEMO IDEA DATA
+  // ---------------------------------------------------------------------------
   const [ideas, setIdeas] = useState([
     {
       id: 101,
       title: "Eco-Friendly Coconut Product Finder",
       shortDescription: "Discover sustainable coconut-based products locally.",
       fullDescription:
-        "A marketplace app connecting eco-conscious customers with verified coconut product sellers.\n\nFeatures:\n- Seller profiles\n- Ratings\n- Map search\n- Secure checkout",
+        "A marketplace app connecting eco-conscious customers with verified coconut sellers.\n\nFeatures:\n- Seller profiles\n- Ratings\n- Map search\n- Secure checkout",
       isPaid: false,
       price: 0,
       file: null,
@@ -54,7 +56,7 @@ function IdeaSharing() {
   const [selectedIdea, setSelectedIdea] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  // -------- FORM STATES --------
+  // FORM STATES
   const [title, setTitle] = useState("");
   const [shortDesc, setShortDesc] = useState("");
   const [fullDesc, setFullDesc] = useState("");
@@ -66,6 +68,9 @@ function IdeaSharing() {
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
 
+  // ---------------------------------------------------------------------------
+  // CREATE / UPDATE IDEA
+  // ---------------------------------------------------------------------------
   const handlePublish = () => {
     if (!title || !shortDesc || !fullDesc) {
       alert("Please fill all required fields!");
@@ -105,11 +110,17 @@ function IdeaSharing() {
     setFile(null);
   };
 
+  // ---------------------------------------------------------------------------
+  // DELETE IDEA
+  // ---------------------------------------------------------------------------
   const handleDelete = (id) => {
     setIdeas(ideas.filter((idea) => idea.id !== id));
     setSelectedIdea(null);
   };
 
+  // ---------------------------------------------------------------------------
+  // EDIT IDEA
+  // ---------------------------------------------------------------------------
   const handleEdit = (idea) => {
     setIsEditing(true);
     setEditId(idea.id);
@@ -124,22 +135,25 @@ function IdeaSharing() {
     setShowForm(true);
   };
 
+  // ---------------------------------------------------------------------------
+  // PAGE UI
+  // ---------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-[#f9faf7] py-6 pb-0">
-      <h1 className="text-center text-4xl font-bold text-[#6b3f23] mb-10">
-        Idea Sharing Platform
+    <div className="min-h-screen bg-[#f9faf7] py-10">
+      <h1 className="text-center text-5xl font-bold text-[#6b3f23] mb-12">
+        🥥 Idea Sharing Platform
       </h1>
 
       {/* IDEA GRID */}
-      <main className="max-w-7xl mx-auto px-5 grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <main className="max-w-7xl mx-auto px-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {ideas.map((idea) => (
           <div
             key={idea.id}
             onClick={() => setSelectedIdea(idea)}
-            className="cursor-pointer bg-white border-2 border-[#ece7e1] rounded-2xl p-5 shadow hover:shadow-lg hover:border-[#4caf50] transition"
+            className="cursor-pointer bg-white border-2 border-[#ece7e1] rounded-2xl p-6 shadow-md hover:shadow-xl hover:border-[#4caf50] transition-all duration-300"
           >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-11 h-11 bg-[#4caf50] text-white rounded-full flex items-center justify-center font-bold">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-[#4caf50] text-white rounded-full flex items-center justify-center font-bold text-lg">
                 {getInitials(idea.authorName)}
               </div>
 
@@ -153,7 +167,7 @@ function IdeaSharing() {
               </div>
             </div>
 
-            <h3 className="font-bold text-lg">{idea.title}</h3>
+            <h3 className="font-bold text-xl text-[#6b3f23]">{idea.title}</h3>
             <p className="text-sm text-[#5d4037] mt-2 line-clamp-2">
               {idea.shortDescription}
             </p>
@@ -185,9 +199,11 @@ function IdeaSharing() {
         +
       </button>
 
-      {/* ADD / EDIT FORM POPUP */}
+      {/* ---------------------------------------------------------------------
+         ADD / EDIT FORM POPUP
+      --------------------------------------------------------------------- */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border relative">
             <button
               onClick={() => setShowForm(false)}
@@ -196,7 +212,7 @@ function IdeaSharing() {
               ✕
             </button>
 
-            <h2 className="text-2xl font-bold mb-4 text-[#4caf50]">
+            <h2 className="text-3xl font-bold mb-6 text-[#4caf50]">
               {isEditing ? "Edit Idea" : "Publish an Idea"}
             </h2>
 
@@ -219,12 +235,12 @@ function IdeaSharing() {
 
               <textarea
                 placeholder="Full Description *"
-                className="border p-3 rounded-lg h-28"
+                className="border p-3 rounded-lg h-32"
                 value={fullDesc}
                 onChange={(e) => setFullDesc(e.target.value)}
               ></textarea>
 
-              {/* Paid toggle */}
+              {/* Paid Toggle */}
               <div className="flex items-center gap-4">
                 <label className="font-semibold">Paid Idea:</label>
                 <input
@@ -243,20 +259,20 @@ function IdeaSharing() {
                 )}
               </div>
 
-              {/* Professional File Upload */}
+              {/* FILE UPLOAD */}
               <div className="flex flex-col gap-2">
                 <label className="font-semibold text-[#6b3f23]">
                   Attach File:
                 </label>
 
                 <label className="border-2 border-dashed border-[#4caf50] bg-[#f3fbf3] cursor-pointer rounded-xl p-4 flex items-center gap-3 hover:border-[#66bb6a] transition">
-                  <i className="fa-solid fa-cloud-arrow-up text-2xl text-[#4caf50]"></i>
+                  <span className="text-2xl text-[#4caf50]">📎</span>
                   <div>
                     <p className="font-semibold text-[#4caf50]">
                       Click to upload
                     </p>
                     <p className="text-xs text-gray-500">
-                      PDF, JPG, PNG (Max 10MB)
+                      PDF, JPG, PNG — Max 10MB
                     </p>
                   </div>
                   <input
@@ -268,7 +284,7 @@ function IdeaSharing() {
 
                 {file && (
                   <p className="text-sm mt-1 text-[#6b3f23]">
-                    Selected: <span className="font-semibold">{file.name}</span>
+                    Selected: <strong>{file.name}</strong>
                   </p>
                 )}
               </div>
@@ -284,42 +300,42 @@ function IdeaSharing() {
         </div>
       )}
 
-      {/* IDEA VIEW MODAL */}
+      {/* ---------------------------------------------------------------------
+         IDEA VIEW MODAL
+      --------------------------------------------------------------------- */}
       {selectedIdea && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 border relative shadow-xl">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-50">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setSelectedIdea(null)}
-              className="absolute top-4 right-4 text-2xl"
+              className="absolute top-4 right-4 text-3xl"
             >
               ✕
             </button>
 
-            <h2 className="text-2xl font-bold mb-3">{selectedIdea.title}</h2>
+            <h2 className="text-3xl font-bold text-[#6b3f23] mb-4">
+              {selectedIdea.title}
+            </h2>
 
-            {/* AUTHOR */}
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-12 h-12 bg-[#4caf50] rounded-full text-white flex items-center justify-center font-bold">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 bg-[#4caf50] rounded-full text-white flex items-center justify-center font-bold text-xl">
                 {getInitials(selectedIdea.authorName)}
               </div>
 
               <div>
-                <p className="font-bold">{selectedIdea.authorName}</p>
+                <p className="font-bold text-lg">{selectedIdea.authorName}</p>
                 <p className="text-xs text-gray-500">
                   {new Date(selectedIdea.createdAt).toLocaleDateString()}
                 </p>
               </div>
             </div>
 
-            {/* RULES: */}
-            {/* FREE IDEA → Everyone can see full details */}
-            {/* PAID IDEA → Only owner can see full details */}
-
+            {/* RULE SYSTEM */}
             {selectedIdea.isPaid ? (
               selectedIdea.authorName === loggedInUser ? (
                 <>
-                  {/* OWNER of PAID Idea */}
-                  <p className="whitespace-pre-wrap mb-4">
+                  {/* OWNER OF PAID IDEA */}
+                  <p className="whitespace-pre-wrap text-gray-700 mb-6">
                     {selectedIdea.fullDescription}
                   </p>
 
@@ -327,23 +343,23 @@ function IdeaSharing() {
                     <a
                       href={URL.createObjectURL(selectedIdea.file)}
                       download={selectedIdea.file.name}
-                      className="text-blue-600 underline block mb-4"
+                      className="text-blue-600 underline block mb-6"
                     >
                       Download Attachment
                     </a>
                   )}
 
-                  <div className="flex gap-4 mt-5">
+                  <div className="flex gap-4">
                     <button
                       onClick={() => handleEdit(selectedIdea)}
-                      className="px-4 py-2 bg-[#4caf50] text-white rounded-lg"
+                      className="px-5 py-3 bg-[#4caf50] text-white rounded-lg"
                     >
                       Edit
                     </button>
 
                     <button
                       onClick={() => handleDelete(selectedIdea.id)}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg"
+                      className="px-5 py-3 bg-red-500 text-white rounded-lg"
                     >
                       Delete
                     </button>
@@ -351,20 +367,25 @@ function IdeaSharing() {
                 </>
               ) : (
                 <>
-                  {/* NOT OWNER - CANNOT VIEW PAID IDEA */}
-                  <p className="text-gray-600 italic mb-4">
-                    This is a paid idea. Purchase required to view full details.
-                  </p>
+                  {/* NOT OWNER – ONLY PREVIEW */}
+                  <div className="bg-amber-50 border-l-4 border-amber-600 p-5 rounded-lg mb-6">
+                    <p className="text-[#6b3f23] font-semibold mb-2">
+                      Abstract Preview:
+                    </p>
+                    <p className="text-gray-700">
+                      {selectedIdea.shortDescription}
+                    </p>
+                  </div>
 
-                  <button className="w-full bg-[#6b3f23] text-white py-3 rounded-lg font-bold">
-                    Purchase for ${selectedIdea.price}
+                  <button className="w-full bg-[#6b3f23] text-white py-4 rounded-lg font-bold text-lg">
+                    💳 Purchase for ${selectedIdea.price}
                   </button>
                 </>
               )
             ) : (
               <>
-                {/* FREE IDEA → Anyone can view */}
-                <p className="whitespace-pre-wrap mb-4">
+                {/* FREE IDEA */}
+                <p className="whitespace-pre-wrap text-gray-700 mb-6">
                   {selectedIdea.fullDescription}
                 </p>
 
@@ -372,25 +393,24 @@ function IdeaSharing() {
                   <a
                     href={URL.createObjectURL(selectedIdea.file)}
                     download={selectedIdea.file.name}
-                    className="text-blue-600 underline block mb-4"
+                    className="text-blue-600 underline block mb-6"
                   >
                     Download Attachment
                   </a>
                 )}
 
-                {/* Only owner can edit/delete */}
                 {selectedIdea.authorName === loggedInUser && (
-                  <div className="flex gap-4 mt-5">
+                  <div className="flex gap-4">
                     <button
                       onClick={() => handleEdit(selectedIdea)}
-                      className="px-4 py-2 bg-[#4caf50] text-white rounded-lg"
+                      className="px-5 py-3 bg-[#4caf50] text-white rounded-lg"
                     >
                       Edit
                     </button>
 
                     <button
                       onClick={() => handleDelete(selectedIdea.id)}
-                      className="px-4 py-2 bg-red-500 text-white rounded-lg"
+                      className="px-5 py-3 bg-red-500 text-white rounded-lg"
                     >
                       Delete
                     </button>
