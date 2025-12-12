@@ -20,7 +20,9 @@ body {
   min-height: 100vh;
 }
 
-/* Logo */
+/* ------------------------------- */
+/*           Logo Styles           */
+/* ------------------------------- */
 .logo-text {
   font-family: "Bangers", cursive;
   font-size: 2.5rem;
@@ -35,7 +37,9 @@ body {
   color: #8bc34a;
 }
 
-/* Footer background */
+/* ------------------------------- */
+/*       Footer Background         */
+/* ------------------------------- */
 .footer-bg {
   background-image: url("/palms-bg.png");
   background-size: cover;
@@ -43,16 +47,19 @@ body {
   background-position: center;
   position: relative;
 }
+
 .footer-bg::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.1); /* adjust level */
+  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(0.05px);
   pointer-events: none;
 }
 
-/* Glass panel */
+/* ------------------------------- */
+/*          Footer Glass           */
+/* ------------------------------- */
 .footer-glass {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
