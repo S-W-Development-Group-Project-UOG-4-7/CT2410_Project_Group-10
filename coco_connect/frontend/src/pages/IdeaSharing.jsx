@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PayHerePayment from "../components/PayHerePayment"; // <-- NEW IMPORT
 
 function getInitials(name) {
   return name
@@ -9,11 +10,8 @@ function getInitials(name) {
 }
 
 function IdeaSharing() {
-  const loggedInUser = "Niven Asmitha"; // Logged-in user
+  const loggedInUser = "Niven Asmitha";
 
-  // ---------------------------------------------------------------------------
-  // DEMO IDEA DATA
-  // ---------------------------------------------------------------------------
   const [ideas, setIdeas] = useState([
     {
       id: 101,
@@ -56,6 +54,8 @@ function IdeaSharing() {
   const [selectedIdea, setSelectedIdea] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
+  const [showPayment, setShowPayment] = useState(false); // <-- NEW PAYMENT MODAL
+
   // FORM STATES
   const [title, setTitle] = useState("");
   const [shortDesc, setShortDesc] = useState("");
@@ -64,13 +64,9 @@ function IdeaSharing() {
   const [price, setPrice] = useState(0);
   const [file, setFile] = useState(null);
 
-  // EDIT STATES
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState(null);
 
-  // ---------------------------------------------------------------------------
-  // CREATE / UPDATE IDEA
-  // ---------------------------------------------------------------------------
   const handlePublish = () => {
     if (!title || !shortDesc || !fullDesc) {
       alert("Please fill all required fields!");
@@ -110,17 +106,11 @@ function IdeaSharing() {
     setFile(null);
   };
 
-  // ---------------------------------------------------------------------------
-  // DELETE IDEA
-  // ---------------------------------------------------------------------------
   const handleDelete = (id) => {
     setIdeas(ideas.filter((idea) => idea.id !== id));
     setSelectedIdea(null);
   };
 
-  // ---------------------------------------------------------------------------
-  // EDIT IDEA
-  // ---------------------------------------------------------------------------
   const handleEdit = (idea) => {
     setIsEditing(true);
     setEditId(idea.id);
@@ -135,9 +125,6 @@ function IdeaSharing() {
     setShowForm(true);
   };
 
-  // ---------------------------------------------------------------------------
-  // PAGE UI
-  // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#f9faf7] py-10">
       <h1 className="text-center text-5xl font-bold text-[#6b3f23] mb-12">
@@ -180,7 +167,7 @@ function IdeaSharing() {
                     : "bg-[#66bb6a] text-white"
                 }`}
               >
-                {idea.isPaid ? `$${idea.price}` : "Free"}
+                {idea.isPaid ? `Rs. ${idea.price}` : "Free"}
               </span>
             </div>
           </div>
@@ -199,9 +186,9 @@ function IdeaSharing() {
         +
       </button>
 
-      {/* ---------------------------------------------------------------------
-         ADD / EDIT FORM POPUP
-      --------------------------------------------------------------------- */}
+      {/* --------------------------------------------
+           ADD / EDIT FORM
+      -------------------------------------------- */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border relative">
@@ -240,7 +227,6 @@ function IdeaSharing() {
                 onChange={(e) => setFullDesc(e.target.value)}
               ></textarea>
 
-              {/* Paid Toggle */}
               <div className="flex items-center gap-4">
                 <label className="font-semibold">Paid Idea:</label>
                 <input
@@ -259,35 +245,25 @@ function IdeaSharing() {
                 )}
               </div>
 
-              {/* FILE UPLOAD */}
-              <div className="flex flex-col gap-2">
-                <label className="font-semibold text-[#6b3f23]">
-                  Attach File:
-                </label>
-
-                <label className="border-2 border-dashed border-[#4caf50] bg-[#f3fbf3] cursor-pointer rounded-xl p-4 flex items-center gap-3 hover:border-[#66bb6a] transition">
-                  <span className="text-2xl text-[#4caf50]">📎</span>
-                  <div>
-                    <p className="font-semibold text-[#4caf50]">
-                      Click to upload
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      PDF, JPG, PNG — Max 10MB
-                    </p>
-                  </div>
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={(e) => setFile(e.target.files[0])}
-                  />
-                </label>
-
-                {file && (
-                  <p className="text-sm mt-1 text-[#6b3f23]">
-                    Selected: <strong>{file.name}</strong>
+              <label className="border-2 border-dashed border-[#4caf50] bg-[#f3fbf3] cursor-pointer rounded-xl p-4 flex items-center gap-3 hover:border-[#66bb6a] transition">
+                <span className="text-2xl text-[#4caf50]">📎</span>
+                <div>
+                  <p className="font-semibold text-[#4caf50]">
+                    Click to upload
                   </p>
-                )}
-              </div>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </label>
+
+              {file && (
+                <p className="text-sm mt-1 text-[#6b3f23]">
+                  Selected: <strong>{file.name}</strong>
+                </p>
+              )}
 
               <button
                 onClick={handlePublish}
@@ -300,9 +276,9 @@ function IdeaSharing() {
         </div>
       )}
 
-      {/* ---------------------------------------------------------------------
-         IDEA VIEW MODAL
-      --------------------------------------------------------------------- */}
+      {/* --------------------------------------------
+           IDEA VIEW MODAL
+      -------------------------------------------- */}
       {selectedIdea && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border relative max-h-[90vh] overflow-y-auto">
@@ -334,7 +310,6 @@ function IdeaSharing() {
             {selectedIdea.isPaid ? (
               selectedIdea.authorName === loggedInUser ? (
                 <>
-                  {/* OWNER OF PAID IDEA */}
                   <p className="whitespace-pre-wrap text-gray-700 mb-6">
                     {selectedIdea.fullDescription}
                   </p>
@@ -367,7 +342,7 @@ function IdeaSharing() {
                 </>
               ) : (
                 <>
-                  {/* NOT OWNER – ONLY PREVIEW */}
+                  {/* ABSTRACT PREVIEW */}
                   <div className="bg-amber-50 border-l-4 border-amber-600 p-5 rounded-lg mb-6">
                     <p className="text-[#6b3f23] font-semibold mb-2">
                       Abstract Preview:
@@ -377,14 +352,16 @@ function IdeaSharing() {
                     </p>
                   </div>
 
-                  <button className="w-full bg-[#6b3f23] text-white py-4 rounded-lg font-bold text-lg">
-                    💳 Purchase for ${selectedIdea.price}
+                  <button
+                    onClick={() => setShowPayment(true)}
+                    className="w-full bg-[#6b3f23] text-white py-4 rounded-lg font-bold text-lg"
+                  >
+                    💳 Purchase for Rs. {selectedIdea.price}
                   </button>
                 </>
               )
             ) : (
               <>
-                {/* FREE IDEA */}
                 <p className="whitespace-pre-wrap text-gray-700 mb-6">
                   {selectedIdea.fullDescription}
                 </p>
@@ -420,6 +397,16 @@ function IdeaSharing() {
             )}
           </div>
         </div>
+      )}
+
+      {/* --------------------------------------------
+          PAYMENT MODAL
+      -------------------------------------------- */}
+      {showPayment && selectedIdea && (
+        <PayHerePayment
+          idea={selectedIdea}
+          onClose={() => setShowPayment(false)}
+        />
       )}
     </div>
   );
