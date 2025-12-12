@@ -1,35 +1,30 @@
-import { useEffect } from "react";
+import React from "react";
 
 export default function BackgroundRain() {
-  useEffect(() => {
-    const container = document.createElement("div");
-    container.className = "emoji-rain";
-    document.body.appendChild(container);
+  const icons = ["🥥", "🌴"];
 
-    const icons = ["🥥", "🌴"];
+  // Create 80 falling emojis
+  const drops = Array.from({ length: 80 }).map((_, i) => {
+    const size = Math.random() * 14 + 8 + "px"; // small icons
+    const left = Math.random() * 100 + "vw";
+    const delay = Math.random() * -20 + "s"; // start at random time
+    const duration = Math.random() * 10 + 8 + "s"; // slower, smooth rain
 
-    function createDrop() {
-      const drop = document.createElement("div");
-      drop.className = "emoji";
+    return (
+      <div
+        key={i}
+        className="rain-emoji"
+        style={{
+          fontSize: size,
+          left: left,
+          animationDelay: delay,
+          animationDuration: duration,
+        }}
+      >
+        {icons[Math.floor(Math.random() * icons.length)]}
+      </div>
+    );
+  });
 
-      drop.textContent = icons[Math.floor(Math.random() * icons.length)];
-
-      drop.style.left = Math.random() * 100 + "vw";
-      drop.style.fontSize = 10 + Math.random() * 10 + "px"; // smaller = nicer background
-      drop.style.animationDuration = 4 + Math.random() * 4 + "s";
-
-      container.appendChild(drop);
-
-      setTimeout(() => drop.remove(), 7000);
-    }
-
-    const interval = setInterval(createDrop, 100);
-
-    return () => {
-      clearInterval(interval);
-      container.remove();
-    };
-  }, []);
-
-  return null;
+  return <div className="rain-container">{drops}</div>;
 }
