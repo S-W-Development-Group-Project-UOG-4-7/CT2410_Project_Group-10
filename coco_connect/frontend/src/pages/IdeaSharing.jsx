@@ -1,5 +1,6 @@
 import { useState } from "react";
-import PayHerePayment from "../components/PayHerePayment"; // <-- NEW IMPORT
+import PayHerePayment from "../components/PayHerePayment";
+import BackgroundRain from "../components/BackgroundRain"; // 🌧️ Background rain
 
 function getInitials(name) {
   return name
@@ -53,10 +54,8 @@ function IdeaSharing() {
 
   const [selectedIdea, setSelectedIdea] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
-  const [showPayment, setShowPayment] = useState(false); // <-- NEW PAYMENT MODAL
-
-  // FORM STATES
   const [title, setTitle] = useState("");
   const [shortDesc, setShortDesc] = useState("");
   const [fullDesc, setFullDesc] = useState("");
@@ -114,6 +113,7 @@ function IdeaSharing() {
   const handleEdit = (idea) => {
     setIsEditing(true);
     setEditId(idea.id);
+
     setTitle(idea.title);
     setShortDesc(idea.shortDescription);
     setFullDesc(idea.fullDescription);
@@ -126,13 +126,17 @@ function IdeaSharing() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f9faf7] py-10">
-      <h1 className="text-center text-5xl font-bold text-[#6b3f23] mb-12">
-        🥥 Idea Sharing Platform
+    <div className="min-h-screen bg-[#f9faf7] py-10 relative overflow-hidden">
+      {/* 🌧️ Background Rain Effect */}
+      <BackgroundRain />
+
+      {/* MAIN TITLE */}
+      <h1 className="text-center text-5xl font-bold text-[#6b3f23] mb-12 relative z-10">
+        Idea Sharing Platform
       </h1>
 
       {/* IDEA GRID */}
-      <main className="max-w-7xl mx-auto px-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {ideas.map((idea) => (
           <div
             key={idea.id}
@@ -181,14 +185,12 @@ function IdeaSharing() {
           setIsEditing(false);
           setShowForm(true);
         }}
-        className="fixed bottom-10 right-10 w-16 h-16 rounded-full bg-[#4caf50] text-white text-4xl shadow-xl hover:bg-[#66bb6a] transition"
+        className="fixed bottom-10 right-10 w-16 h-16 rounded-full bg-[#4caf50] text-white text-4xl shadow-xl hover:bg-[#66bb6a] transition z-20"
       >
         +
       </button>
 
-      {/* --------------------------------------------
-           ADD / EDIT FORM
-      -------------------------------------------- */}
+      {/* MODAL: ADD / EDIT FORM */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border relative">
@@ -276,9 +278,7 @@ function IdeaSharing() {
         </div>
       )}
 
-      {/* --------------------------------------------
-           IDEA VIEW MODAL
-      -------------------------------------------- */}
+      {/* IDEA VIEW MODAL */}
       {selectedIdea && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-2xl max-w-3xl w-full p-8 shadow-2xl border relative max-h-[90vh] overflow-y-auto">
@@ -306,7 +306,7 @@ function IdeaSharing() {
               </div>
             </div>
 
-            {/* RULE SYSTEM */}
+            {/* LOGIC FOR PAID vs FREE IDEA */}
             {selectedIdea.isPaid ? (
               selectedIdea.authorName === loggedInUser ? (
                 <>
@@ -342,7 +342,6 @@ function IdeaSharing() {
                 </>
               ) : (
                 <>
-                  {/* ABSTRACT PREVIEW */}
                   <div className="bg-amber-50 border-l-4 border-amber-600 p-5 rounded-lg mb-6">
                     <p className="text-[#6b3f23] font-semibold mb-2">
                       Abstract Preview:
@@ -399,9 +398,7 @@ function IdeaSharing() {
         </div>
       )}
 
-      {/* --------------------------------------------
-          PAYMENT MODAL
-      -------------------------------------------- */}
+      {/* PAYMENT MODAL */}
       {showPayment && selectedIdea && (
         <PayHerePayment
           idea={selectedIdea}

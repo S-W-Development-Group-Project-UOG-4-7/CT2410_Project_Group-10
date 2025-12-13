@@ -77,3 +77,35 @@ body {
     font-family: 'YourLogoFont', sans-serif;
 }
 */
+.rain-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.rain-emoji {
+  position: absolute;
+  top: -10vh;
+  animation-name: fallSideways;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  opacity: 0.2;
+}
+
+/* 🌧️ NEW directional fall animation */
+@keyframes fallSideways {
+  0% {
+    transform: translate(0, -20vh);
+  }
+  50% {
+    transform: translate(5vw, 50vh); /* drift mid-way */
+  }
+  100% {
+    transform: translate(-5vw, 120vh); /* drift opposite direction at bottom */
+  }
+}
