@@ -2,16 +2,14 @@ import React, {
   useState,
   useEffect,
   useRef,
-  useCallback
+  useCallback,
 } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-export default function LoginModal({ isOpen, onClose }) {
+export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
   const modalRef = useRef();
 
-  // ----------------------------
-  // FORM STATE
-  // ----------------------------
+  // ---------------------------- FORM STATE ----------------------------
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -22,9 +20,7 @@ export default function LoginModal({ isOpen, onClose }) {
   const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ----------------------------
-  // VALIDATION LOGIC
-  // ----------------------------
+  // ---------------------------- VALIDATION ----------------------------
   const validateForm = useCallback(() => {
     let newErrors = {};
 
@@ -44,17 +40,14 @@ export default function LoginModal({ isOpen, onClose }) {
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
 
-  // ----------------------------
-  // HANDLE SUBMIT
-  // ----------------------------
+  // ---------------------------- SUBMIT ----------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
     setIsSubmitting(true);
-
     try {
+      // TODO: call backend here later
       await new Promise((res) => setTimeout(res, 1200));
       console.log("Logged in:", { ...formData, rememberMe });
       onClose();
@@ -65,9 +58,7 @@ export default function LoginModal({ isOpen, onClose }) {
     }
   };
 
-  // ----------------------------
-  // HANDLE INPUT CHANGE
-  // ----------------------------
+  // ---------------------------- INPUT CHANGE ----------------------------
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -75,10 +66,7 @@ export default function LoginModal({ isOpen, onClose }) {
     });
 
     if (errors[e.target.id]) {
-      setErrors((prev) => ({
-        ...prev,
-        [e.target.id]: "",
-      }));
+      setErrors((prev) => ({ ...prev, [e.target.id]: "" }));
     }
   };
 
@@ -88,9 +76,7 @@ export default function LoginModal({ isOpen, onClose }) {
     }
   };
 
-  // ----------------------------
-  // RESET WHEN CLOSED
-  // ----------------------------
+  // ---------------------------- RESET WHEN CLOSED ----------------------------
   useEffect(() => {
     if (!isOpen) {
       setFormData({ email: "", password: "" });
@@ -101,9 +87,7 @@ export default function LoginModal({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  // ----------------------------
-  // CLOSE ON ESC
-  // ----------------------------
+  // ---------------------------- CLOSE ON ESC ----------------------------
   useEffect(() => {
     const escClose = (e) => {
       if (e.key === "Escape") onClose();
@@ -124,10 +108,8 @@ export default function LoginModal({ isOpen, onClose }) {
 
   return (
     <div
-      className="
-      fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm
-      flex items-center justify-center z-50
-      animate-fadeIn"
+      className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm
+                 flex items-center justify-center z-50 animate-fadeIn"
       onClick={handleBackdropClick}
       aria-modal="true"
       role="dialog"
@@ -135,16 +117,14 @@ export default function LoginModal({ isOpen, onClose }) {
       {/* MODAL BOX */}
       <div
         ref={modalRef}
-        className="
-        bg-white w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
-        animate-slideUp relative max-h-[90vh] overflow-y-auto"
+        className="bg-white w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
+                   animate-slideUp relative max-h-[90vh] overflow-y-auto"
       >
         {/* Close */}
         <button
           onClick={onClose}
-          className="
-          absolute top-4 right-4 text-gray-500 hover:text-gray-700
-          p-2 rounded-full hover:bg-gray-100"
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-700
+                     p-2 rounded-full hover:bg-gray-100"
         >
           ✕
         </button>
@@ -174,7 +154,7 @@ export default function LoginModal({ isOpen, onClose }) {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              className={`w-full px-4 py-3 rounded-lg border  
+              className={`w-full px-4 py-3 rounded-lg border
                 focus:ring-2 focus:outline-none transition-all
                 ${
                   errors.email
@@ -201,7 +181,7 @@ export default function LoginModal({ isOpen, onClose }) {
                 type={showPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border pr-10  
+                className={`w-full px-4 py-3 rounded-lg border pr-10
                   focus:ring-2 focus:outline-none transition-all
                   ${
                     errors.password
@@ -211,7 +191,7 @@ export default function LoginModal({ isOpen, onClose }) {
                 placeholder="•••••••••"
               />
 
-              {/* PASSWORD TOGGLE BUTTON (NEW VERSION) */}
+              {/* PASSWORD TOGGLE */}
               <button
                 type="button"
                 className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
@@ -238,7 +218,10 @@ export default function LoginModal({ isOpen, onClose }) {
               <span className="text-sm text-gray-700">Remember me</span>
             </label>
 
-            <button className="text-sm text-green-700 hover:underline">
+            <button
+              type="button"
+              className="text-sm text-green-700 hover:underline"
+            >
               Forgot Password?
             </button>
           </div>
@@ -247,9 +230,8 @@ export default function LoginModal({ isOpen, onClose }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className={`
-              w-full py-3 rounded-lg font-semibold shadow-md 
-              flex items-center justify-center text-white transition-all
+            className={`w-full py-3 rounded-lg font-semibold shadow-md
+                        flex items-center justify-center text-white transition-all
               ${
                 isSubmitting
                   ? "bg-gray-400 cursor-not-allowed"
@@ -267,39 +249,21 @@ export default function LoginModal({ isOpen, onClose }) {
           </button>
         </form>
 
-        {/* DIVIDER 
-        <div className="flex items-center mt-8">
-          <span className="flex-1 h-px bg-gray-300"></span>
-          <span className="mx-3 text-gray-500 text-sm">Or continue with</span>
-          <span className="flex-1 h-px bg-gray-300"></span>
-        </div>*/}
+        {/* FOOTER (we'll turn this into real registration modal later) */}
+        <p className="text-center mt-6 text-sm text-accent6">
+  Don’t have an account?{" "}
+  <button
+    type="button"
+    className="text-green-700 font-semibold hover:underline"
+    onClick={() => {
+      onClose();        // close login modal
+      onOpenRegister(); // open register modal
+    }}
+  >
+    Create one
+  </button>
+</p>
 
-        {/* SOCIAL BUTTONS 
-        <div className="grid grid-cols-2 gap-3 mt-6">
-          <button className="p-3 border rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50">
-            <img
-              src="https://www.svgrepo.com/show/475656/google-color.svg"
-              className="w-5"
-            />
-            <span className="text-sm font-medium text-gray-700">Google</span>
-          </button>
-
-          <button className="p-3 border rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50">
-            <img
-              src="https://www.svgrepo.com/show/448224/facebook.svg"
-              className="w-5"
-            />
-            <span className="text-sm font-medium text-gray-700">Facebook</span>
-          </button>
-        </div>*/}
-
-        {/* FOOTER */}
-        <p className="text-center mt-8 text-sm text-gray-700">
-          Don't have an account?{" "}
-          <button className="text-green-700 font-semibold hover:underline">
-            Create one
-          </button>
-        </p>
       </div>
     </div>
   );
