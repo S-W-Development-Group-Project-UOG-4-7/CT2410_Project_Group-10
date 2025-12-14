@@ -141,7 +141,7 @@ export default function RegisterModal({ isOpen, onClose }) {
                     ? "border-red-500 focus:ring-red-200"
                     : "border-gray-300 focus:ring-green-300"
                 }`}
-              placeholder="e.g. Sakithma Vorandi"
+              placeholder="e.g. Prasad Perera"
             />
             {errors.name && (
               <p className="text-red-600 text-sm mt-1">{errors.name}</p>
