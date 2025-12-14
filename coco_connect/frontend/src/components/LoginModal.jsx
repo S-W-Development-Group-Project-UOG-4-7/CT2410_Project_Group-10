@@ -16,7 +16,6 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
 
   const validateForm = useCallback(() => {
     const newErrors = {};
-
     if (!formData.email.trim()) newErrors.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Enter a valid email";
 
@@ -87,31 +86,45 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
         .p4{animation:float4 35s ease-in-out infinite}
       `}</style>
 
+      {/* OUTER WRAPPER (controls layers) */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn"
+        className="fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
         onClick={handleBackdropClick}
         aria-modal="true"
         role="dialog"
       >
-        {/* floating dots */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-32 h-32 p1 rounded-full blur-xl"
-               style={{ background: "radial-gradient(circle, rgba(0,128,0,.28) 0%, transparent 70%)" }} />
-          <div className="absolute bottom-1/3 right-1/4 w-40 h-40 p2 rounded-full blur-2xl"
-               style={{ background: "radial-gradient(circle, rgba(34,139,34,.22) 0%, transparent 70%)" }} />
-          <div className="absolute top-1/3 right-1/3 w-28 h-28 p3 rounded-full blur-xl"
-               style={{ background: "radial-gradient(circle, rgba(0,86,63,.26) 0%, transparent 70%)" }} />
-          <div className="absolute bottom-1/4 left-1/2 w-24 h-24 p4 rounded-full blur-lg"
-               style={{ background: "radial-gradient(circle, rgba(152,251,152,.25) 0%, transparent 70%)" }} />
-          <div className="absolute top-1/6 left-2/3 w-12 h-12 p1 rounded-full blur-md"
-               style={{ background: "radial-gradient(circle, rgba(144,238,144,.35) 0%, transparent 70%)" }} />
+        {/* 1) Dark overlay + blur */}
+        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
+
+        {/* 2) Floating dots ABOVE overlay */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
+          <div
+            className="absolute top-1/4 left-1/4 w-40 h-40 p1 rounded-full blur-2xl opacity-80"
+            style={{ background: "radial-gradient(circle, rgba(34,197,94,.35) 0%, transparent 70%)" }}
+          />
+          <div
+            className="absolute bottom-1/3 right-1/4 w-48 h-48 p2 rounded-full blur-3xl opacity-70"
+            style={{ background: "radial-gradient(circle, rgba(16,185,129,.30) 0%, transparent 70%)" }}
+          />
+          <div
+            className="absolute top-1/3 right-1/3 w-36 h-36 p3 rounded-full blur-2xl opacity-75"
+            style={{ background: "radial-gradient(circle, rgba(132,204,22,.28) 0%, transparent 70%)" }}
+          />
+          <div
+            className="absolute bottom-1/4 left-1/2 w-28 h-28 p4 rounded-full blur-xl opacity-80"
+            style={{ background: "radial-gradient(circle, rgba(74,222,128,.30) 0%, transparent 70%)" }}
+          />
         </div>
 
-        {/* modal */}
+        {/* 3) Modal card */}
         <div
           ref={modalRef}
-          className="bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8 relative max-h-[90vh] overflow-y-auto border border-white/40"
-          style={{ boxShadow: "0 20px 40px rgba(0, 100, 0, 0.15), 0 0 0 1px rgba(255,255,255,.8)" }}
+          className="relative z-20 bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
+                     max-h-[90vh] overflow-y-auto border border-white/40"
+          style={{
+            boxShadow:
+              "0 20px 40px rgba(0, 100, 0, 0.15), 0 0 0 1px rgba(255,255,255,.8)",
+          }}
         >
           <button
             onClick={onClose}
@@ -121,8 +134,7 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
           </button>
 
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-mont  text-gray-800 mb-2">LOGIN</h2>
-            {/*<p className="text-gray-600">Welcome back to CocoConnect</p>*/}
+            <h2 className="text-3xl font-mont text-gray-800 mb-2">LOGIN</h2>
           </div>
 
           {errors.submit && (
@@ -134,7 +146,9 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
               <input
                 id="email"
                 type="email"
@@ -142,15 +156,23 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
                   focus:ring-2 focus:outline-none transition-all
-                  ${errors.email ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                  ${
+                    errors.email
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
                 placeholder="you@example.com"
               />
-              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+              )}
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
 
               <div className="relative">
                 <input
@@ -158,14 +180,20 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-lg border pr-11 text-gray-800 placeholder:text-gray-400
+                  className={`w-full px-4 py-3 rounded-lg border pr-12 text-gray-800 placeholder:text-gray-400
                     focus:ring-2 focus:outline-none transition-all
-                    ${errors.password ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                    ${
+                      errors.password
+                        ? "border-red-500 focus:ring-red-200"
+                        : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                    }`}
                   placeholder="••••••••"
                 />
 
+                {/* ONLY ONE ICON */}
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                   onClick={() => setShowPassword((p) => !p)}
                 >
@@ -173,7 +201,9 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
                 </button>
               </div>
 
-              {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password}</p>}
+              {errors.password && (
+                <p className="text-red-600 text-sm mt-1">{errors.password}</p>
+              )}
             </div>
 
             <div className="flex justify-between items-center">
@@ -196,7 +226,11 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
               type="submit"
               disabled={isSubmitting}
               className={`w-full py-3 rounded-lg font-semibold shadow-md flex items-center justify-center text-white transition-all mt-2
-                ${isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 hover:shadow-lg"}`}
+                ${
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700 hover:shadow-lg"
+                }`}
             >
               {isSubmitting ? "Logging in..." : "Login"}
             </button>
