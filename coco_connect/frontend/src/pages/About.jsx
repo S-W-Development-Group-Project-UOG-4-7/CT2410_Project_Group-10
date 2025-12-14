@@ -1,4 +1,9 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useMemo } from 'react';
+import teamMember1 from "../assets/teamMember1.jpeg";
+import teamMember2 from "../assets/teamMember2.jpeg";
+import teamMember3 from "../assets/teamMember3.jpeg";
+import teamMember4 from "../assets/teamMember4.jpeg";
+import teamMember5 from "../assets/teamMember5.png";
 
 // Lazy load images for better performance
 const imageImports = {
@@ -25,11 +30,11 @@ const IMAGE_FALLBACKS = {
 
 // Team member fallback images using DiceBear API for consistent avatars
 const TEAM_AVATARS = {
-  teamMember1: `https://api.dicebear.com/7.x/avataaars/svg?seed=Vorandi&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9`,
-  teamMember2: `https://api.dicebear.com/7.x/avataaars/svg?seed=Niven&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9`,
-  teamMember3: `https://api.dicebear.com/7.x/avataaars/svg?seed=Wickramarathne&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9`,
-  teamMember4: `https://api.dicebear.com/7.x/avataaars/svg?seed=Hasaranga&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9`,
-  teamMember5: `https://api.dicebear.com/7.x/avataaars/svg?seed=Sithumi&backgroundType=gradientLinear&backgroundColor=b6e3f4,c0aede,d1d4f9`,
+  teamMember1: teamMember1,
+  teamMember2: teamMember2,
+  teamMember3: teamMember3,
+  teamMember4: teamMember4,
+  teamMember5: teamMember5,
 };
 
 // Optimized Icon components with proper ARIA labels
@@ -400,35 +405,35 @@ const TEAM_MEMBERS = [
     name: "Vorandi Sakithma", 
     role: "Team Leader", 
     position: "Full-Stack Developer & Project Manager",
-    image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    image: teamMember1,
     details: "Leads project coordination, oversees technical implementation with expertise in blockchain integration and system architecture. Manages team workflow and client communications."
   },
   { 
     name: "Niven Asmitha", 
     role: "Team Member", 
     position: "Backend Developer & Database Architect",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    image: teamMember2,
     details: "Specializes in PostgreSQL database design, API development, and ensuring system scalability and data integrity. Implements secure backend services."
   },
   { 
     name: "K.Wickramarathne", 
     role: "Team Member", 
     position: "Frontend Developer & UI/UX Designer",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    image: teamMember3,
     details: "Creates intuitive user interfaces with React.js and Tailwind CSS, focusing on multi-language support and responsive design. Ensures optimal user experience."
   },
   { 
     name: "S.Hasaranga", 
     role: "Team Member", 
     position: "Business Analyst & Testing Specialist",
-    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    image: teamMember4,
     details: "Analyzes user requirements, conducts comprehensive testing, and ensures the platform meets industry stakeholder needs. Performs quality assurance."
   },
   { 
     name: "Sithumi Nimnadi", 
     role: "Team Member", 
     position: "Documentation & Security Specialist",
-    image: "https://images.unsplash.com/photo-1554151228-14d9def656e4?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+    image: teamMember5,
     details: "Manages project documentation, user manuals, and implements security protocols including authentication and data protection systems."
   }
 ];
