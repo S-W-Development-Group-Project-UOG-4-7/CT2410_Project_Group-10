@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { loginUser } from "../services/authService";
+
 
 export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
   const modalRef = useRef();
@@ -26,21 +28,26 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
 
-  const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
     try {
-      await new Promise((res) => setTimeout(res, 1200));
-      console.log("LOGIN:", { ...formData, rememberMe });
+      const data = await loginUser(formData.email, formData.password);
+
+      localStorage.setItem("access", data.access);
+      localStorage.setItem("refresh", data.refresh);
+
+      console.log("Logged in with token:", data);
       onClose();
     } catch {
-      setErrors({ submit: "Login failed. Please try again." });
+      setErrors({ submit: "Invalid credentials" });
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.id]: e.target.value }));
