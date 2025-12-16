@@ -37,7 +37,18 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
       const data = await loginUser(formData.email, formData.password);
 
       localStorage.setItem("access", data.access);
-      localStorage.setItem("refresh", data.refresh);
+localStorage.setItem("refresh", data.refresh);
+
+// ✅ SAVE USER INFO
+localStorage.setItem(
+  "user",
+  JSON.stringify({
+    name: data.user?.name || formData.email,
+    email: formData.email,
+  })
+);
+
+onClose();
 
       console.log("Logged in with token:", data);
       onClose();
