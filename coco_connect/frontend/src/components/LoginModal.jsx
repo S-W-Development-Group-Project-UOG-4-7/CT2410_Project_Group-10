@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { loginUser } from "../services/authService";
 
-
 export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
   const modalRef = useRef();
 
@@ -18,47 +17,59 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
 
   const validateForm = useCallback(() => {
     const newErrors = {};
+
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Enter a valid email";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
+      newErrors.email = "Enter a valid email";
 
     if (!formData.password.trim()) newErrors.password = "Password is required";
-    else if (formData.password.length < 6) newErrors.password = "At least 6 characters";
+    else if (formData.password.length < 6)
+      newErrors.password = "At least 6 characters";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
+    setErrors((p) => ({ ...p, submit: "" }));
+
     try {
+      // ✅ Call backend JWT token endpoint via authService
       const data = await loginUser(formData.email, formData.password);
 
+      // ✅ Save tokens
       localStorage.setItem("access", data.access);
-localStorage.setItem("refresh", data.refresh);
+      localStorage.setItem("refresh", data.refresh);
 
-// ✅ SAVE USER INFO
-localStorage.setItem(
-  "user",
-  JSON.stringify({
-    name: data.user?.name || formData.email,
-    email: formData.email,
-  })
-);
-
-onClose();
+      // ✅ Save user info for navbar (token endpoint doesn't give name)
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          name: formData.email, // later we can replace with real name from /api/me/
+          email: formData.email,
+          rememberMe,
+        })
+      );
 
       console.log("Logged in with token:", data);
+
+      // ✅ Close modal
       onClose();
-    } catch {
-      setErrors({ submit: "Invalid credentials" });
+    } catch (err) {
+      // show a nicer error if backend is down vs wrong password
+      setErrors({
+        submit:
+          err?.response?.data?.detail ||
+          "Login failed. Check email/password and make sure Django is running.",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
-
 
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.id]: e.target.value }));
@@ -104,37 +115,48 @@ onClose();
         .p4{animation:float4 35s ease-in-out infinite}
       `}</style>
 
-      {/* OUTER WRAPPER (controls layers) */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center animate-fadeIn"
         onClick={handleBackdropClick}
         aria-modal="true"
         role="dialog"
       >
-        {/* 1) Dark overlay + blur */}
+        {/* overlay */}
         <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
 
-        {/* 2) Floating dots ABOVE overlay */}
+        {/* floating dots */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
           <div
             className="absolute top-1/4 left-1/4 w-40 h-40 p1 rounded-full blur-2xl opacity-80"
-            style={{ background: "radial-gradient(circle, rgba(34,197,94,.35) 0%, transparent 70%)" }}
+            style={{
+              background:
+                "radial-gradient(circle, rgba(34,197,94,.35) 0%, transparent 70%)",
+            }}
           />
           <div
             className="absolute bottom-1/3 right-1/4 w-48 h-48 p2 rounded-full blur-3xl opacity-70"
-            style={{ background: "radial-gradient(circle, rgba(16,185,129,.30) 0%, transparent 70%)" }}
+            style={{
+              background:
+                "radial-gradient(circle, rgba(16,185,129,.30) 0%, transparent 70%)",
+            }}
           />
           <div
             className="absolute top-1/3 right-1/3 w-36 h-36 p3 rounded-full blur-2xl opacity-75"
-            style={{ background: "radial-gradient(circle, rgba(132,204,22,.28) 0%, transparent 70%)" }}
+            style={{
+              background:
+                "radial-gradient(circle, rgba(132,204,22,.28) 0%, transparent 70%)",
+            }}
           />
           <div
             className="absolute bottom-1/4 left-1/2 w-28 h-28 p4 rounded-full blur-xl opacity-80"
-            style={{ background: "radial-gradient(circle, rgba(74,222,128,.30) 0%, transparent 70%)" }}
+            style={{
+              background:
+                "radial-gradient(circle, rgba(74,222,128,.30) 0%, transparent 70%)",
+            }}
           />
         </div>
 
-        {/* 3) Modal card */}
+        {/* modal */}
         <div
           ref={modalRef}
           className="relative z-20 bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
@@ -208,7 +230,6 @@ onClose();
                   placeholder="••••••••"
                 />
 
-                {/* ONLY ONE ICON */}
                 <button
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
@@ -235,7 +256,10 @@ onClose();
                 <span className="text-sm text-gray-700">Remember me</span>
               </label>
 
-              <button type="button" className="text-sm text-green-700 hover:underline">
+              <button
+                type="button"
+                className="text-sm text-green-700 hover:underline"
+              >
                 Forgot Password?
               </button>
             </div>
