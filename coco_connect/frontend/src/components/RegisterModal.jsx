@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 
+import { registerUser, loginUser } from "../services/authService";
+
 export default function RegisterModal({ isOpen, onClose }) {
   const modalRef = useRef();
 
@@ -59,20 +61,44 @@ export default function RegisterModal({ isOpen, onClose }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validate()) return;
+  e.preventDefault();
+  if (!validate()) return;
 
-    setIsSubmitting(true);
-    try {
-      await new Promise((res) => setTimeout(res, 1200));
-      console.log("REGISTER:", formData);
-      onClose();
-    } catch {
-      setErrors({ submit: "Registration failed. Please try again." });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  setIsSubmitting(true);
+  try {
+    // 1) Register
+    await registerUser({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      role: formData.role,
+    });
+
+    // 2) Auto-login (get tokens)
+    const data = await loginUser(formData.email, formData.password);
+
+    // 3) Save tokens
+    localStorage.setItem("access", data.access);
+    localStorage.setItem("refresh", data.refresh);
+
+    // 4) Save user for navbar
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+      })
+    );
+
+    onClose();
+  } catch (err) {
+    setErrors({ submit: "Registration failed. Please try again." });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   if (!isOpen) return null;
 

@@ -9,14 +9,17 @@ const Navbar = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
-  // ✅ logged user state
-  const [user, setUser] = useState(null);
+  // ✅ user state (read from localStorage)
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  });
 
-  // ✅ load user from localStorage on first render
+  // ✅ refresh user after login modal closes (or opens/closes)
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) setUser(JSON.parse(storedUser));
-  }, []);
+    const stored = localStorage.getItem("user");
+    setUser(stored ? JSON.parse(stored) : null);
+  }, [isLoginOpen]);
 
   const toggleMobileMenu = () => setIsMobileOpen((prev) => !prev);
 
@@ -27,6 +30,8 @@ const Navbar = () => {
     setUser(null);
   };
 
+  const displayName = user?.name || user?.email || "User";
+
   return (
     <>
       <header className="bg-accent4 shadow-md sticky top-0 z-50">
@@ -34,7 +39,11 @@ const Navbar = () => {
           <div className="flex justify-between items-center py-4">
             {/* Logo Section */}
             <div className="flex items-center">
-              <img src="/tree.png" alt="Cococonnect Logo" className="w-14 h-auto mr-3" />
+              <img
+                src="/tree.png"
+                alt="Cococonnect Logo"
+                className="w-14 h-auto mr-3"
+              />
               <div className="logo-text">
                 <span className="coco-text">COCO</span>
                 <span className="connect-text">CONNECT</span>
@@ -43,19 +52,34 @@ const Navbar = () => {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-8 text-sm lg:text-base">
-              <Link to="/" className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors">
+              <Link
+                to="/"
+                className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors"
+              >
                 Home
               </Link>
-              <Link to="/about" className="text-accent2 font-bold hover:text-[#4caf50] transition-colors">
+              <Link
+                to="/about"
+                className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
+              >
                 About Us
               </Link>
-              <Link to="/shop" className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors">
+              <Link
+                to="/shop"
+                className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors"
+              >
                 Shop
               </Link>
-              <Link to="/ideas" className="text-accent2 font-bold hover:text-[#4caf50] transition-colors">
+              <Link
+                to="/ideas"
+                className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
+              >
                 Idea Sharing
               </Link>
-              <Link to="/news" className="text-accent2 font-bold hover:text-[#4caf50] transition-colors">
+              <Link
+                to="/news"
+                className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
+              >
                 News Corner
               </Link>
             </nav>
@@ -67,14 +91,24 @@ const Navbar = () => {
                 <button className="flex items-center text-accent2 hover:text-[#4caf50] transition-colors">
                   <i className="fa-solid fa-earth-asia ml-2 text-xl" />
                 </button>
+
                 <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50">
-                  <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito">
+                  <a
+                    href="#"
+                    className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito"
+                  >
                     English
                   </a>
-                  <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito">
+                  <a
+                    href="#"
+                    className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito"
+                  >
                     සිංහල
                   </a>
-                  <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito">
+                  <a
+                    href="#"
+                    className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito"
+                  >
                     日本語
                   </a>
                 </div>
@@ -93,16 +127,17 @@ const Navbar = () => {
               {/* ✅ User / Login */}
               {user ? (
                 <div className="relative group">
-                  <button className="flex items-center gap-2 text-accent2 hover:text-secondary transition-colors">
-                    <i className="fa-regular fa-user text-xl" />
-                    <span className="font-nunito font-bold text-sm">{user.name}</span>
+                  {/* green pill */}
+                  <button className="flex items-center gap-2 bg-green-700 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                    <i className="fa-regular fa-user text-base" />
+                    <span className="max-w-[160px] truncate">{displayName}</span>
                   </button>
 
-                  {/* Dropdown */}
-                  <div className="absolute right-0 mt-2 w-36 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50">
+                  {/* logout dropdown (clickable) */}
+                  <div className="absolute right-0 mt-2 hidden group-hover:block z-50">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-accent5 font-nunito font-bold"
+                      className="bg-white text-red-600 px-4 py-2 rounded shadow-md hover:bg-gray-100 w-full text-left"
                     >
                       Logout
                     </button>
@@ -118,28 +153,50 @@ const Navbar = () => {
               )}
 
               {/* Mobile Menu Button */}
-              <button onClick={toggleMobileMenu} className="md:hidden text-accent2 hover:text-secondary">
+              <button
+                onClick={toggleMobileMenu}
+                className="md:hidden text-accent2 hover:text-secondary"
+              >
                 <i className="fas fa-bars text-xl" />
               </button>
             </div>
           </div>
 
           {/* Mobile Navigation */}
-          <div className={`${isMobileOpen ? "block" : "hidden"} md:hidden py-4 border-t border-accent5 bg-accent4`}>
+          <div
+            className={`${
+              isMobileOpen ? "block" : "hidden"
+            } md:hidden py-4 border-t border-accent5 bg-accent4`}
+          >
             <div className="flex flex-col space-y-4">
-              <Link to="/" className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors">
+              <Link
+                to="/"
+                className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors"
+              >
                 Home
               </Link>
-              <Link to="/about" className="text-accent2 hover:text-primary font-medium transition-colors">
+              <Link
+                to="/about"
+                className="text-accent2 hover:text-primary font-medium transition-colors"
+              >
                 About Us
               </Link>
-              <Link to="/shop" className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors">
+              <Link
+                to="/shop"
+                className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors"
+              >
                 Shop
               </Link>
-              <Link to="/ideas" className="text-accent2 hover:text-primary font-medium transition-colors">
+              <Link
+                to="/ideas"
+                className="text-accent2 hover:text-primary font-medium transition-colors"
+              >
                 Idea Sharing
               </Link>
-              <Link to="/news" className="text-accent2 hover:text-primary font-medium transition-colors">
+              <Link
+                to="/news"
+                className="text-accent2 hover:text-primary font-medium transition-colors"
+              >
                 News Corner
               </Link>
             </div>
@@ -150,12 +207,7 @@ const Navbar = () => {
       {/* LOGIN MODAL */}
       <LoginModal
         isOpen={isLoginOpen}
-        onClose={() => {
-          setIsLoginOpen(false);
-          // ✅ refresh navbar user after login
-          const storedUser = localStorage.getItem("user");
-          if (storedUser) setUser(JSON.parse(storedUser));
-        }}
+        onClose={() => setIsLoginOpen(false)}
         onOpenRegister={() => {
           setIsLoginOpen(false);
           setIsRegisterOpen(true);
