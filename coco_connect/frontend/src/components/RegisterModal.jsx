@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-
 import { registerUser, loginUser } from "../services/authService";
 
-export default function RegisterModal({ isOpen, onClose }) {
+export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
   const modalRef = useRef();
 
   const [formData, setFormData] = useState({
@@ -53,52 +52,58 @@ export default function RegisterModal({ isOpen, onClose }) {
     else if (formData.password.length < 6) newErrors.password = "At least 6 characters";
 
     if (!formData.confirmPassword.trim()) newErrors.confirmPassword = "Please confirm your password";
-    else if (formData.confirmPassword !== formData.password)
-      newErrors.confirmPassword = "Passwords do not match";
+    else if (formData.confirmPassword !== formData.password) newErrors.confirmPassword = "Passwords do not match";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!validate()) return;
+    e.preventDefault();
+    if (!validate()) return;
 
-  setIsSubmitting(true);
-  try {
-    // 1) Register
-    await registerUser({
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-      role: formData.role,
-    });
+    setIsSubmitting(true);
+    setErrors((p) => ({ ...p, submit: "" }));
 
-    // 2) Auto-login (get tokens)
-    const data = await loginUser(formData.email, formData.password);
+    try {
+      // 1) register
+      await registerUser({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+      });
 
-    // 3) Save tokens
-    localStorage.setItem("access", data.access);
-    localStorage.setItem("refresh", data.refresh);
+      // 2) auto-login (get tokens)
+      const tokenData = await loginUser(formData.email, formData.password);
 
-    // 4) Save user for navbar
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
+      // 3) save tokens
+      localStorage.setItem("access", tokenData.access);
+      localStorage.setItem("refresh", tokenData.refresh);
+
+      // 4) save user
+      const userObj = {
         name: formData.name,
         email: formData.email,
         role: formData.role,
-      })
-    );
+      };
+      localStorage.setItem("user", JSON.stringify(userObj));
 
-    onClose();
-  } catch (err) {
-    setErrors({ submit: "Registration failed. Please try again." });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      // ✅ update navbar immediately
+      onAuthSuccess?.(userObj);
 
+      onClose();
+    } catch (err) {
+      setErrors({
+        submit:
+          err?.response?.data?.error ||
+          err?.response?.data?.detail ||
+          "Registration failed. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -126,15 +131,15 @@ export default function RegisterModal({ isOpen, onClose }) {
         {/* floating dots */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-1/4 left-1/4 w-32 h-32 p1 rounded-full blur-xl"
-               style={{ background: "radial-gradient(circle, rgba(0,128,0,.28) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(0,128,0,.28) 0%, transparent 70%)" }} />
           <div className="absolute bottom-1/3 right-1/4 w-40 h-40 p2 rounded-full blur-2xl"
-               style={{ background: "radial-gradient(circle, rgba(34,139,34,.22) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(34,139,34,.22) 0%, transparent 70%)" }} />
           <div className="absolute top-1/3 right-1/3 w-28 h-28 p3 rounded-full blur-xl"
-               style={{ background: "radial-gradient(circle, rgba(0,86,63,.26) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(0,86,63,.26) 0%, transparent 70%)" }} />
           <div className="absolute bottom-1/4 left-1/2 w-24 h-24 p4 rounded-full blur-lg"
-               style={{ background: "radial-gradient(circle, rgba(152,251,152,.25) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(152,251,152,.25) 0%, transparent 70%)" }} />
           <div className="absolute top-1/6 left-2/3 w-12 h-12 p1 rounded-full blur-md"
-               style={{ background: "radial-gradient(circle, rgba(144,238,144,.35) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(144,238,144,.35) 0%, transparent 70%)" }} />
         </div>
 
         {/* modal */}
@@ -151,8 +156,7 @@ export default function RegisterModal({ isOpen, onClose }) {
           </button>
 
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-mont  text-gray-800 mb-2">CREATE ACCOUNT</h2>
-            {/*<p className="text-gray-600">Join our agricultural community</p>*/}
+            <h2 className="text-3xl font-mont text-gray-800 mb-2">CREATE ACCOUNT</h2>
           </div>
 
           {errors.submit && (
@@ -205,9 +209,7 @@ export default function RegisterModal({ isOpen, onClose }) {
                   ${formData.role === "" ? "text-gray-400" : "text-gray-800"}
                   ${errors.role ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
               >
-                <option value="" disabled>
-                  Select your role
-                </option>
+                <option value="" disabled>Select your role</option>
                 <option value="farmer">Farmer / Producer</option>
                 <option value="investor">Investor</option>
                 <option value="buyer">Buyer / Customer</option>
@@ -244,9 +246,7 @@ export default function RegisterModal({ isOpen, onClose }) {
                   ${errors.confirmPassword ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
                 placeholder="Re-type your password"
               />
-              {errors.confirmPassword && (
-                <p className="text-red-600 text-sm mt-1">{errors.confirmPassword}</p>
-              )}
+              {errors.confirmPassword && <p className="text-red-600 text-sm mt-1">{errors.confirmPassword}</p>}
             </div>
 
             <button

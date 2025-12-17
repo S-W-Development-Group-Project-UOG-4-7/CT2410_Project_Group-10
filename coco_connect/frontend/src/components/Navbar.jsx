@@ -9,25 +9,35 @@ const Navbar = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
-  // ✅ user state (read from localStorage)
+  // ✅ user state (read from localStorage once)
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
   });
 
-  // ✅ refresh user after login modal closes (or opens/closes)
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    setUser(stored ? JSON.parse(stored) : null);
-  }, [isLoginOpen]);
+  // logout dropdown
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const toggleMobileMenu = () => setIsMobileOpen((prev) => !prev);
+
+  // ✅ close dropdown if user changes
+  useEffect(() => {
+    setIsUserMenuOpen(false);
+  }, [user]);
+
+  // ✅ Called by Login/Register modals
+  const handleAuthSuccess = (userObj) => {
+    setUser(userObj);
+    setIsLoginOpen(false);
+    setIsRegisterOpen(false);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
     localStorage.removeItem("user");
     setUser(null);
+    setIsUserMenuOpen(false);
   };
 
   const displayName = user?.name || user?.email || "User";
@@ -37,84 +47,56 @@ const Navbar = () => {
       <header className="bg-accent4 shadow-md sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center py-4">
-            {/* Logo Section */}
+            {/* Logo */}
             <div className="flex items-center">
-              <img
-                src="/tree.png"
-                alt="Cococonnect Logo"
-                className="w-14 h-auto mr-3"
-              />
+              <img src="/tree.png" alt="Cococonnect Logo" className="w-14 h-auto mr-3" />
               <div className="logo-text">
                 <span className="coco-text">COCO</span>
                 <span className="connect-text">CONNECT</span>
               </div>
             </div>
 
-            {/* Desktop Navigation */}
+            {/* Desktop Nav */}
             <nav className="hidden md:flex space-x-8 text-sm lg:text-base">
-              <Link
-                to="/"
-                className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors"
-              >
+              <Link to="/" className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors">
                 Home
               </Link>
-              <Link
-                to="/about"
-                className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
-              >
+              <Link to="/about" className="text-accent2 font-bold hover:text-[#4caf50] transition-colors">
                 About Us
               </Link>
-              <Link
-                to="/shop"
-                className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors"
-              >
+              <Link to="/shop" className="font-nunito font-bold text-accent2 hover:text-[#4caf50] transition-colors">
                 Shop
               </Link>
-              <Link
-                to="/ideas"
-                className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
-              >
+              <Link to="/ideas" className="text-accent2 font-bold hover:text-[#4caf50] transition-colors">
                 Idea Sharing
               </Link>
-              <Link
-                to="/news"
-                className="text-accent2 font-bold hover:text-[#4caf50] transition-colors"
-              >
+              <Link to="/news" className="text-accent2 font-bold hover:text-[#4caf50] transition-colors">
                 News Corner
               </Link>
             </nav>
 
             {/* Right Icons */}
             <div className="flex items-center space-x-4">
-              {/* Language Dropdown */}
+              {/* Language */}
               <div className="relative group">
                 <button className="flex items-center text-accent2 hover:text-[#4caf50] transition-colors">
                   <i className="fa-solid fa-earth-asia ml-2 text-xl" />
                 </button>
 
                 <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50">
-                  <a
-                    href="#"
-                    className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito"
-                  >
+                  <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito">
                     English
                   </a>
-                  <a
-                    href="#"
-                    className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito"
-                  >
+                  <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito">
                     සිංහල
                   </a>
-                  <a
-                    href="#"
-                    className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito"
-                  >
+                  <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5 font-nunito">
                     日本語
                   </a>
                 </div>
               </div>
 
-              {/* Search Icon + Hover Search Bar */}
+              {/* Search */}
               <div className="relative group">
                 <i className="fa-solid fa-magnifying-glass text-2xl text-accent2 group-hover:text-[#4caf50] transition-colors cursor-pointer" />
                 <input
@@ -126,22 +108,27 @@ const Navbar = () => {
 
               {/* ✅ User / Login */}
               {user ? (
-                <div className="relative group">
-                  {/* green pill */}
-                  <button className="flex items-center gap-2 bg-green-700 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                <div className="relative">
+                  {/* Dark green oval */}
+                  <button
+                    onClick={() => setIsUserMenuOpen((p) => !p)}
+                    className="flex items-center gap-2 bg-green-800 text-white px-4 py-2 rounded-full text-sm font-semibold"
+                  >
                     <i className="fa-regular fa-user text-base" />
                     <span className="max-w-[160px] truncate">{displayName}</span>
                   </button>
 
-                  {/* logout dropdown (clickable) */}
-                  <div className="absolute right-0 mt-2 hidden group-hover:block z-50">
-                    <button
-                      onClick={handleLogout}
-                      className="bg-white text-red-600 px-4 py-2 rounded shadow-md hover:bg-gray-100 w-full text-left"
-                    >
-                      Logout
-                    </button>
-                  </div>
+                  {/* Dropdown */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 mt-2 z-50 bg-white rounded-md shadow-lg overflow-hidden min-w-[160px]">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button
@@ -152,51 +139,29 @@ const Navbar = () => {
                 </button>
               )}
 
-              {/* Mobile Menu Button */}
-              <button
-                onClick={toggleMobileMenu}
-                className="md:hidden text-accent2 hover:text-secondary"
-              >
+              {/* Mobile Menu */}
+              <button onClick={toggleMobileMenu} className="md:hidden text-accent2 hover:text-secondary">
                 <i className="fas fa-bars text-xl" />
               </button>
             </div>
           </div>
 
-          {/* Mobile Navigation */}
-          <div
-            className={`${
-              isMobileOpen ? "block" : "hidden"
-            } md:hidden py-4 border-t border-accent5 bg-accent4`}
-          >
+          {/* Mobile Nav */}
+          <div className={`${isMobileOpen ? "block" : "hidden"} md:hidden py-4 border-t border-accent5 bg-accent4`}>
             <div className="flex flex-col space-y-4">
-              <Link
-                to="/"
-                className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors"
-              >
+              <Link to="/" className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors">
                 Home
               </Link>
-              <Link
-                to="/about"
-                className="text-accent2 hover:text-primary font-medium transition-colors"
-              >
+              <Link to="/about" className="text-accent2 hover:text-primary font-medium transition-colors">
                 About Us
               </Link>
-              <Link
-                to="/shop"
-                className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors"
-              >
+              <Link to="/shop" className="font-nunito text-accent2 hover:text-secondary font-semibold transition-colors">
                 Shop
               </Link>
-              <Link
-                to="/ideas"
-                className="text-accent2 hover:text-primary font-medium transition-colors"
-              >
+              <Link to="/ideas" className="text-accent2 hover:text-primary font-medium transition-colors">
                 Idea Sharing
               </Link>
-              <Link
-                to="/news"
-                className="text-accent2 hover:text-primary font-medium transition-colors"
-              >
+              <Link to="/news" className="text-accent2 hover:text-primary font-medium transition-colors">
                 News Corner
               </Link>
             </div>
@@ -212,12 +177,14 @@ const Navbar = () => {
           setIsLoginOpen(false);
           setIsRegisterOpen(true);
         }}
+        onAuthSuccess={handleAuthSuccess}
       />
 
       {/* REGISTER MODAL */}
       <RegisterModal
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
       />
     </>
   );

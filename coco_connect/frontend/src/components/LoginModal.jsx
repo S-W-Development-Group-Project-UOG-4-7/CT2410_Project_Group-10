@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { loginUser } from "../services/authService";
 
-export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
+export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSuccess }) {
   const modalRef = useRef();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -45,20 +45,22 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister }) {
       localStorage.setItem("access", data.access);
       localStorage.setItem("refresh", data.refresh);
 
-      // ✅ Save user info for navbar (token endpoint doesn't give name)
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          name: formData.email, // later we can replace with real name from /api/me/
-          email: formData.email,
-          rememberMe,
-        })
-      );
+      const userObj = {
+  name: formData.email,   // later you can replace with real name from backend
+  email: formData.email,
+  rememberMe,
+};
 
-      console.log("Logged in with token:", data);
+localStorage.setItem("user", JSON.stringify(userObj));
 
-      // ✅ Close modal
-      onClose();
+// ✅ tell Navbar immediately
+onAuthSuccess?.(userObj);
+
+console.log("Logged in with token:", data);
+
+// ✅ Close modal
+onClose();
+
     } catch (err) {
       // show a nicer error if backend is down vs wrong password
       setErrors({
