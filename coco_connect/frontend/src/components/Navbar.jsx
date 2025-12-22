@@ -36,9 +36,11 @@ const Navbar = () => {
     { path: "/", label: "Home", icon: "fa-home" },
     { path: "/about", label: "About Us", icon: "fa-info-circle" },
     { path: "/shop", label: "Shop", icon: "fa-shopping-cart" },
+    { path: "/investment", label: "Investment", icon: "fa-chart-line" }, // ✅ NEW
     { path: "/ideas", label: "Idea Sharing", icon: "fa-lightbulb" },
     { path: "/news", label: "News Corner", icon: "fa-newspaper" },
   ];
+
 
   // ✅ Language options
   const languages = [
