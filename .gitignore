@@ -1,13 +1,17 @@
-# Python
+# Python / Django
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+.env
 venv/
+.venv/
+db.sqlite3
 
-# Node
+# Node / React
 node_modules/
 dist/
+build/
 
-# Environment
-.env
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
