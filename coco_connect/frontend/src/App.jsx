@@ -5,6 +5,8 @@ import Home from "./pages/Home";
 import IdeaSharing from "./pages/IdeaSharing"; 
 import Investment from "./pages/Investment";
 
+import IdeaSharing from "./pages/IdeaSharing";
+import About from "./pages/About"; // I can create this for you
 
 function App() {
   return (
@@ -16,6 +18,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/investment" element={<Investment />} />
           <Route path="/ideas" element={<IdeaSharing />} />
+          <Route path="/about" element={<About />} />
         </Routes>
       </div>
 
