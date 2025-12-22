@@ -5,7 +5,6 @@ import Home from "./pages/Home";
 import IdeaSharing from "./pages/IdeaSharing"; 
 import Investment from "./pages/Investment";
 
-import IdeaSharing from "./pages/IdeaSharing";
 import About from "./pages/About"; // I can create this for you
 
 function App() {
