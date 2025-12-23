@@ -2,10 +2,11 @@ import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
+import About from "./pages/About";
 import IdeaSharing from "./pages/IdeaSharing"; 
 import Investment from "./pages/Investment";
 
-import About from "./pages/About"; // I can create this for you
+import Blockchain from "./admin/pages/Blockchain";
 
 function App() {
   return (
@@ -15,9 +16,11 @@ function App() {
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
           <Route path="/investment" element={<Investment />} />
           <Route path="/ideas" element={<IdeaSharing />} />
-          <Route path="/about" element={<About />} />
+
+          <Route path="/admin/blockchain" element={<Blockchain />} />
         </Routes>
       </div>
 

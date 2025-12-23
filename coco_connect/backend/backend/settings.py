@@ -42,6 +42,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
 
+    "blockchain_records",
+
+
     # your app
     'connect',
 
