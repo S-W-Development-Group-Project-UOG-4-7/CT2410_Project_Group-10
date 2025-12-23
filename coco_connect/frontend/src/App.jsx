@@ -1,10 +1,11 @@
 import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import Home from "./pages/Home";
-import IdeaSharing from "./pages/IdeaSharing"; // I can create this for you
-import Product from "./pages/Product-pg";
 
+import Home from "./pages/Home";
+import IdeaSharing from "./pages/IdeaSharing";
+import Product from "./pages/Product-pg";
+import Cart from "./pages/Cart"; // ✅ Added Cart import
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/ideas" element={<IdeaSharing />} />
           <Route path="/shop" element={<Product />} />
+          <Route path="/cart" element={<Cart />} /> {/* ✅ Cart route added */}
         </Routes>
       </div>
 
