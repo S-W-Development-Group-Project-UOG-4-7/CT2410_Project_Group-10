@@ -42,7 +42,9 @@ INSTALLED_APPS = [
     "blockchain_records",
 
     # your app
-    'connect',
+    #'connect',
+    'connect.apps.ConnectConfig',
+
     'rest_framework_simplejwt',
 ]
 
