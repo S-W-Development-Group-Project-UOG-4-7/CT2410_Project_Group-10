@@ -40,16 +40,20 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
     try {
       // ✅ Call backend JWT token endpoint via authService
       const data = await loginUser(formData.email, formData.password);
+      console.log("LOGIN DATA:", data);
 
       // ✅ Save tokens
       localStorage.setItem("access", data.access);
       localStorage.setItem("refresh", data.refresh);
+      localStorage.setItem("role", data.role);  
+      localStorage.setItem("name", data.name); //optional
+      localStorage.setItem("email", data.email); //optional
 
       const userObj = {
-  name: formData.email,   // later you can replace with real name from backend
-  email: formData.email,
-  rememberMe,
-};
+    name: formData.email,   // later you can replace with real name from backend
+    email: formData.email,
+    rememberMe,
+  };
 
 localStorage.setItem("user", JSON.stringify(userObj));
 
