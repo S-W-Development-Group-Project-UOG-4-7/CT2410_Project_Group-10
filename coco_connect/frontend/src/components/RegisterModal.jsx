@@ -74,22 +74,20 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
         role: formData.role,
       });
 
-      // 2) auto-login (get tokens)
-      const tokenData = await loginUser(formData.email, formData.password);
+      const apiUser = tokenData.user ?? tokenData;
 
-      // 3) save tokens
-      localStorage.setItem("access", tokenData.access);
-      localStorage.setItem("refresh", tokenData.refresh);
+      localStorage.setItem("role", apiUser.role);
+      localStorage.setItem("name", apiUser.name);
+      localStorage.setItem("email", apiUser.email);
 
-      // 4) save user
       const userObj = {
-        name: formData.name,
-        email: formData.email,
-        role: formData.role,
+        id: apiUser.id,
+        name: apiUser.name,
+        email: apiUser.email,
+        role: apiUser.role,
       };
-      localStorage.setItem("user", JSON.stringify(userObj));
 
-      // ✅ update navbar immediately
+      localStorage.setItem("user", JSON.stringify(userObj));
       onAuthSuccess?.(userObj);
 
       onClose();

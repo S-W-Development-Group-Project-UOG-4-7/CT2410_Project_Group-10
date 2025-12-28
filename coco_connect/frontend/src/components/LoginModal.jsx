@@ -42,23 +42,31 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
       const data = await loginUser(formData.email, formData.password);
       console.log("LOGIN DATA:", data);
 
-      // ✅ Save tokens
+      // ✅ data must contain user info from backend
+      // If your loginUser returns { access, refresh, user: {...} }, use data.user
+      // If it returns merged fields, use data directly.
+
+      const apiUser = data.user ?? data;  // supports both shapes
+
       localStorage.setItem("access", data.access);
       localStorage.setItem("refresh", data.refresh);
-      localStorage.setItem("role", data.role);  
-      localStorage.setItem("name", data.name); //optional
-      localStorage.setItem("email", data.email); //optional
+
+      localStorage.setItem("role", apiUser.role);
+      localStorage.setItem("name", apiUser.name);     // this is first_name from backend
+      localStorage.setItem("email", apiUser.email);
 
       const userObj = {
-    name: formData.email,   // later you can replace with real name from backend
-    email: formData.email,
-    rememberMe,
-  };
+        id: apiUser.id,
+        name: apiUser.name,     // ✅ REAL name from backend (first_name)
+        email: apiUser.email,
+        role: apiUser.role,
+        rememberMe,
+      };
 
-localStorage.setItem("user", JSON.stringify(userObj));
+      localStorage.setItem("user", JSON.stringify(userObj));
 
-// ✅ tell Navbar immediately
-onAuthSuccess?.(userObj);
+      // ✅ tell Navbar immediately
+      onAuthSuccess?.(userObj);
 
 console.log("Logged in with token:", data);
 
