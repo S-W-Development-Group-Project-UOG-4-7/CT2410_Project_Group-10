@@ -18,8 +18,11 @@ import news3 from "../assets/news3.png";
 import news4 from "../assets/news4.png";
 import news5 from "../assets/news5.png";
 
+// Background images
+import shopBg from "../assets/shopbg.png";
+import shopheroBg from "../assets/cocoshopherobg.png";
+
 const Product = () => {
-  // ===================== FILTER STATES =====================
   const [filters, setFilters] = useState({
     category: "all",
     price: 500,
@@ -29,7 +32,6 @@ const Product = () => {
 
   const [visibleCount, setVisibleCount] = useState(6);
 
-  // ===================== PRODUCT LIST =====================
   const products = [
     { id: 1, name: "Premium Virgin Coconut Oil", image: prod1, price: 24.99, stock: "In Stock", description: "Organic, Cold-Pressed", reviews: 127, category: "oil", type: "Processed Goods" },
     { id: 2, name: "Fresh Coconut Water", image: prod2, price: 18.99, stock: "Low Stock", description: "100% Natural, 12-Pack", reviews: 156, category: "water", type: "Raw Materials" },
@@ -42,13 +44,12 @@ const Product = () => {
     { id: 9, name: "Natural Coconut Shell Cups", image: prod9, price: 22.0, stock: "In Stock", description: "Polished Finish, Set of 2 Eco-Friendly Cups", reviews: 142, category: "fiber", type: "Processed Goods" },
   ];
 
-  // ===================== NEWS ITEMS =====================
   const newsItems = [
-    { text: " Introducing our NEW Eco-Friendly Coconut Sunscreen!", image: news1 },
-    { text: " Buy 2 Coconut Oils and Get 1 Free - Limited Offer!", image: news2 },
-    { text: " Free shipping on orders over $75!", image: news3 },
-    { text: " Freshly harvested coir ropes just restocked!", image: news4 },
-    { text: " Coconut Water now available in sparkling version!", image: news5 },
+    { text: "Introducing our NEW Eco-Friendly Coconut Sunscreen!", image: news1 },
+    { text: "Buy 2 Coconut Oils and Get 1 Free - Limited Offer!", image: news2 },
+    { text: "Free shipping on orders over $75!", image: news3 },
+    { text: "Freshly harvested coir ropes just restocked!", image: news4 },
+    { text: "Coconut Water now available in sparkling version!", image: news5 },
   ];
 
   const [newsIndex, setNewsIndex] = useState(0);
@@ -57,18 +58,16 @@ const Product = () => {
     const interval = setInterval(() => {
       setNewsIndex((prev) => (prev + 1) % newsItems.length);
     }, 4000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // ====================== PRODUCT FILTER LOGIC ======================
   const filteredProducts = products
-    .filter((p) => {
-      const categoryMatch = filters.category === "all" || p.category === filters.category;
-      const priceMatch = p.price <= filters.price;
-      const typeMatch = filters.type === "all" || p.type === filters.type;
-      return categoryMatch && priceMatch && typeMatch;
-    })
+    .filter(
+      (p) =>
+        (filters.category === "all" || p.category === filters.category) &&
+        p.price <= filters.price &&
+        (filters.type === "all" || p.type === filters.type)
+    )
     .sort((a, b) => {
       if (filters.sortBy === "price_low_high") return a.price - b.price;
       if (filters.sortBy === "price_high_low") return b.price - a.price;
@@ -85,145 +84,219 @@ const Product = () => {
     setFilters({ category: "all", price: 500, type: "all", sortBy: "relevance" });
   };
 
-  // ===================== MAIN UI =====================
   return (
-    <div className="bg-[#f9f6f1] text-[#2f3e46] min-h-screen p-6">
-      <div className="flex flex-col lg:flex-row gap-6">
+    <div
+      className="relative min-h-screen"
+      style={{
+        backgroundImage: `url(${shopBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      {/* Fade overlay */}
+      <div
+  className="absolute inset-0 pointer-events-none"
+  style={{
+    background: `
+      linear-gradient(
+        to bottom,
+        rgba(249,246,241,0.95) 0%,
+        rgba(249,246,241,0.85) 20%,
+        rgba(249,246,241,0.6) 45%,
+        rgba(249,246,241,0.35) 65%,
+        rgba(249,246,241,0.15) 80%,
+        rgba(249,246,241,0) 100%
+      ),
+      radial-gradient(
+        ellipse at center,
+        rgba(249,246,241,0.75) 0%,
+        rgba(249,246,241,0.55) 35%,
+        rgba(249,246,241,0.25) 60%,
+        rgba(249,246,241,0) 85%
+      )
+    `,
+  }}
+></div>
 
-        {/* ===================== SIDEBAR ===================== */}
-        <div className="bg-[#faf0e6] w-full lg:w-1/4 p-6 rounded-lg shadow space-y-5">
 
-          {/* CATEGORY */}
-          <div>
-            <label className="font-semibold block mb-2">Category</label>
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            >
-              <option value="all">All (248)</option>
-              <option value="oil">Coconut Oil (89)</option>
-              <option value="fiber">Coir Fiber (56)</option>
-              <option value="water">Coconut Water (34)</option>
-            </select>
-          </div>
+{/* ================= HERO SECTION ================= */}
+<section
+  className="relative w-full h-[70vh] flex items-center"
+  style={{
+    backgroundImage: `url(${shopheroBg})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  }}
+>
+  {/* Left-focused gradient */}
+  
+  <div
+    className="absolute inset-0"
+    style={{
+      background: `
+        linear-gradient(
+          to right,
+          rgba(0,0,0,0.75) 10%,
+          rgba(0,0,0,0.65) 30%,
+          rgba(0,0,0,0.45) 45%,
+          rgba(0,0,0,0.2) 60%,
+          rgba(0,0,0,0) 75%
+        )
+      `,
+      
+    }}
+  ></div>
+{/* Content */}
+<div className="relative z-10 w-full px-6">
+    <div className="max-w-xl ml-24 mt-20 text-white">
 
-          {/* PRICE */}
-          <div>
-            <label className="font-semibold block mb-2">
-              Price Range (Up to ${filters.price})
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="500"
-              value={filters.price}
-              onChange={(e) => setFilters({ ...filters, price: Number(e.target.value) })}
-              className="w-full accent-green-400"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>$0</span>
-              <span>$500</span>
+      <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-6"><br />
+        Shop Sustainable Products.
+      </h1>
+
+      <p className="text-lg md:text-xl mb-8 text-white/90">
+        Empowering farmers. Connecting investors. Delivering natural products.
+      </p>
+
+      <div className="flex gap-4">
+        <button className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-md font-semibold transition">
+          Explore Products
+        </button>
+        <button className="bg-white/90 text-green-700 hover:bg-white px-6 py-3 rounded-md font-semibold transition">
+          Invest in Lands
+        </button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+      {/* ORIGINAL UI */}
+      
+      <div className="relative z-10 text-[#2f3e46] min-h-screen p-6">
+         {/* SECTION TITLE */}
+  <div className="relative z-10 text-center py-10">
+    <h2 className="text-3xl font-semibold text-[#4b3b2a]">
+      Sustainable Coconut Products
+    </h2>
+    <div className="w-24 h-[2px] bg-green-600 mx-auto mt-3"></div>
+  </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          
+
+          {/* SIDEBAR */}
+          <div className="bg-[#faf0e6] w-full lg:w-1/4 p-6 rounded-lg shadow space-y-5">
+            {/* Category */}
+            <div>
+              <label className="font-semibold block mb-2">Category</label>
+              <select
+                value={filters.category}
+                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="all">All (248)</option>
+                <option value="oil">Coconut Oil (89)</option>
+                <option value="fiber">Coir Fiber (56)</option>
+                <option value="water">Coconut Water (34)</option>
+              </select>
+            </div>
+
+            {/* Price */}
+            <div>
+              <label className="font-semibold block mb-2">
+                Price Range (Up to ${filters.price})
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="500"
+                value={filters.price}
+                onChange={(e) => setFilters({ ...filters, price: Number(e.target.value) })}
+                className="w-full accent-green-400"
+              />
+            </div>
+
+            {/* Product Type */}
+            <div>
+              <label className="font-semibold block mb-2">Product Type</label>
+              <select
+                value={filters.type}
+                onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="all">All</option>
+                <option value="Raw Materials">Raw Materials</option>
+                <option value="Processed Goods">Processed Goods</option>
+                <option value="Equipment">Equipment</option>
+              </select>
+            </div>
+
+            {/* Sort */}
+            <div>
+              <label className="font-semibold block mb-2">Sort By</label>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="relevance">Relevance</option>
+                <option value="price_low_high">Price: Low to High</option>
+                <option value="price_high_low">Price: High to Low</option>
+              </select>
+            </div>
+
+            <button onClick={handleReset} className="text-green-600 text-xs hover:underline">
+              Reset Filters
+            </button>
+
+            {/* News slider */}
+            <div className="bg-[#a37241] text-white rounded-lg shadow text-sm">
+              <div className="relative w-full h-60 overflow-hidden rounded">
+                {newsItems.map((item, index) => (
+                  <img
+                    key={index}
+                    src={item.image}
+                    alt="news"
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                      newsIndex === index ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="mt-2 px-2 text-center">{newsItems[newsIndex].text}</p>
             </div>
           </div>
 
-          {/* PRODUCT TYPE */}
-          <div>
-            <label className="font-semibold block mb-2">Product Type</label>
-            <select
-              value={filters.type}
-              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            >
-              <option value="all">All</option>
-              <option value="Raw Materials">Raw Materials</option>
-              <option value="Processed Goods">Processed Goods</option>
-              <option value="Equipment">Equipment</option>
-            </select>
-          </div>
-
-          {/* SORT */}
-          <div>
-            <label className="font-semibold block mb-2">Sort By</label>
-            <select
-              value={filters.sortBy}
-              onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-            >
-              <option value="relevance">Relevance</option>
-              <option value="price_low_high">Price: Low to High</option>
-              <option value="price_high_low">Price: High to Low</option>
-            </select>
-          </div>
-
-          {/* RESET */}
-          <button onClick={handleReset} className="text-green-600 text-xs hover:underline">
-            Reset Filters
-          </button>
-
-          {/* ===================== NEWS SLIDER ===================== */}
-          <div className=" bg-[#a37241] text-white text-center rounded-lg shadow text-sm">
-
-            <div className="relative w-full h-60 overflow-hidden rounded">
-              {newsItems.map((item, index) => (
-                <img
-                  key={index}
-                  src={item.image}
-                  alt="news"
-                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-                    newsIndex === index ? "opacity-100" : "opacity-0"
-                  }`}
-                />
+          {/* PRODUCT GRID */}
+          <div className="w-full lg:w-3/4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visibleProducts.map((product) => (
+                <div key={product.id} className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative">
+                  <img src={product.image} alt={product.name} className="w-full h-48 object-cover rounded" />
+                  <h3 className="font-semibold mt-3">{product.name}</h3>
+                  <p className="text-xs text-gray-500">{product.description}</p>
+                  <div className="flex justify-between items-center mt-2">
+                    <p className="font-semibold">${product.price.toFixed(2)}</p>
+                    <button className="bg-green-500 text-white px-3 py-1 rounded">Add</button>
+                  </div>
+                </div>
               ))}
             </div>
 
-            <p className="mt-2 px-1">{newsItems[newsIndex].text}</p>
-          </div>
-        </div>
-
-        {/* ===================== PRODUCT GRID ===================== */}
-        <div className="w-full lg:w-3/4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visibleProducts.map((product) => (
-              <div key={product.id} className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative">
-                <span
-                  className={`absolute top-3 right-3 text-xs px-2 py-1 rounded-full ${
-                    product.stock === "In Stock"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-yellow-100 text-yellow-700"
-                  }`}
+            {visibleCount < filteredProducts.length && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={handleLoadMore}
+                  className="px-5 py-2 border bg-[#faf0e6] rounded-md hover:bg-gray-100"
                 >
-                  {product.stock}
-                </span>
-
-                <img src={product.image} alt={product.name} className="w-full h-48 object-cover rounded" />
-
-                <h3 className="font-semibold text-base mt-3">{product.name}</h3>
-                <p className="text-xs text-gray-500">{product.description}</p>
-                <p className="text-xs text-gray-400 mb-2">({product.reviews} reviews)</p>
-
-                <div className="flex justify-between items-center">
-                  <p className="font-semibold text-lg">${product.price.toFixed(2)}</p>
-                  <button className="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-1 rounded">
-                    Add
-                  </button>
-                </div>
+                  Load More Products
+                </button>
               </div>
-            ))}
+            )}
           </div>
 
-          {visibleCount < filteredProducts.length && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={handleLoadMore}
-                className="px-5 py-2 border rounded-md hover:bg-gray-100 transition"
-              >
-                Load More Products
-              </button>
-            </div>
-          )}
         </div>
-
       </div>
     </div>
   );
