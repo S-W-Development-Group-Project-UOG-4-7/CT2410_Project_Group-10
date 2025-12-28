@@ -415,23 +415,23 @@ const Navbar = () => {
 
                     {isUserMenuOpen && (
                       <div className="absolute right-0 mt-2 z-50 bg-white rounded-xl shadow-2xl overflow-hidden min-w-[220px] border border-accent5/20 animate-fadeIn">
-                        <div className="px-4 py-3 border-b border-accent5/20 bg-gradient-to-r from-accent5/5 to-transparent">
+                        {/*<div className="px-4 py-3 border-b border-accent5/20 bg-gradient-to-r from-accent5/5 to-transparent">
                           <p className="font-bold text-accent6 truncate text-sm">{displayName}</p>
                           <p className="text-xs text-accent3 truncate mt-1">{user.email}</p>
-                        </div>
+                        </div>*/}
                         <div className="py-2">
                           <Link to="/customer/profile" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
                             <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
                             Profile
                           </Link>
-                          <Link to="/customer/orders" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
+                          {/*<Link to="/customer/orders" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
                             <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
                             My Orders
                           </Link>
                           <Link to="/customer/settings" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
                             <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
                             Settings
-                          </Link>
+                          </Link>*/}
                         </div>
                         <div className="border-t border-accent5/20 pt-2">
                           <button
