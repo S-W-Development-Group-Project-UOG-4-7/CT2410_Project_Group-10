@@ -33,8 +33,8 @@ const InvestmentPage = () => {
       imageUrl: '',
       roi: 18.5,
       duration: 24,
-      targetAmount: 50000,
-      currentAmount: 32500,
+      targetAmount: 5000000, // RS. 5,000,000
+      currentAmount: 3250000, // RS. 3,250,000
       investorsCount: 24,
       status: 'active',
       daysLeft: 45,
@@ -55,8 +55,8 @@ const InvestmentPage = () => {
       imageUrl: '',
       roi: 22.0,
       duration: 18,
-      targetAmount: 75000,
-      currentAmount: 75000,
+      targetAmount: 7500000, // RS. 7,500,000
+      currentAmount: 7500000, // RS. 7,500,000
       investorsCount: 42,
       status: 'funded',
       daysLeft: 0,
@@ -77,8 +77,8 @@ const InvestmentPage = () => {
       imageUrl: '',
       roi: 25.5,
       duration: 12,
-      targetAmount: 30000,
-      currentAmount: 12000,
+      targetAmount: 3000000, // RS. 3,000,000
+      currentAmount: 1200000, // RS. 1,200,000
       investorsCount: 8,
       status: 'active',
       daysLeft: 60,
@@ -99,8 +99,8 @@ const InvestmentPage = () => {
       imageUrl: '',
       roi: 15.0,
       duration: 36,
-      targetAmount: 100000,
-      currentAmount: 45000,
+      targetAmount: 10000000, // RS. 10,000,000
+      currentAmount: 4500000, // RS. 4,500,000
       investorsCount: 35,
       status: 'active',
       daysLeft: 90,
@@ -121,8 +121,8 @@ const InvestmentPage = () => {
       imageUrl: '',
       roi: 20.0,
       duration: 15,
-      targetAmount: 40000,
-      currentAmount: 28000,
+      targetAmount: 4000000, // RS. 4,000,000
+      currentAmount: 2800000, // RS. 2,800,000
       investorsCount: 18,
       status: 'active',
       daysLeft: 30,
@@ -247,7 +247,7 @@ const InvestmentPage = () => {
   const handleConfirmInvestment = async () => {
     try {
       // Simulate API call to Django backend
-      console.log(`Investing $${investmentAmount} in project ${selectedProject.id}`);
+      console.log(`Investing RS.${investmentAmount} in project ${selectedProject.id}`);
       
       // In real implementation, call your Django API:
       // const response = await fetch('http://localhost:8000/api/investments/', {
@@ -263,7 +263,7 @@ const InvestmentPage = () => {
       //   }),
       // });
       
-      alert(`Successfully invested $${investmentAmount} in "${selectedProject.title}"!\n\nYou will receive updates about your investment via email.`);
+      alert(`Successfully invested RS.${investmentAmount.toLocaleString()} in "${selectedProject.title}"!\n\nYou will receive updates about your investment via email.`);
       setIsModalOpen(false);
       setSelectedProject(null);
       
@@ -289,6 +289,16 @@ const InvestmentPage = () => {
     const totalMonths = duration;
     const futureValue = amount * Math.pow(1 + monthlyROI, totalMonths);
     return futureValue.toFixed(2);
+  };
+
+  // Format currency in Sri Lankan Rupees
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-LK', {
+      style: 'currency',
+      currency: 'LKR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount).replace('LKR', 'RS.');
   };
 
   return (
@@ -467,7 +477,7 @@ const InvestmentPage = () => {
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-gray-600">Total Investment</span>
                   <span className="font-bold text-secondary text-lg">
-                    ${projects.reduce((sum, p) => sum + p.currentAmount, 0).toLocaleString()}
+                    {formatCurrency(projects.reduce((sum, p) => sum + p.currentAmount, 0))}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b">
@@ -667,10 +677,10 @@ const InvestmentPage = () => {
                           <div className="mb-6">
                             <div className="flex justify-between text-sm mb-2">
                               <span className="text-gray-600">
-                                Raised: <span className="font-bold text-primary">${project.currentAmount.toLocaleString()}</span>
+                                Raised: <span className="font-bold text-primary">{formatCurrency(project.currentAmount)}</span>
                               </span>
                               <span className="text-gray-600">
-                                Goal: <span className="font-bold">${project.targetAmount.toLocaleString()}</span>
+                                Goal: <span className="font-bold">{formatCurrency(project.targetAmount)}</span>
                               </span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -714,7 +724,7 @@ const InvestmentPage = () => {
                                 </svg>
                                 Invest Now
                                 <span className="ml-auto text-sm font-normal">
-                                  Min: ${fundingNeeded > 100 ? '100' : fundingNeeded.toFixed(0)}
+                                  Min: {fundingNeeded > 100 ? formatCurrency(100) : formatCurrency(fundingNeeded)}
                                 </span>
                               </>
                             ) : (
@@ -808,21 +818,21 @@ const InvestmentPage = () => {
               <div className="space-y-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Investment Amount (USD)
+                    Investment Amount (RS.)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">RS.</span>
                     <input
                       type="number"
                       min="100"
                       max={selectedProject.targetAmount - selectedProject.currentAmount}
                       value={investmentAmount}
                       onChange={(e) => setInvestmentAmount(parseInt(e.target.value) || 0)}
-                      className="w-full pl-8 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                      className="w-full pl-10 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Minimum: $100 • Maximum: ${selectedProject.targetAmount - selectedProject.currentAmount}
+                    Minimum: RS.100 • Maximum: {formatCurrency(selectedProject.targetAmount - selectedProject.currentAmount)}
                   </p>
                 </div>
 
@@ -839,7 +849,7 @@ const InvestmentPage = () => {
                           : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      ${amount.toLocaleString()}
+                      {formatCurrency(amount)}
                     </button>
                   ))}
                 </div>
@@ -851,7 +861,7 @@ const InvestmentPage = () => {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Investment Amount:</span>
-                    <span className="font-semibold">${investmentAmount.toLocaleString()}</span>
+                    <span className="font-semibold">{formatCurrency(investmentAmount)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Expected ROI:</span>
@@ -864,17 +874,17 @@ const InvestmentPage = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Projected Return:</span>
                     <span className="font-semibold text-accent1">
-                      ${calculateExpectedReturn(investmentAmount, selectedProject.roi, selectedProject.duration)}
+                      {formatCurrency(calculateExpectedReturn(investmentAmount, selectedProject.roi, selectedProject.duration))}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-300 mt-2">
                     <div className="flex justify-between font-bold">
                       <span>Total Return:</span>
                       <span className="text-primary">
-                        ${(
+                        {formatCurrency(
                           parseFloat(calculateExpectedReturn(investmentAmount, selectedProject.roi, selectedProject.duration)) -
                           investmentAmount
-                        ).toFixed(2)}
+                        )}
                       </span>
                     </div>
                   </div>

@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     # third-party apps
     'rest_framework',
     'corsheaders',
+    'django_filters',
+    
 
     # your app
     'connect',
