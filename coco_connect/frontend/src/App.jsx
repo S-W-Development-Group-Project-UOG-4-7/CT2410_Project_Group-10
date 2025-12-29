@@ -10,6 +10,7 @@ import Cart from "./pages/Cart"; // ✅ Added Cart import
 import Investment from "./pages/Investment";
 
 import About from "./pages/About"; // I can create this for you
+import News from "./pages/News";
 
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           <Route path="/cart" element={<Cart />} /> {/* ✅ Cart route added */}
 
           <Route path="/about" element={<About />} />
+          <Route path="/news" element={<News />} />
 
         </Routes>
       </div>
