@@ -24,11 +24,15 @@ const Navbar = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+
   const userMenuRef = useRef(null);
   const searchWrapRef = useRef(null);
   const searchInputRef = useRef(null);
   const mobileMenuRef = useRef(null);
   const navbarRef = useRef(null);
+
+  // ✅ Cart count placeholder (replace with context/redux later)
+  const [cartItemCount] = useState(3);
 
   const [user, setUser] = useState(() => {
     try {
@@ -57,7 +61,7 @@ const Navbar = () => {
   const moreItems = useMemo(
     () => [
       { path: "/news", label: "News Corner" },
-      // you can add more later: { path: "/events", label: "Events" }
+      // add later: { path: "/events", label: "Events" }
     ],
     []
   );
@@ -74,11 +78,21 @@ const Navbar = () => {
   // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) setIsUserMenuOpen(false);
-      if (isSearchExpanded && searchWrapRef.current && !searchWrapRef.current.contains(event.target))
-        setIsSearchExpanded(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
 
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) setIsMoreOpen(false);
+      if (
+        isSearchExpanded &&
+        searchWrapRef.current &&
+        !searchWrapRef.current.contains(event.target)
+      ) {
+        setIsSearchExpanded(false);
+      }
+
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+        setIsMoreOpen(false);
+      }
 
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
         const hitMobileBtn = event.target.closest('button[aria-label="Mobile menu"]');
@@ -88,6 +102,7 @@ const Navbar = () => {
 
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("touchstart", handleClickOutside);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
@@ -127,6 +142,11 @@ const Navbar = () => {
     }, 500),
     [navigate]
   );
+
+  // cleanup debounce on unmount
+  useEffect(() => {
+    return () => handleSearch.cancel?.();
+  }, [handleSearch]);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -208,7 +228,9 @@ const Navbar = () => {
           transition: "all 0.3s ease",
           willChange: "transform, backdrop-filter, background-color",
           borderBottom: "1px solid rgba(76, 175, 80, 0.10)",
-          boxShadow: isScrolled ? "0 10px 30px rgba(0,0,0,0.08)" : "0 2px 10px rgba(0,0,0,0.05)",
+          boxShadow: isScrolled
+            ? "0 10px 30px rgba(0,0,0,0.08)"
+            : "0 2px 10px rgba(0,0,0,0.05)",
         }}
       >
         <div className="container mx-auto px-4">
@@ -277,7 +299,12 @@ const Navbar = () => {
                     aria-haspopup="true"
                     aria-expanded={isMoreOpen}
                   >
-                    More <i className={`fas fa-chevron-down ml-2 text-xs transition-transform ${isMoreOpen ? "rotate-180" : ""}`} />
+                    More{" "}
+                    <i
+                      className={`fas fa-chevron-down ml-2 text-xs transition-transform ${
+                        isMoreOpen ? "rotate-180" : ""
+                      }`}
+                    />
                   </button>
 
                   {isMoreOpen && (
@@ -303,7 +330,7 @@ const Navbar = () => {
               </div>
             </nav>
 
-            {/* Right Actions (same as your setup, spacing improved) */}
+            {/* Right Actions */}
             <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3">
               {/* Language */}
               <div className="hidden sm:block relative group">
@@ -313,7 +340,9 @@ const Navbar = () => {
                   aria-haspopup="true"
                 >
                   <i className="fa-solid fa-earth-asia text-base lg:text-lg" />
-                  <span className="ml-1 text-xs font-semibold hidden lg:inline">{activeLanguage.toUpperCase()}</span>
+                  <span className="ml-1 text-xs font-semibold hidden lg:inline">
+                    {activeLanguage.toUpperCase()}
+                  </span>
                 </button>
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl py-2 hidden group-hover:block z-50 border border-accent5/20 animate-fadeIn">
                   {languages.map((lang) => (
@@ -328,7 +357,9 @@ const Navbar = () => {
                     >
                       <i className={`fas ${lang.icon} mr-3 text-accent1`} />
                       <span className="flex-1 text-left">{lang.name}</span>
-                      {activeLanguage === lang.code && <i className="fas fa-check text-[#4caf50] ml-2" />}
+                      {activeLanguage === lang.code && (
+                        <i className="fas fa-check text-[#4caf50] ml-2" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -346,12 +377,18 @@ const Navbar = () => {
                   aria-label="Search"
                   aria-expanded={isSearchExpanded}
                 >
-                  <i className={`fa-solid ${isSearching ? "fa-spinner fa-spin" : "fa-magnifying-glass"} text-base lg:text-lg`} />
+                  <i
+                    className={`fa-solid ${
+                      isSearching ? "fa-spinner fa-spin" : "fa-magnifying-glass"
+                    } text-base lg:text-lg`}
+                  />
                 </button>
 
                 <div
                   className={`absolute right-0 top-full mt-2 transition-all duration-300 ease-out ${
-                    isSearchExpanded ? "opacity-100 translate-y-0 visible" : "opacity-0 -translate-y-2 invisible"
+                    isSearchExpanded
+                      ? "opacity-100 translate-y-0 visible"
+                      : "opacity-0 -translate-y-2 invisible"
                   }`}
                   style={{ zIndex: 100 }}
                 >
@@ -396,6 +433,20 @@ const Navbar = () => {
                 </div>
               </div>
 
+              {/* ✅ Cart (added) */}
+              <Link
+                to="/cart"
+                className="relative p-2 rounded-full text-accent2 hover:text-[#4caf50] hover:bg-accent5/10 transition-all active:scale-95"
+                aria-label="Cart"
+              >
+                <i className="fa-solid fa-cart-shopping text-base lg:text-lg" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full">
+                    {cartItemCount}
+                  </span>
+                )}
+              </Link>
+
               {/* User */}
               <div className="relative" ref={userMenuRef}>
                 {user ? (
@@ -409,29 +460,27 @@ const Navbar = () => {
                       <div className="flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 bg-green-600 rounded-full flex-shrink-0">
                         <i className="fa-regular fa-user text-xs" />
                       </div>
-                      <span className="max-w-[80px] sm:max-w-[100px] truncate hidden sm:inline">{displayName}</span>
-                      <i className={`fas fa-chevron-down text-xs transition-transform flex-shrink-0 ${isUserMenuOpen ? "rotate-180" : ""}`} />
+                      <span className="max-w-[80px] sm:max-w-[100px] truncate hidden sm:inline">
+                        {displayName}
+                      </span>
+                      <i
+                        className={`fas fa-chevron-down text-xs transition-transform flex-shrink-0 ${
+                          isUserMenuOpen ? "rotate-180" : ""
+                        }`}
+                      />
                     </button>
 
                     {isUserMenuOpen && (
                       <div className="absolute right-0 mt-2 z-50 bg-white rounded-xl shadow-2xl overflow-hidden min-w-[220px] border border-accent5/20 animate-fadeIn">
-                        {/*<div className="px-4 py-3 border-b border-accent5/20 bg-gradient-to-r from-accent5/5 to-transparent">
-                          <p className="font-bold text-accent6 truncate text-sm">{displayName}</p>
-                          <p className="text-xs text-accent3 truncate mt-1">{user.email}</p>
-                        </div>*/}
                         <div className="py-2">
-                          <Link to="/customer/profile" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
+                          <Link
+                            to="/customer/profile"
+                            className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
                             <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
                             Profile
                           </Link>
-                          {/*<Link to="/customer/orders" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
-                            <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
-                            My Orders
-                          </Link>
-                          <Link to="/customer/settings" className="flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm" onClick={() => setIsUserMenuOpen(false)}>
-                            <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
-                            Settings
-                          </Link>*/}
                         </div>
                         <div className="border-t border-accent5/20 pt-2">
                           <button
@@ -464,12 +513,16 @@ const Navbar = () => {
                 aria-label="Mobile menu"
                 aria-expanded={isMobileOpen}
               >
-                <i className={`fas ${isMobileOpen ? "fa-times" : "fa-bars"} text-xl transition-transform duration-300`} />
+                <i
+                  className={`fas ${
+                    isMobileOpen ? "fa-times" : "fa-bars"
+                  } text-xl transition-transform duration-300`}
+                />
               </button>
             </div>
           </div>
 
-          {/* Mobile overlay + drawer (News Corner appears as its own tile inside) */}
+          {/* Mobile overlay + drawer */}
           <div className={cx("lg:hidden", isMobileOpen ? "block" : "hidden")}>
             <button
               aria-label="Close mobile menu"
@@ -499,6 +552,23 @@ const Navbar = () => {
                       </button>
                     </div>
                   )}
+
+                  {/* ✅ Cart in mobile */}
+                  <div className="mb-4">
+                    <Link
+                      to="/cart"
+                      onClick={() => setIsMobileOpen(false)}
+                      className="flex items-center px-4 py-4 rounded-xl transition-all active:scale-[0.98] border border-accent5/20 text-accent6 hover:bg-accent5/5 hover:text-[#4caf50]"
+                    >
+                      <i className="fa-solid fa-cart-shopping mr-3" />
+                      <span className="text-lg">Cart</span>
+                      {cartItemCount > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                          {cartItemCount}
+                        </span>
+                      )}
+                    </Link>
+                  </div>
 
                   <div className="space-y-2 mb-4">
                     {navItems.map((item) => (
@@ -531,7 +601,9 @@ const Navbar = () => {
                   </div>
 
                   <div className="px-1 mb-6">
-                    <h3 className="text-accent3 text-sm font-semibold uppercase mb-3">Language</h3>
+                    <h3 className="text-accent3 text-sm font-semibold uppercase mb-3">
+                      Language
+                    </h3>
                     <div className="flex flex-wrap gap-2">
                       {languages.map((lang) => (
                         <button
@@ -555,10 +627,18 @@ const Navbar = () => {
 
                   <div className="px-1 pt-6 border-t border-accent5/20">
                     <div className="grid grid-cols-2 gap-3">
-                      <Link to="/help" className="text-center p-3 bg-accent5/5 rounded-lg text-accent6 hover:text-[#4caf50] transition-colors" onClick={() => setIsMobileOpen(false)}>
+                      <Link
+                        to="/help"
+                        className="text-center p-3 bg-accent5/5 rounded-lg text-accent6 hover:text-[#4caf50] transition-colors"
+                        onClick={() => setIsMobileOpen(false)}
+                      >
                         <p className="text-sm font-semibold">Help Center</p>
                       </Link>
-                      <Link to="/faq" className="text-center p-3 bg-accent5/5 rounded-lg text-accent6 hover:text-[#4caf50] transition-colors" onClick={() => setIsMobileOpen(false)}>
+                      <Link
+                        to="/faq"
+                        className="text-center p-3 bg-accent5/5 rounded-lg text-accent6 hover:text-[#4caf50] transition-colors"
+                        onClick={() => setIsMobileOpen(false)}
+                      >
                         <p className="text-sm font-semibold">FAQ</p>
                       </Link>
                     </div>
@@ -577,7 +657,11 @@ const Navbar = () => {
         onOpenRegister={openRegisterModal}
         onAuthSuccess={handleAuthSuccess}
       />
-      <RegisterModal isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} onAuthSuccess={handleAuthSuccess} />
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
     </>
   );
 };

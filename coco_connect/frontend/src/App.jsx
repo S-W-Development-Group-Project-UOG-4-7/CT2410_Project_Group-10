@@ -1,11 +1,16 @@
+// src/App.jsx
 import { Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+
 import Home from "./pages/Home";
 import About from "./pages/About";
-import IdeaSharing from "./pages/IdeaSharing"; 
+import IdeaSharing from "./pages/IdeaSharing";
+import Product from "./pages/Product-pg";
+import Cart from "./pages/Cart";
 import Investment from "./pages/Investment";
 import Blockchain from "./admin/pages/Blockchain";
+import News from "./pages/News";
 
 import CustomerLayout from "./customer/layout/CustomerLayout";
 import Overview from "./customer/pages/Overview";
@@ -14,61 +19,34 @@ import EditProfile from "./customer/pages/EditProfile";
 import Orders from "./customer/pages/Orders";
 import ProtectedCustomerRoute from "./customer/ProtectedCustomerRoute";
 
-// Layout wrapper component that conditionally shows Navbar/Footer
 function LayoutWrapper({ children }) {
-  const location = useLocation();
-  const isCustomerRoute = location.pathname.startsWith('/customer');
-  
-  // Hide Navbar/Footer for customer portal routes
-  if (isCustomerRoute) {
-    return <>{children}</>;
-  }
-  
-  // Show Navbar/Footer for all other routes
+  const { pathname } = useLocation();
+  if (pathname.startsWith("/customer")) return <>{children}</>;
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-gray-200">
       <Navbar />
-      <div className="flex-1">{children}</div>
+      <main className="flex-1">{children}</main>
       <Footer />
     </div>
   );
 }
 
+const W = (Page) => (
+  <LayoutWrapper> <Page /> </LayoutWrapper>
+);
+
 function App() {
   return (
     <Routes>
-      {/* Public routes with Navbar/Footer */}
-      <Route path="/" element={
-        <LayoutWrapper>
-          <Home />
-        </LayoutWrapper>
-      } />
-      
-      <Route path="/about" element={
-        <LayoutWrapper>
-          <About />
-        </LayoutWrapper>
-      } />
-      
-      <Route path="/investment" element={
-        <LayoutWrapper>
-          <Investment />
-        </LayoutWrapper>
-      } />
-      
-      <Route path="/ideas" element={
-        <LayoutWrapper>
-          <IdeaSharing />
-        </LayoutWrapper>
-      } />
-      
-      <Route path="/admin/blockchain" element={
-        <LayoutWrapper>
-          <Blockchain />
-        </LayoutWrapper>
-      } />
-      
-      {/* Customer portal routes WITHOUT Navbar/Footer */}
+      <Route path="/" element={W(Home)} />
+      <Route path="/about" element={W(About)} />
+      <Route path="/investment" element={W(Investment)} />
+      <Route path="/ideas" element={W(IdeaSharing)} />
+      <Route path="/shop" element={W(Product)} />
+      <Route path="/cart" element={W(Cart)} />
+      <Route path="/news" element={W(News)} />
+      <Route path="/admin/blockchain" element={W(Blockchain)} />
+
       <Route element={<ProtectedCustomerRoute />}>
         <Route path="/customer/*" element={<CustomerLayout />}>
           <Route index element={<Overview />} />
