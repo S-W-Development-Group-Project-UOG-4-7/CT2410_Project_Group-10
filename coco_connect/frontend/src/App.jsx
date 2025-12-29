@@ -6,9 +6,7 @@ import Home from "./pages/Home";
 
 import IdeaSharing from "./pages/IdeaSharing";
 import Product from "./pages/Product-pg";
-import Cart from "./pages/Cart"; // ✅ Added Cart import
-
-import IdeaSharing from "./pages/IdeaSharing"; 
+import Cart from "./pages/Cart"; // ✅ Added Cart import 
 import Investment from "./pages/Investment";
 
 import About from "./pages/About"; // I can create this for you

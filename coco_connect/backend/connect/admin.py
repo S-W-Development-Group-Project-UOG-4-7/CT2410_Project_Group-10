@@ -1,13 +1,1 @@
-from django.contrib import admin
-
-from .models import Product
-
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'price', 'stock', 'category', 'type')
-    list_filter = ('category', 'type', 'stock')
-
-from .models import Profile
-
-admin.site.register(Profile)
 
