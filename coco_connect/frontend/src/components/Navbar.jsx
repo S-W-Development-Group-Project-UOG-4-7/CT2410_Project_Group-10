@@ -1,105 +1,260 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import LoginModal from "./LoginModal";
+import RegisterModal from "./RegisterModal";
+import { debounce } from "lodash";
 
 const Navbar = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const cartItemCount = 3; // Replace this with actual cart logic or prop
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isScrolled, setIsScrolled] = useState(false);
 
-  const toggleMobileMenu = () => {
-    setIsMobileOpen((prev) => !prev);
+  const cartItemCount = 3; // TODO: replace with context / redux
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const userMenuRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+
+  // ================= USER STATE =================
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // ================= NAV DATA =================
+  const navItems = [
+    { path: "/", label: "Home" },
+    { path: "/about", label: "About Us" },
+    { path: "/shop", label: "Shop" },
+    { path: "/investment", label: "Investment" },
+    { path: "/ideas", label: "Idea Sharing" },
+    { path: "/news", label: "News Corner" },
+  ];
+
+  const languages = ["English", "සිංහල", "日本語"];
+
+  // ================= EFFECTS =================
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setIsUserMenuOpen(false);
+      }
+
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(e.target) &&
+        !e.target.closest('button[aria-label="Mobile menu"]')
+      ) {
+        setIsMobileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (isSearchFocused) {
+      searchInputRef.current?.focus();
+    }
+  }, [isSearchFocused]);
+
+  // ================= SEARCH =================
+  const debouncedSearch = useCallback(
+    debounce((q) => {
+      if (q.trim()) {
+        navigate(`/search?q=${encodeURIComponent(q)}`);
+      }
+    }, 500),
+    [navigate]
+  );
+
+  useEffect(() => {
+    return () => debouncedSearch.cancel();
+  }, [debouncedSearch]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setIsSearchFocused(false);
+    }
   };
 
+  // ================= AUTH =================
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    setUser(null);
+    setIsUserMenuOpen(false);
+    navigate("/");
+  };
+
+  const displayName = user?.name || user?.email?.split("@")[0] || "User";
+
+  // ================= RENDER =================
   return (
-    <header className="bg-accent4 shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center py-4">
-          {/* Logo Section */}
-          <div className="flex items-center">
-            <img
-              src="/tree.png"
-              alt="Cococonnect Logo"
-              className="w-14 h-auto mr-3"
-            />
-            <div className="logo-text">
-              <span className="coco-text">COCO</span>
-              <span className="connect-text">CONNECT</span>
-            </div>
-          </div>
+    <>
+      <header
+        className={`sticky top-0 z-50 transition-all ${
+          isScrolled ? "bg-accent4 shadow-lg" : "bg-accent4 shadow-md"
+        }`}
+      >
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center py-4">
+            {/* Logo */}
+            <Link to="/" className="flex items-center">
+              <img src="/tree.png" alt="Logo" className="w-14 mr-3" />
+              <span className="text-3xl font-bold text-accent2">
+                COCOCONNECT
+              </span>
+            </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8 text-sm lg:text-base">
-            <Link to="/" className="font-bold text-accent2 hover:text-[#4caf50]">Home</Link>
-            <Link to="/about" className="font-bold text-accent2 hover:text-[#4caf50]">About Us</Link>
-            <Link to="/shop" className="font-bold text-accent2 hover:text-[#4caf50]">Shop</Link>
-            <Link to="/ideas" className="font-bold text-accent2 hover:text-[#4caf50]">Idea Sharing</Link>
-            <Link to="/news" className="font-bold text-accent2 hover:text-[#4caf50]">News Corner</Link>
-          </nav>
+            {/* Desktop Nav */}
+            <nav className="hidden md:flex space-x-6">
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`font-semibold ${
+                    location.pathname === item.path
+                      ? "text-green-600"
+                      : "text-accent2 hover:text-green-600"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
 
-          {/* Right Icons */}
-          <div className="flex items-center space-x-4">
-
-            {/* Language Dropdown */}
-            <div className="relative group">
-              <button className="flex items-center text-accent2 hover:text-[#4caf50] transition-colors">
-                <i className="fa-solid fa-earth-asia ml-2 text-xl" />
-              </button>
-              <div className="absolute right-0 mt-2 w-32 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50">
-                <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5">English</a>
-                <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5">සිංහල</a>
-                <a href="#" className="block px-4 py-2 font-bold text-accent2 hover:bg-accent5">日本語</a>
+            {/* Right Section */}
+            <div className="flex items-center gap-4">
+              {/* Language */}
+              <div className="relative group">
+                <i className="fa-solid fa-earth-asia text-xl cursor-pointer" />
+                <div className="absolute right-0 mt-2 w-36 bg-white shadow rounded hidden group-hover:block">
+                  {languages.map((lang) => (
+                    <div key={lang} className="px-4 py-2 hover:bg-accent5">
+                      {lang}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Search Icon + Input */}
-            <div className="relative group">
-              <i className="fa-solid fa-magnifying-glass text-2xl text-accent2 group-hover:text-[#4caf50] cursor-pointer" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="absolute top-1/2 -translate-y-1/2 right-0 w-0 group-hover:w-40 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white text-accent6 border border-accent3 rounded-md px-2 py-1"
-              />
-            </div>
+              {/* Search */}
+              <button onClick={() => setIsSearchFocused(true)}>
+                <i className="fa-solid fa-magnifying-glass text-xl" />
+              </button>
 
-            {/* Cart Icon */}
-            <Link to="/cart" className="relative text-accent2 hover:text-[#4caf50] transition-colors">
-              <i className="fa-solid fa-cart-shopping text-xl" />
-              {cartItemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                  {cartItemCount}
-                </span>
+              {isSearchFocused && (
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    debouncedSearch(e.target.value);
+                  }}
+                  onKeyDown={handleSearchKeyDown}
+                  onBlur={() => setIsSearchFocused(false)}
+                  className="border px-3 py-1 rounded"
+                  placeholder="Search..."
+                />
               )}
-            </Link>
 
-            {/* Login Icon */}
-            <Link to="/login" className="text-accent2 hover:text-secondary transition-colors">
-              <i className="fa-regular fa-user text-xl" />
-            </Link>
+              {/* Cart */}
+              <Link to="/cart" className="relative">
+                <i className="fa-solid fa-cart-shopping text-xl" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                    {cartItemCount}
+                  </span>
+                )}
+              </Link>
 
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={toggleMobileMenu}
-              className="md:hidden text-accent2 hover:text-secondary"
-            >
-              <i className="fas fa-bars text-xl" />
-            </button>
-          </div>
-        </div>
+              {/* User */}
+              {user ? (
+                <div className="relative" ref={userMenuRef}>
+                  <button onClick={() => setIsUserMenuOpen((p) => !p)}>
+                    {displayName}
+                  </button>
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 bg-white shadow rounded">
+                      <Link to="/profile" className="block px-4 py-2">
+                        Profile
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="px-4 py-2 text-red-500"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button onClick={() => setIsLoginOpen(true)}>Login</button>
+              )}
 
-        {/* Mobile Menu */}
-        {isMobileOpen && (
-          <div className="md:hidden py-4 border-t border-accent5 bg-accent4">
-            <div className="flex flex-col space-y-4">
-              <Link to="/" className="font-semibold text-accent2 hover:text-secondary">Home</Link>
-              <Link to="/about" className="font-medium text-accent2 hover:text-primary">About Us</Link>
-              <Link to="/shop" className="font-semibold text-accent2 hover:text-secondary">Shop</Link>
-              <Link to="/ideas" className="font-medium text-accent2 hover:text-primary">Idea Sharing</Link>
-              <Link to="/news" className="font-medium text-accent2 hover:text-primary">News Corner</Link>
-              <Link to="/cart" className="font-medium text-accent2 hover:text-primary">Cart</Link>
+              {/* Mobile */}
+              <button
+                aria-label="Mobile menu"
+                onClick={() => setIsMobileOpen((p) => !p)}
+                className="md:hidden"
+              >
+                <i className="fas fa-bars text-xl" />
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    </header>
+
+          {/* Mobile Menu */}
+          {isMobileOpen && (
+            <div ref={mobileMenuRef} className="md:hidden py-4">
+              {navItems.map((i) => (
+                <Link key={i.path} to={i.path} className="block py-2">
+                  {i.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onOpenRegister={() => {
+          setIsLoginOpen(false);
+          setIsRegisterOpen(true);
+        }}
+        onAuthSuccess={setUser}
+      />
+
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onAuthSuccess={setUser}
+      />
+    </>
   );
 };
 
