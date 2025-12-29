@@ -2,16 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------
+   GLOBAL STYLES
+---------------------------------------------- */
 :root {
   font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
+
   line-height: 1.5;
   font-weight: 400;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #ece7e1; /* accent4 */
-  color: #2f3e46; /* accent6 */
+
+  background-color: #ece7e1;
+  color: #2f3e46;
 }
 
 body {
@@ -20,9 +25,10 @@ body {
   min-height: 100vh;
 }
 
-/* ------------------------------- */
-/*           Logo Styles           */
-/* ------------------------------- */
+/* -------------------------------
+           Logo Styles
+-------------------------------- */
+
 .logo-text {
   font-family: "Bangers", cursive;
   font-size: 2.5rem;
@@ -37,15 +43,17 @@ body {
   color: #8bc34a;
 }
 
-/* ------------------------------- */
-/*       Footer Background         */
-/* ------------------------------- */
+/* -------------------------------
+       Footer Background
+-------------------------------- */
+
 .footer-bg {
   background-image: url("/palms-bg.png");
   background-size: cover;
   background-repeat: repeat;
   background-position: center;
   position: relative;
+  font-family: "Nunito", sans-serif;
 }
 
 .footer-bg::before {
@@ -57,26 +65,46 @@ body {
   pointer-events: none;
 }
 
-/* ------------------------------- */
-/*          Footer Glass           */
-/* ------------------------------- */
 .footer-glass {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.15);
+  position: relative;
+  z-index: 10;
 }
 
-/* Apply Nunito globally inside footer */
+/* ---------------------------------------------
+   COMPONENT UTILITIES
+---------------------------------------------- */
+
+.card-box {
+  @apply bg-white rounded-xl shadow hover:shadow-lg transition duration-300;
+}
+
 .footer-bg {
   font-family: "Nunito", sans-serif;
 }
 
-/* Logo text uses your special font — not Nunito 
-.logo-text {
-    font-family: 'YourLogoFont', sans-serif;
+.glass-panel {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
-*/
+
+.bg-accent {
+  background-color: #ece7e1;
+}
+
+.text-accent {
+  color: #2f3e46;
+}
+
+/* -------------------------------
+        Rain Effect
+-------------------------------- */
+
 .rain-container {
   position: fixed;
   top: 0;
@@ -97,15 +125,14 @@ body {
   opacity: 0.2;
 }
 
-/* 🌧️ NEW directional fall animation */
 @keyframes fallSideways {
   0% {
     transform: translate(0, -20vh);
   }
   50% {
-    transform: translate(5vw, 50vh); /* drift mid-way */
+    transform: translate(5vw, 50vh);
   }
   100% {
-    transform: translate(-5vw, 120vh); /* drift opposite direction at bottom */
+    transform: translate(-5vw, 120vh);
   }
 }

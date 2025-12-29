@@ -1,13 +1,18 @@
 from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
+
 from rest_framework import status
 
 
-from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
+
+
+def hello_coco(request):
+    return JsonResponse({"message": "CocoConnect API is running"})
+
 
 @csrf_exempt
 def register(request):
@@ -40,12 +45,8 @@ def register(request):
 
     return JsonResponse({"error": "Invalid request"}, status=405)
 
-from django.http import JsonResponse
 
-def hello_coco(request):
-    return JsonResponse({
-        "message": "CocoConnect API is working 🚀"
-    })
+
 
 from django.contrib.auth import authenticate
 
@@ -76,3 +77,4 @@ def login(request):
         }, status=200)
 
     return JsonResponse({"error": "Invalid request"}, status=405)
+
