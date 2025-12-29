@@ -4,7 +4,9 @@ import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
+import About from "./pages/About";
 import IdeaSharing from "./pages/IdeaSharing";
+import Investment from "./pages/Investment";
 
 // ADMIN
 import AdminLayout from "./admin/layout/AdminLayout";
@@ -31,6 +33,24 @@ export default function App() {
         element={
           <PublicLayout>
             <Home />
+          </PublicLayout>
+        }
+      />
+
+      <Route
+        path="/about"
+        element={
+          <PublicLayout>
+            <About />
+          </PublicLayout>
+        }
+      />
+
+      <Route
+        path="/investment"
+        element={
+          <PublicLayout>
+            <Investment />
           </PublicLayout>
         }
       />
