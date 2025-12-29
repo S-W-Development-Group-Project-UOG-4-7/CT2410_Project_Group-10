@@ -27,7 +27,7 @@ function PublicLayout({ children }) {
 export default function App() {
   return (
     <Routes>
-      {/* 🌍 PUBLIC ROUTES */}
+      {/*  PUBLIC ROUTES */}
       <Route
         path="/"
         element={
