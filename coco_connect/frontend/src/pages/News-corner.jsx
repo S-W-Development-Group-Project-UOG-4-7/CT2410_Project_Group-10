@@ -1,232 +1,135 @@
-import React from "react";
+import { useState } from "react";
 
-const NewsCorner = () => {
+export default function NewsCorner() {
+  const [selectedNews, setSelectedNews] = useState(null);
+
+  const newsList = [
+    {
+      id: 1,
+      title: "Coconut Industry Boosts Local Economy",
+      shortDescription:
+        "Sri Lanka’s coconut exports show strong growth this quarter.",
+      fullDescription:
+        "Sri Lanka’s coconut industry has shown remarkable growth this year, contributing significantly to rural employment and foreign exchange earnings.\n\nExperts say sustainable farming and global demand are the key drivers behind this success.",
+      date: "2025-12-20",
+      image:
+        "https://images.unsplash.com/photo-1502741126161-f7a638e2f2bd",
+    },
+    {
+      id: 2,
+      
+      title: "Smart Farming Technology for Coconut Trees",
+      shortDescription:
+        "IoT and AI technologies are transforming coconut plantations.",
+      fullDescription:
+        "Modern coconut plantations are now adopting IoT sensors and AI tools to monitor soil moisture, weather conditions, and tree health.\n\nThis reduces water waste and increases harvest quality.",
+      date: "2025-12-18",
+      image:
+        "https://images.unsplash.com/photo-1501004318641-b39e6451bec6",
+    },
+    {
+      id: 3,
+      title: "Eco-Friendly Coconut Products Gain Popularity",
+      shortDescription:
+        "Consumers shift towards biodegradable coconut-based products.",
+      fullDescription:
+        "From coconut shell utensils to eco-friendly packaging, coconut-based products are gaining massive attention worldwide.\n\nEnvironmental experts encourage this trend as a step towards sustainability.",
+      date: "2025-12-15",
+      image:
+        "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38",
+    },
+  ];
+
   return (
-    <div className="news-corner-page">
-      {/* HEADER */}
-      <header className="main-header">
-        <div className="header-container">
-          <div className="logo-section">
-            <a href="#" className="logo">
-              <i className="fas fa-leaf logo-icon" />
-              <div className="logo-text">
-                <h1>
-                  CocoConnect
-                  <span style={{ color: "var(--accent-light)" }}>.</span>
-                </h1>
-                <div className="tagline">Connecting the Coconut World</div>
-              </div>
-            </a>
-            <div className="premium-badge">
-              <i className="fas fa-crown" />
-              PREMIUM NEWS CORNER
-            </div>
-          </div>
+    <div className="bg-[#f9faf7] min-h-screen">
+      {/* HERO SECTION */}
+      <section className="bg-[#4caf50] px-8 py-20">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-10 items-center">
+          <h1 className="text-[90px] font-extrabold text-white leading-none">
+            News Corner
+          </h1>
 
-          <div className="header-actions">
-            <div className="search-container">
-              <div className="search-icon">
-                <i className="fas fa-search" />
-              </div>
-              <input
-                type="text"
-                className="search-bar"
-                placeholder="Search news, topics, authors..."
-              />
-            </div>
-
-            <button className="btn-primary" type="button">
-              <i className="fas fa-plus-circle" />
-              Publish News
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <div className="main-container">
-        {/* HERO */}
-        <section className="hero-section">
-          <h1>🌴 Coconut News Corner</h1>
-          <p>
-            Your premier source for coconut industry updates, market insights,
-            and community news. Stay connected with the latest trends and
-            developments from around the coconut world.
+          <p className="text-sm text-white max-w-sm">
+            Latest updates <br />
+            Coconut industry, technology, and sustainability.
           </p>
-          <div className="hero-stats">
-            <div className="stats-grid">
-              <div className="stat-item">
-                <div className="stat-value">128</div>
-                <div className="stat-label">Total News</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">2.4K</div>
-                <div className="stat-label">Active Users</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">48</div>
-                <div className="stat-label">Paid Publishers</div>
-              </div>
-              <div className="stat-item">
-                <div className="stat-value">4.7</div>
-                <div className="stat-label">Avg Rating</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SORT BAR */}
-        <nav className="sort-navigation">
-          <div className="sort-title">Sort by:</div>
-          <button className="sort-btn active" type="button">
-            <i className="fas fa-clock" />
-            Newest
-          </button>
-          <button className="sort-btn" type="button">
-            <i className="fas fa-fire" />
-            Trending
-          </button>
-          <button className="sort-btn" type="button">
-            <i className="fas fa-heart" />
-            Most Popular
-          </button>
-          <button className="sort-btn" type="button">
-            <i className="fas fa-star" />
-            Highest Rated
-          </button>
-        </nav>
-
-        {/* CATEGORY FILTER */}
-        <div className="category-filter">
-          <button className="category-btn active" type="button">
-            All Categories
-          </button>
-          <button className="category-btn" type="button">
-            Market
-          </button>
-          <button className="category-btn" type="button">
-            Sustainability
-          </button>
-          <button className="category-btn" type="button">
-            Investment
-          </button>
-          <button className="category-btn" type="button">
-            Technology
-          </button>
-          <button className="category-btn" type="button">
-            Products
-          </button>
         </div>
+      </section>
 
-        {/* NEWS GRID (STATIC FOR NOW) */}
-        <main className="main-content">
-          <div className="news-grid">
-            <article className="news-card">
-              <span className="publisher-badge paid">Premium Publisher</span>
-              <div className="news-image-container">
+      {/* NEWS LIST */}
+      {!selectedNews && (
+        <section className="-mt-20 px-8 pb-20">
+          <div className="max-w-7xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {newsList.map((news) => (
+              <div
+                key={news.id}
+                className="rounded-xl overflow-hidden shadow-lg bg-white border border-[#5d4037] transition hover:-translate-y-1"
+              >
                 <img
-                  className="news-image"
-                  src="https://images.unsplash.com/photo-1516594915697-87eb3b1c14ea?auto=format&fit=crop&w=600&q=80"
-                  alt="Coconut market"
+                  src={news.image}
+                  alt={news.title}
+                  className="h-56 w-full object-cover"
                 />
-              </div>
-              <div className="news-content">
-                <span className="news-category">MARKET</span>
-                <h3 className="news-title">
-                  Global Coconut Water Market to Reach $10B by 2025
-                </h3>
-                <p className="news-excerpt">
-                  New market analysis shows unprecedented growth in coconut water
-                  consumption worldwide, with Asia-Pacific leading the expansion.
-                </p>
-                <div className="news-meta">
-                  <span>
-                    <i className="fas fa-user" /> Market Insights Pro
-                  </span>
-                  <span>
-                    <i className="fas fa-clock" /> 2 hours ago
-                  </span>
+
+                <div className="p-6">
+                  <h3 className="text-xl font-bold mb-2 text-[#6b3f23]">
+                    {news.title}
+                  </h3>
+
+                  <p className="text-sm text-[#5d4037]">
+                    {news.shortDescription}
+                  </p>
+
+                  <p className="text-xs mt-4 text-[#5d4037]">
+                    {new Date(news.date).toDateString()}
+                  </p>
+
+                  <button
+                    onClick={() => setSelectedNews(news)}
+                    className="mt-5 w-full py-2 bg-[#4caf50] text-white font-semibold rounded-lg hover:bg-[#66bb6a]"
+                  >
+                    Read More
+                  </button>
                 </div>
               </div>
-            </article>
+            ))}
           </div>
+        </section>
+      )}
 
-          <div style={{ textAlign: "center", margin: "2rem 0" }}>
-            <button
-              className="submit-btn"
-              type="button"
-              style={{ maxWidth: 200, margin: "0 auto" }}
-            >
-              <i className="fas fa-sync-alt" />
-              Load More News
-            </button>
-          </div>
-        </main>
+      {/* FULL NEWS VIEW */}
+      {selectedNews && (
+        <section className="px-8 py-20">
+          <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-lg overflow-hidden border border-[#5d4037]">
+            <img
+              src={selectedNews.image}
+              alt={selectedNews.title}
+              className="h-80 w-full object-cover"
+            />
 
-        {/* SIDEBAR */}
-        <aside className="sidebar">
-          <div className="sidebar-card">
-            <h2 className="sidebar-title">
-              <i className="fas fa-pen-alt" />
-              Publish Your News
-            </h2>
-            <div className="publish-form">
-              <div className="publisher-type-selector">
-                <button
-                  className="publisher-type-btn free active"
-                  type="button"
-                >
-                  <i className="fas fa-user" />
-                  Free Publisher
-                </button>
-                <button className="publisher-type-btn paid" type="button">
-                  <i className="fas fa-crown" />
-                  Paid Publisher
-                </button>
-              </div>
+            <div className="p-8">
+              <h2 className="text-3xl font-bold mb-4 text-[#6b3f23]">
+                {selectedNews.title}
+              </h2>
 
-              <div className="form-group">
-                <label htmlFor="newsTitle">News Title</label>
-                <input
-                  id="newsTitle"
-                  className="form-input"
-                  type="text"
-                  placeholder="Enter your news headline"
-                />
-              </div>
+              <p className="text-gray-500 text-sm mb-6">
+                {new Date(selectedNews.date).toDateString()}
+              </p>
 
-              <div className="form-group">
-                <label htmlFor="newsCategory">Category</label>
-                <select id="newsCategory" className="form-select">
-                  <option value="">Select category</option>
-                  <option value="market">Market Prices</option>
-                  <option value="investment">Investment</option>
-                  <option value="sustainability">Sustainability</option>
-                  <option value="technology">Technology</option>
-                  <option value="products">New Products</option>
-                  <option value="events">Events</option>
-                </select>
-              </div>
+              <p className="text-[#5d4037] whitespace-pre-line leading-relaxed">
+                {selectedNews.fullDescription}
+              </p>
 
-              <div className="form-group">
-                <label htmlFor="newsContent">News Content</label>
-                <textarea
-                  id="newsContent"
-                  className="form-textarea"
-                  placeholder="Write your news article..."
-                />
-              </div>
-
-              <button className="submit-btn" type="button">
-                <i className="fas fa-paper-plane" />
-                Publish News
+              <button
+                onClick={() => setSelectedNews(null)}
+                className="mt-8 px-6 py-3 bg-[#4caf50] text-white font-bold rounded-xl hover:bg-[#66bb6a]"
+              >
+                ← Back to News
               </button>
             </div>
           </div>
-        </aside>
-      </div>
+        </section>
+      )}
     </div>
   );
-};
-
-export default NewsCorner;
+}
