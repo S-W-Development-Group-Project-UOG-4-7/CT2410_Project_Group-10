@@ -169,46 +169,49 @@ def make_investment(request):
             return JsonResponse({'error': 'Project ID and amount required'}, status=400)
         
         try:
-            project = InvestmentProject.objects.get(id=project_id, status='active')
-        except InvestmentProject.DoesNotExist:
-            return JsonResponse({'error': 'Project not found or not active'}, status=404)
+            project = InvestmentProject.objects.filter(id=project_id).first()
+            if not project:
+                return JsonResponse({'error': 'Project not found'}, status=404)
+
+            # Check minimum investment
+            if amount < 100:
+                return JsonResponse({'error': 'Minimum investment is $100'}, status=400)
+            
+            # Check if amount exceeds funding needed
+            if amount > project.funding_needed:
+                return JsonResponse({'error': f'Maximum investment allowed is ${project.funding_needed}'}, status=400)
+            
+            # Create investment (in real app, get user from session/token)
+            # For demo, we'll create with a default user
+            from django.contrib.auth.models import User
+            user = User.objects.first()  # Get first user for demo
+            
+            investment = Investment.objects.create(
+                investor=user,
+                project=project,
+                amount=amount,
+                payment_method=payment_method,
+                status='confirmed'
+            )
+            
+            # Update project
+            project.current_amount += amount
+            project.investors_count += 1
+            
+            if project.current_amount >= project.target_amount:
+                project.status = 'funded'
+            
+            project.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Successfully invested ${amount} in "{project.title}"',
+                'transaction_id': investment.transaction_id,
+                'new_funding_percentage': round(project.funding_percentage, 1)
+            })
         
-        # Check minimum investment
-        if amount < 100:
-            return JsonResponse({'error': 'Minimum investment is $100'}, status=400)
-        
-        # Check if amount exceeds funding needed
-        if amount > project.funding_needed:
-            return JsonResponse({'error': f'Maximum investment allowed is ${project.funding_needed}'}, status=400)
-        
-        # Create investment (in real app, get user from session/token)
-        # For demo, we'll create with a default user
-        from django.contrib.auth.models import User
-        user = User.objects.first()  # Get first user for demo
-        
-        investment = Investment.objects.create(
-            investor=user,
-            project=project,
-            amount=amount,
-            payment_method=payment_method,
-            status='confirmed'
-        )
-        
-        # Update project
-        project.current_amount += amount
-        project.investors_count += 1
-        
-        if project.current_amount >= project.target_amount:
-            project.status = 'funded'
-        
-        project.save()
-        
-        return JsonResponse({
-            'success': True,
-            'message': f'Successfully invested ${amount} in "{project.title}"',
-            'transaction_id': investment.transaction_id,
-            'new_funding_percentage': round(project.funding_percentage, 1)
-        })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 

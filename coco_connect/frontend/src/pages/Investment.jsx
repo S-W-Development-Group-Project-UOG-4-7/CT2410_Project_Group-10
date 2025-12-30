@@ -244,45 +244,34 @@ const InvestmentPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleConfirmInvestment = async () => {
-    try {
-      // Simulate API call to Django backend
-      console.log(`Investing RS.${investmentAmount} in project ${selectedProject.id}`);
-      
-      // In real implementation, call your Django API:
-      // const response = await fetch('http://localhost:8000/api/investments/', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': `Bearer ${localStorage.getItem('token')}`,
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     project_id: selectedProject.id,
-      //     amount: investmentAmount,
-      //     payment_method: 'payhere'
-      //   }),
-      // });
-      
-      alert(`Successfully invested RS.${investmentAmount.toLocaleString()} in "${selectedProject.title}"!\n\nYou will receive updates about your investment via email.`);
-      setIsModalOpen(false);
-      setSelectedProject(null);
-      
-      // Refresh projects list
-      setLoading(true);
-      setTimeout(() => {
-        const updatedProjects = mockProjects.map(p => 
-          p.id === selectedProject.id 
-            ? {...p, currentAmount: p.currentAmount + investmentAmount}
-            : p
-        );
-        setProjects(updatedProjects);
-        setLoading(false);
-      }, 500);
-      
-    } catch (error) {
-      alert('Investment failed: ' + error.message);
+const handleConfirmInvestment = async () => {
+  try {
+    const res = await fetch("http://127.0.0.1:8000/api/make-investment/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        project_id: selectedProject.id,
+        amount: investmentAmount,
+        payment_method: "payhere",
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error);
+      return;
     }
-  };
+
+    alert(data.message);
+  } catch (error) {
+    console.error(error);
+    alert("Server error");
+  }
+};
+
 
   const calculateExpectedReturn = (amount, roi, duration) => {
     const monthlyROI = roi / 12 / 100;
@@ -948,23 +937,25 @@ const InvestmentPage = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmInvestment}
-                  className="flex-1 py-3 px-4 bg-primary text-white rounded-lg hover:bg-accent2 transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Confirm Investment
-                </button>
-              </div>
+<div className="flex gap-3">
+  <button
+    onClick={() => setIsModalOpen(false)}
+    className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+  >
+    Cancel
+  </button>
+
+  <button
+    onClick={handleConfirmInvestment}
+    className="flex-1 py-3 px-4 bg-primary text-white rounded-lg hover:bg-accent2 transition-colors font-medium flex items-center justify-center gap-2"
+  >
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+    Confirm Investment
+  </button>
+</div>
+
 
               {/* Security Note */}
               <p className="text-xs text-gray-500 text-center mt-4">
