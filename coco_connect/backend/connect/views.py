@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
+from django.db.models import Q
 
 @csrf_exempt
 def register(request):
@@ -33,8 +34,11 @@ def register(request):
         )
 
         # update role in profile
-        user.profile.role = role
-        user.profile.save()
+        # If you have Profile model/signals this works; otherwise avoid crashing
+        if hasattr(user, "profile"):
+            user.profile.role = role
+            user.profile.save()
+
 
         return JsonResponse({"message": "User registered successfully"}, status=201)
 
@@ -71,8 +75,86 @@ def login(request):
                 "id": user.id,
                 "email": user.email,
                 "name": user.first_name,
-                "role": user.profile.role
+                "role": user.profile.role if hasattr(user, "profile") else "User"
+
             }
         }, status=200)
+
+    return JsonResponse({"error": "Invalid request"}, status=405)
+
+
+@csrf_exempt
+def users_list(request):
+    if request.method == "GET":
+        q = request.GET.get("q", "").strip()
+
+        qs = User.objects.all().order_by("-date_joined")
+        if q:
+            qs = qs.filter(
+                Q(first_name__icontains=q) |
+                Q(last_name__icontains=q) |
+                Q(email__icontains=q) |
+                Q(username__icontains=q)
+            )
+
+        data = []
+        for u in qs:
+          data.append({
+            "id": u.id,
+            "name": (u.first_name + " " + u.last_name).strip() or u.username,
+            "email": u.email,
+            "role": (
+                u.profile.role
+                if hasattr(u, "profile")
+                else ("Admin" if u.is_staff else "User")
+            ),
+            "is_active": u.is_active,
+        })
+
+
+        return JsonResponse({"users": data}, status=200)
+
+    return JsonResponse({"error": "Invalid request"}, status=405)
+
+
+@csrf_exempt
+def users_delete(request, user_id):
+    if request.method == "DELETE":
+        try:
+            u = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({"error": "User not found"}, status=404)
+
+        # optional safety: avoid deleting superuser
+        if u.is_superuser:
+            return JsonResponse({"error": "Cannot delete superuser"}, status=403)
+
+        u.delete()
+        return JsonResponse({"message": "User deleted"}, status=200)
+
+    return JsonResponse({"error": "Invalid request"}, status=405)
+
+@csrf_exempt
+def users_update(request, user_id):
+    # PATCH: update fields like is_active (deactivate/activate)
+    if request.method == "PATCH":
+        try:
+            u = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({"error": "User not found"}, status=404)
+
+        data = json.loads(request.body or "{}")
+
+        # deactivate/activate
+        if "is_active" in data:
+            u.is_active = bool(data["is_active"])
+            u.save()
+
+        # optionally update role if you want (safe)
+        if "role" in data and hasattr(u, "profile"):
+            u.profile.role = data["role"]
+            u.profile.save()
+
+        return JsonResponse({"message": "User updated"}, status=200)
 
     return JsonResponse({"error": "Invalid request"}, status=405)
