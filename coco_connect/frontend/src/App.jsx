@@ -3,8 +3,16 @@ import { Routes, Route } from "react-router-dom";
 // PUBLIC
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+
 import Home from "./pages/Home";
 import IdeaSharing from "./pages/IdeaSharing";
+
+import Product from "./pages/Product-pg";
+import Cart from "./pages/Cart"; // ✅ Added Cart import 
+import Investment from "./pages/Investment";
+
+import About from "./pages/About"; // I can create this for you
+import News from "./pages/News";
 
 // ADMIN
 import AdminLayout from "./admin/layout/AdminLayout";
@@ -17,10 +25,27 @@ function PublicLayout({ children }) {
     <div className="min-h-screen flex flex-col bg-[#f9faf7]">
       <Navbar />
       <div className="flex-1">{children}</div>
+
+      <div className="flex-1">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/investment" element={<Investment />} />
+          <Route path="/ideas" element={<IdeaSharing />} />
+
+          <Route path="/shop" element={<Product />} />
+          <Route path="/cart" element={<Cart />} /> {/* ✅ Cart route added */}
+
+          <Route path="/about" element={<About />} />
+          <Route path="/news" element={<News />} />
+
+        </Routes>
+      </div>
+
       <Footer />
     </div>
   );
 }
+
 
 export default function App() {
   return (
@@ -74,3 +99,5 @@ export default function App() {
     </Routes>
   );
 }
+export default App;
+        
