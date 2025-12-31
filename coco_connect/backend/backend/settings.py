@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-at&fdji3%7$q!^d&ja!bu8@#afa^wg$bp82m(_h+l#kn4n-4**
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1","localhost"]
 
 # Application definition
 INSTALLED_APPS = [
@@ -139,4 +139,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    
+    "DATE_INPUT_FORMATS": ["%Y-%m-%d", "%m/%d/%Y"],
+    "DATE_FORMAT": "%Y-%m-%d",
 }

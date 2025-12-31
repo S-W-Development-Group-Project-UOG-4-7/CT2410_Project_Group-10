@@ -3,12 +3,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
 from django.db.models import Q
+
+from rest_framework.viewsets import ModelViewSet
+from .models import News
+from .serializers import NewsSerializer
 
 @csrf_exempt
 def register(request):
@@ -158,3 +161,8 @@ def users_update(request, user_id):
         return JsonResponse({"message": "User updated"}, status=200)
 
     return JsonResponse({"error": "Invalid request"}, status=405)
+
+
+class NewsViewSet(ModelViewSet):
+    queryset = News.objects.all().order_by("-date", "-id")
+    serializer_class = NewsSerializer
