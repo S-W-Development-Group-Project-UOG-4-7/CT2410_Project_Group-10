@@ -13,6 +13,7 @@ import AdminLayout from "./admin/layout/AdminLayout";
 import Dashboard from "./admin/pages/Dashboard";
 import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
+import News from "./admin/pages/News";
 
 function PublicLayout({ children }) {
   return (
@@ -28,69 +29,16 @@ export default function App() {
   return (
     <Routes>
       {/*  PUBLIC ROUTES */}
-      <Route
-        path="/"
-        element={
-          <PublicLayout>
-            <Home />
-          </PublicLayout>
-        }
-      />
-
-      <Route
-        path="/about"
-        element={
-          <PublicLayout>
-            <About />
-          </PublicLayout>
-        }
-      />
-
-      <Route
-        path="/investment"
-        element={
-          <PublicLayout>
-            <Investment />
-          </PublicLayout>
-        }
-      />
-
-      <Route
-        path="/ideas"
-        element={
-          <PublicLayout>
-            <IdeaSharing />
-          </PublicLayout>
-        }
-      />
+      <Route  path="/"  element={  <PublicLayout> <Home /> </PublicLayout>  }  />
+      <Route  path="/about" element={  <PublicLayout> <About />  </PublicLayout>}/>
+      <Route path="/investment" element={  <PublicLayout> <Investment /> </PublicLayout> }  />
+      <Route  path="/ideas"  element={    <PublicLayout>      <IdeaSharing />    </PublicLayout>  } />
 
       {/* 🔐 ADMIN ROUTES */}
-      <Route
-        path="/admin"
-        element={
-          <AdminLayout>
-            <Dashboard />
-          </AdminLayout>
-        }
-      />
-
-      <Route
-        path="/admin/users"
-        element={
-          <AdminLayout>
-            <Users />
-          </AdminLayout>
-        }
-      />
-
-      <Route
-        path="/admin/blockchain"
-        element={
-          <AdminLayout>
-            <Blockchain />
-          </AdminLayout>
-        }
-      />
+      <Route  path="/admin"  element={  <AdminLayout>    <Dashboard />  </AdminLayout>  }/>
+      <Route path="/admin/users" element={   <AdminLayout>  <Users />  </AdminLayout>  }/>
+      <Route path="/admin/blockchain" element={ <AdminLayout> <Blockchain />  </AdminLayout>  }/>
+      <Route path="/admin/news" element={ <AdminLayout> <News />  </AdminLayout> }/>
     </Routes>
   );
 }
