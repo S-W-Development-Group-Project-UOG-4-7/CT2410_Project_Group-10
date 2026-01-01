@@ -13,7 +13,7 @@ import AdminLayout from "./admin/layout/AdminLayout";
 import Dashboard from "./admin/pages/Dashboard";
 import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
-import News from "./admin/pages/News";
+import News from "./admin/pages/AdminNews";
 
 function PublicLayout({ children }) {
   return (
