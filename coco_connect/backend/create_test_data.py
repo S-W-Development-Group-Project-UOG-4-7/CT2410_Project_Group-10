@@ -195,11 +195,12 @@ print(f"   🌴 Total Projects: {InvestmentProject.objects.count()}")
 print(f"   🟢 Active Projects: {InvestmentProject.objects.filter(status='active').count()}")
 print(f"   ✅ Funded Projects: {InvestmentProject.objects.filter(status='funded').count()}")
 
+# Change this in create_test_data.py:
 print("\n🔗 TEST YOUR API:")
-print("   1. Projects: http://localhost:8000/api/investment-projects/")
-print("   2. Stats: http://localhost:8000/api/investment-stats/")
-print("   3. Categories: http://localhost:8000/api/investment-categories/")
-print("   4. Locations: http://localhost:8000/api/project-locations/")
+print("   1. Projects: http://localhost:8000/api/projects/")  # ✅ Correct
+print("   2. Stats: http://localhost:8000/api/stats/")        # ✅ Correct
+print("   3. Categories: http://localhost:8000/api/categories/")  # ✅
+print("   4. Locations: http://localhost:8000/api/locations/")   
 
 print("\n👤 LOGIN CREDENTIALS:")
 print("   👨‍🌾 Farmer: testfarmer / test123")
