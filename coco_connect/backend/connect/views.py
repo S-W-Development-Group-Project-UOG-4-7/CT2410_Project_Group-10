@@ -1,80 +1,72 @@
 from django.contrib.auth.models import User
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
-
 from rest_framework import status
 
-
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-import json
-
-
-def hello_coco(request):
-    return JsonResponse({"message": "CocoConnect API is running"})
+from .models import Idea
+from .serializers import IdeaSerializer
+from .permissions import IsOwner
 
 
-@csrf_exempt
-def register(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
+# ============================
+# 🔓 REGISTER (PUBLIC)
+# ============================
+class RegisterView(APIView):
+    permission_classes = [AllowAny]
 
-        name = data.get("name")
-        email = data.get("email")
-        password = data.get("password")
-        role = data.get("role")
+    def post(self, request):
+        name = request.data.get("name")
+        email = request.data.get("email")
+        password = request.data.get("password")
+        role = request.data.get("role")
 
         if not all([name, email, password, role]):
-            return JsonResponse({"error": "All fields required"}, status=400)
+            return Response(
+                {"error": "All fields are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if User.objects.filter(username=email).exists():
-            return JsonResponse({"error": "User already exists"}, status=400)
+            return Response(
+                {"error": "User already exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        user = User.objects.create_user(
+        User.objects.create_user(
             username=email,
             email=email,
             password=password,
             first_name=name,
         )
 
-        # update role in profile
-        user.profile.role = role
-        user.profile.save()
-
-        return JsonResponse({"message": "User registered successfully"}, status=201)
-
-    return JsonResponse({"error": "Invalid request"}, status=405)
+        return Response(
+            {"message": "User registered successfully"},
+            status=status.HTTP_201_CREATED,
+        )
 
 
+# ============================
+# 🔐 IDEAS API
+# ============================
+class IdeaViewSet(ModelViewSet):
+    queryset = Idea.objects.all().order_by("-created_at")
+    serializer_class = IdeaSerializer
 
+    def get_permissions(self):
+        if self.action in ["update", "partial_update", "destroy"]:
+            permissions = [IsAuthenticated, IsOwner]
+        elif self.action == "create":
+            permissions = [IsAuthenticated]
+        else:
+            permissions = [IsAuthenticatedOrReadOnly]
 
-from django.contrib.auth import authenticate
+        return [permission() for permission in permissions]
 
-@csrf_exempt
-def login(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-
-        email = data.get("email")
-        password = data.get("password")
-
-        if not email or not password:
-            return JsonResponse({"error": "Email and password required"}, status=400)
-
-        user = authenticate(username=email, password=password)
-
-        if user is None:
-            return JsonResponse({"error": "Invalid credentials"}, status=401)
-
-        return JsonResponse({
-            "message": "Login successful",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "name": user.first_name,
-                "role": user.profile.role
-            }
-        }, status=200)
-
-    return JsonResponse({"error": "Invalid request"}, status=405)
-
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)

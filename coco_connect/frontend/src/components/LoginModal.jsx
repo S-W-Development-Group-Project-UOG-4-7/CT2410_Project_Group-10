@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { loginUser } from "../services/authService";
 
-export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSuccess }) {
+export default function LoginModal({
+  isOpen,
+  onClose,
+  onOpenRegister,
+  onAuthSuccess,
+}) {
   const modalRef = useRef();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -46,21 +51,20 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
       localStorage.setItem("refresh", data.refresh);
 
       const userObj = {
-  name: formData.email,   // later you can replace with real name from backend
-  email: formData.email,
-  rememberMe,
-};
+        name: formData.email, // later you can replace with real name from backend
+        email: formData.email,
+        rememberMe,
+      };
 
-localStorage.setItem("user", JSON.stringify(userObj));
+      localStorage.setItem("user", JSON.stringify(userObj));
 
-// ✅ tell Navbar immediately
-onAuthSuccess?.(userObj);
+      // ✅ tell Navbar immediately
+      onAuthSuccess?.(userObj);
 
-console.log("Logged in with token:", data);
+      console.log("Logged in with token:", data);
 
-// ✅ Close modal
-onClose();
-
+      // ✅ Close modal
+      onClose();
     } catch (err) {
       // show a nicer error if backend is down vs wrong password
       setErrors({
@@ -181,7 +185,9 @@ onClose();
 
           {errors.submit && (
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
-              <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
+              <p className="text-red-600 text-sm font-medium">
+                {errors.submit}
+              </p>
             </div>
           )}
 
