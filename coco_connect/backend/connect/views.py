@@ -21,7 +21,7 @@ def hello_coco(request):
 @csrf_exempt
 def register(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
 
         name = data.get("name")
         email = data.get("email")
@@ -41,9 +41,11 @@ def register(request):
             first_name=name,
         )
 
-        # update role in profile
-        user.profile.role = role
-        user.profile.save()
+        # ✅ role is not stored in Profile (no User<->Profile relation in DB)
+        # Optional: if you want Admin role to mean staff:
+        if role == "Admin":
+            user.is_staff = True
+            user.save()
 
         return JsonResponse({"message": "User registered successfully"}, status=201)
 
@@ -53,7 +55,7 @@ def register(request):
 @csrf_exempt
 def login(request):
     if request.method == "POST":
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
 
         email = data.get("email")
         password = data.get("password")
@@ -72,22 +74,12 @@ def login(request):
                 "id": user.id,
                 "email": user.email,
                 "name": user.first_name,
-                "role": user.profile.role
+                "role": "Admin" if user.is_staff else "User",
             }
         }, status=200)
 
     return JsonResponse({"error": "Invalid request"}, status=405)
 
-#@api_view(["GET"])
-#@permission_classes([IsAuthenticated])
-#def me(request):
- #   user = request.user
- #   return Response({
- #       "id": user.id,
- #       "email": user.email,
- #       "name": user.first_name,
- #       "role": user.profile.role,
- #   })
 
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
@@ -95,16 +87,14 @@ def me(request):
     user = request.user
 
     if request.method == "PUT":
-        # update basic user fields
         user.first_name = request.data.get("name", user.first_name)
-        user.email = request.data.get("email", user.email)  # optional
+        user.email = request.data.get("email", user.email)
         user.save()
-
-        # if later you add phone/address in Profile, update here too
 
     return Response({
         "id": user.id,
         "email": user.email,
         "name": user.first_name,
-        "role": user.profile.role,
+        "role": "Admin" if user.is_staff else "User",
+        "is_active": user.is_active,
     })

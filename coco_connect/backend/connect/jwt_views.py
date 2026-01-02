@@ -1,19 +1,31 @@
-from rest_framework_simplejwt.views import TokenObtainPairView
+# connect/jwt_views.py
+
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
+
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-
-        # add role from Profile
         user = self.user
-        data["role"] = user.profile.role  # connect_profile role
 
-        # optional: add name/email too if you want
-        data["email"] = user.email
-        data["name"] = user.first_name
+        # ✅ Your DB has no Profile.user/role, so derive role from User flags
+        data["user"] = {
+            "id": user.id,
+            "email": user.email,
+            "name": user.first_name,
+            "role": "Admin" if user.is_staff else "User",
+        }
 
         return data
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["role"] = "Admin" if user.is_staff else "User"
+        token["name"] = user.first_name
+        return token
+
 
 class MyTokenObtainPairView(TokenObtainPairView):
     serializer_class = MyTokenObtainPairSerializer

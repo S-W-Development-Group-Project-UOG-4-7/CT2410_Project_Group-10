@@ -73,6 +73,13 @@ console.log("Logged in with token:", data);
 // ✅ Close modal
 onClose();
 
+// ✅ Redirect user
+if (apiUser.role === "Admin") {
+  navigate("/admin/blockchain");
+} else {
+  navigate("/customer");
+}
+
     } catch (err) {
       // show a nicer error if backend is down vs wrong password
       setErrors({
