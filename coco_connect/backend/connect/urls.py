@@ -1,25 +1,24 @@
-#from django.contrib import admin
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import hello_coco, register, login, users_list, users_delete, users_update,NewsViewSet
-
-router = DefaultRouter()
-router.register(r"news", NewsViewSet, basename="news")
+# connect/urls.py
+from django.urls import path
+from . import views
 
 urlpatterns = [
-    path('hello/', hello_coco),
-    path("register/", register),
-    path("login/", login),
+    path("hello/", views.hello_coco, name="hello_coco"),
 
-    # USERS API
-    path("users/", users_list),                 # GET (list + search)
-    path("users/<int:user_id>/", users_delete), # DELETE
-    path("users/<int:user_id>/update/", users_update),
+    # Investment
+    path("projects/", views.get_projects, name="get_projects"),
+    path("projects/<int:project_id>/", views.get_project_detail, name="get_project_detail"),
+    path("make-investment/", views.create_investment, name="create_investment"),
+    path("my-investments/", views.my_investments),
 
-    #path("admin/", admin.site.urls),
-    path("blockchain/", include("blockchain_records.urls")),
 
-    path("", include(router.urls)),
+    # Optional
+    path("categories/", views.get_categories, name="get_categories"),
+    path("locations/", views.get_locations, name="get_locations"),
+    path("stats/", views.get_platform_stats, name="get_platform_stats"),
+    path("create-demo-projects/", views.create_demo_projects, name="create_demo_projects"),
+
+    # Auth (if you use them)
+    path("register/", views.register, name="register"),
+    path("login/", views.login, name="login"),
 ]
-
-

@@ -28,6 +28,7 @@ ALLOWED_HOSTS = ["127.0.0.1","localhost"]
 
 # Application definition
 INSTALLED_APPS = [
+    # default django apps...
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,14 +39,12 @@ INSTALLED_APPS = [
     # third-party apps
     'rest_framework',
     'corsheaders',
-
-    "blockchain_records",
-
-    # your app
-    #'connect',
-    'connect.apps.ConnectConfig',
-
+    'django_filters',
     'rest_framework_simplejwt',
+
+    # your apps
+    'connect.apps.ConnectConfig',   # ✅ pick ONE (best)
+    'blockchain_records',           # ✅ admin blockchain app
 ]
 
 MIDDLEWARE = [
@@ -139,7 +138,10 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.AllowAny",
+    ),
     "DATE_INPUT_FORMATS": ["%Y-%m-%d", "%m/%d/%Y"],
     "DATE_FORMAT": "%Y-%m-%d",
 }
+
