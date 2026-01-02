@@ -62,12 +62,13 @@ console.log("Logged in with token:", data);
 onClose();
 
     } catch (err) {
-      // show a nicer error if backend is down vs wrong password
-      setErrors({
-        submit:
-          err?.response?.data?.detail ||
-          "Login failed. Check email/password and make sure Django is running.",
-      });
+      console.error("Login error:", err);
+      const serverMsg =
+        err?.response?.data?.detail ||
+        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        err?.message ||
+        "Login failed. Check email/password and make sure Django is running.";
+      setErrors({ submit: serverMsg });
     } finally {
       setIsSubmitting(false);
     }
