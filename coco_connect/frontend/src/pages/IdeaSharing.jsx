@@ -123,6 +123,15 @@ export default function IdeaSharing() {
     setPayIdea(null);
   };
 
+  // Check if user can view full details
+  const canViewFullDetails = (idea) => {
+    return (
+      !idea.is_paid ||
+      idea.author_name === myEmail ||
+      purchased.includes(idea.id)
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f7faf8] to-[#eef4ef]">
       <BackgroundRain />
@@ -181,7 +190,7 @@ export default function IdeaSharing() {
         </div>
       </header>
 
-      {/* GRID */}
+      {/* GRID - SHORT DESCRIPTION ALWAYS VISIBLE */}
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredIdeas.map((idea) => (
@@ -265,7 +274,7 @@ export default function IdeaSharing() {
         +
       </button>
 
-      {/* VIEW MODAL */}
+      {/* VIEW MODAL - FULL DESCRIPTION LOCKED BEHIND PAYMENT */}
       {selected && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
@@ -313,11 +322,23 @@ export default function IdeaSharing() {
               {selected.title}
             </h2>
 
-            {(!selected.is_paid ||
-              selected.author_name === myEmail ||
-              purchased.includes(selected.id)) && (
+            {/* ALWAYS SHOW SHORT DESCRIPTION */}
+            <div className="mb-6 pb-6 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                Overview
+              </h3>
+              <p className="text-gray-700 leading-relaxed">
+                {selected.short_description}
+              </p>
+            </div>
+
+            {/* SHOW FULL DETAILS ONLY IF UNLOCKED */}
+            {canViewFullDetails(selected) ? (
               <>
                 <div className="prose prose-gray max-w-none mb-6">
+                  <h3 className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">
+                    Full Description
+                  </h3>
                   <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                     {selected.full_description}
                   </p>
@@ -347,45 +368,43 @@ export default function IdeaSharing() {
                   </a>
                 )}
               </>
-            )}
-
-            {selected.is_paid &&
-              selected.author_name !== myEmail &&
-              !purchased.includes(selected.id) && (
-                <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-yellow-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-800">
-                        Premium Content Locked
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        Purchase this idea to unlock full details and resources
-                      </p>
-                    </div>
+            ) : (
+              /* PAYMENT PROMPT FOR LOCKED CONTENT */
+              <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-yellow-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
                   </div>
-                  <button
-                    onClick={() => setPayIdea(selected)}
-                    className="w-full bg-yellow-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-lg hover:shadow-xl"
-                  >
-                    Purchase Now - LKR {selected.price}
-                  </button>
+                  <div>
+                    <h3 className="font-bold text-gray-800">
+                      Premium Content Locked
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Purchase this idea to unlock the full description and all
+                      resources
+                    </p>
+                  </div>
                 </div>
-              )}
+                <button
+                  onClick={() => setPayIdea(selected)}
+                  className="w-full bg-yellow-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-lg hover:shadow-xl"
+                >
+                  Purchase Now - LKR {selected.price}
+                </button>
+              </div>
+            )}
 
             {selected.author_name === myEmail && (
               <div className="border-t border-gray-100 mt-8 pt-6 flex gap-3">
