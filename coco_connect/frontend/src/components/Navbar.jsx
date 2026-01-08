@@ -661,6 +661,10 @@ const Navbar = () => {
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}
         onAuthSuccess={handleAuthSuccess}
+        onOpenLogin={() => {
+          setIsRegisterOpen(false);
+          setIsLoginOpen(true);
+        }}
       />
     </>
   );
