@@ -17,7 +17,9 @@ class IdeaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Idea
         fields = "__all__"
-        read_only_fields = ["author", "created_at"]
+
+        # ✅ embedding is read-only (backend handles it)
+        read_only_fields = ["author", "created_at", "embedding"]
 
 
 # ==================================================

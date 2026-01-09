@@ -34,6 +34,12 @@ export default function IdeaSharing() {
   const [isPaid, setIsPaid] = useState(false);
   const [price, setPrice] = useState("");
 
+  // ✅ publishing state
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  // ✅ similarity error state (409)
+  const [similarError, setSimilarError] = useState(null);
+
   // LOAD IDEAS
   useEffect(() => {
     fetch(`${API}/ideas/`)
@@ -44,9 +50,13 @@ export default function IdeaSharing() {
   // FILTER + SEARCH
   const filteredIdeas = ideas.filter((idea) => {
     const ownerOk = filter === "mine" ? idea.author_name === myEmail : true;
+
     const searchOk =
-      idea.title.toLowerCase().includes(search.toLowerCase()) ||
-      idea.short_description.toLowerCase().includes(search.toLowerCase());
+      (idea.title || "").toLowerCase().includes(search.toLowerCase()) ||
+      (idea.short_description || "")
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
     return ownerOk && searchOk;
   });
 
@@ -60,10 +70,20 @@ export default function IdeaSharing() {
     setEditing(null);
   };
 
-  // CREATE / UPDATE
+  // ✅ CREATE / UPDATE (Updated with AI similarity error handling)
   const handlePublish = async () => {
     if (!token) return alert("Please login");
-    if (isPaid && !price) return alert("Enter price");
+
+    if (!title.trim()) return alert("Title is required");
+    if (!shortDesc.trim()) return alert("Short description is required");
+    if (!fullDesc.trim()) return alert("Full description is required");
+
+    if (isPaid && (!price || Number(price) <= 0)) {
+      return alert("Enter valid price");
+    }
+
+    setIsPublishing(true);
+    setSimilarError(null);
 
     const formData = new FormData();
     formData.append("title", title);
@@ -76,23 +96,48 @@ export default function IdeaSharing() {
     const url = editing ? `${API}/ideas/${editing.id}/` : `${API}/ideas/`;
     const method = editing ? "PATCH" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
-    if (!res.ok) return alert("Failed");
+      // ✅ AI Similarity error (409)
+      if (res.status === 409) {
+        const err = await res.json();
+        setSimilarError(err);
+        setIsPublishing(false);
+        return;
+      }
 
-    const data = await res.json();
-    setIdeas(
-      editing
-        ? ideas.map((i) => (i.id === data.id ? data : i))
-        : [data, ...ideas]
-    );
+      if (!res.ok) {
+        alert("Failed to publish idea");
+        setIsPublishing(false);
+        return;
+      }
 
-    setShowForm(false);
-    resetForm();
+      const data = await res.json();
+
+      setIdeas(
+        editing
+          ? ideas.map((i) => (i.id === data.id ? data : i))
+          : [data, ...ideas]
+      );
+
+      // ✅ update selected view if currently opened
+      if (selected && editing && selected.id === data.id) {
+        setSelected(data);
+      }
+
+      setShowForm(false);
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   // DELETE
@@ -136,6 +181,106 @@ export default function IdeaSharing() {
     <div className="min-h-screen bg-gradient-to-br from-[#f7faf8] to-[#eef4ef]">
       <BackgroundRain />
 
+      {/* ✅ PROFESSIONAL SIMILAR IDEAS MODAL - CLEAN & MINIMAL */}
+      {similarError && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-[9999]">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl border border-gray-200 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg
+                    className="w-5 h-5 text-red-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Similar Idea Detected
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {similarError.error ||
+                      "An idea with similar content already exists in the system."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5">
+              <div className="mb-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Matching Ideas
+                </h3>
+
+                <div className="space-y-2">
+                  {similarError?.matches?.map((m, index) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="text-xs font-bold text-gray-400">
+                          #{index + 1}
+                        </span>
+                        <span className="font-medium text-gray-900 truncate">
+                          {m.title}
+                        </span>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-600 bg-gray-200 px-2.5 py-1 rounded-md ml-2">
+                        {m.score}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
+                <p className="text-sm text-blue-900">
+                  <span className="font-semibold">Tip:</span> Please modify your
+                  idea to make it more unique, or review the similar ideas
+                  before proceeding.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    const bestMatch = similarError?.matches?.[0];
+                    if (bestMatch) {
+                      const ideaToOpen = ideas.find(
+                        (i) => i.id === bestMatch.id
+                      );
+                      if (ideaToOpen) setSelected(ideaToOpen);
+                    }
+                    setSimilarError(null);
+                  }}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  View Similar
+                </button>
+                <button
+                  onClick={() => setSimilarError(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition"
+                >
+                  Edit My Idea
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <header className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-green-100 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-8">
@@ -144,9 +289,6 @@ export default function IdeaSharing() {
               <h1 className="text-4xl font-black bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">
                 Idea Exchange
               </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Share, discover, and monetize brilliant ideas
-              </p>
             </div>
 
             <div className="flex gap-3">
@@ -190,7 +332,7 @@ export default function IdeaSharing() {
         </div>
       </header>
 
-      {/* GRID - SHORT DESCRIPTION ALWAYS VISIBLE */}
+      {/* GRID */}
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredIdeas.map((idea) => (
@@ -199,7 +341,6 @@ export default function IdeaSharing() {
               onClick={() => setSelected(idea)}
               className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-2xl cursor-pointer transition-all duration-300 border border-gray-100 hover:border-green-200 hover:-translate-y-1"
             >
-              {/* BADGE */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-md">
@@ -226,6 +367,7 @@ export default function IdeaSharing() {
               <h3 className="text-xl font-bold mb-3 text-gray-800 group-hover:text-green-600 transition-colors line-clamp-2">
                 {idea.title}
               </h3>
+
               <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
                 {idea.short_description}
               </p>
@@ -274,7 +416,7 @@ export default function IdeaSharing() {
         +
       </button>
 
-      {/* VIEW MODAL - FULL DESCRIPTION LOCKED BEHIND PAYMENT */}
+      {/* VIEW MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
@@ -307,6 +449,7 @@ export default function IdeaSharing() {
                 </p>
                 <p className="text-sm text-gray-500">Idea Creator</p>
               </div>
+
               <span
                 className={`ml-auto px-4 py-2 text-sm font-bold rounded-full ${
                   selected.is_paid
@@ -322,7 +465,6 @@ export default function IdeaSharing() {
               {selected.title}
             </h2>
 
-            {/* ALWAYS SHOW SHORT DESCRIPTION */}
             <div className="mb-6 pb-6 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
                 Overview
@@ -332,7 +474,6 @@ export default function IdeaSharing() {
               </p>
             </div>
 
-            {/* SHOW FULL DETAILS ONLY IF UNLOCKED */}
             {canViewFullDetails(selected) ? (
               <>
                 <div className="prose prose-gray max-w-none mb-6">
@@ -369,7 +510,6 @@ export default function IdeaSharing() {
                 )}
               </>
             ) : (
-              /* PAYMENT PROMPT FOR LOCKED CONTENT */
               <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
@@ -397,8 +537,15 @@ export default function IdeaSharing() {
                     </p>
                   </div>
                 </div>
+
                 <button
-                  onClick={() => setPayIdea(selected)}
+                  onClick={() => {
+                    if (!token) {
+                      alert("Please login to purchase this idea");
+                      return;
+                    }
+                    setPayIdea(selected);
+                  }}
                   className="w-full bg-yellow-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-lg hover:shadow-xl"
                 >
                   Purchase Now - LKR {selected.price}
@@ -504,6 +651,7 @@ export default function IdeaSharing() {
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
+                    type="button"
                     onClick={() => setIsPaid(false)}
                     className={`py-4 rounded-xl font-semibold transition-all ${
                       !isPaid
@@ -513,7 +661,9 @@ export default function IdeaSharing() {
                   >
                     Free Idea
                   </button>
+
                   <button
+                    type="button"
                     onClick={() => setIsPaid(true)}
                     className={`py-4 rounded-xl font-semibold transition-all ${
                       isPaid
@@ -556,9 +706,18 @@ export default function IdeaSharing() {
 
               <button
                 onClick={handlePublish}
-                className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition-all shadow-lg hover:shadow-xl"
+                disabled={isPublishing}
+                className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl ${
+                  isPublishing
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                }`}
               >
-                {editing ? "Update Idea" : "Publish Idea"}
+                {isPublishing
+                  ? "Publishing..."
+                  : editing
+                  ? "Update Idea"
+                  : "Publish Idea"}
               </button>
             </div>
           </div>
