@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
 // Product images
 import prod1 from "../assets/coconut_oil.png";
@@ -37,6 +37,8 @@ const [products, setProducts] = useState([]);
 const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 const [productsError, setProductsError] = useState(null);
 const [reloadProductsTick, setReloadProductsTick] = useState(0);
+// Ensure price filter expands at first load if products contain more expensive items
+const hasSetMaxPrice = useRef(false);
 
 const [newsItems, setNewsItems] = useState([]);
 const [isLoadingNews, setIsLoadingNews] = useState(true);
@@ -101,6 +103,16 @@ useEffect(() => {
         }
         
         setProducts(Array.isArray(data) ? data : []);
+
+        // Expand price filter once if products contain items above current filter
+        if (Array.isArray(data) && data.length > 0) {
+          const maxPrice = Math.max(...data.map((p) => Number(p.price) || 0));
+          if (!hasSetMaxPrice.current && maxPrice > filters.price) {
+            setFilters((prev) => ({ ...prev, price: Math.ceil(maxPrice) }));
+            hasSetMaxPrice.current = true;
+          }
+        }
+
         setIsLoadingProducts(false);
       } catch (err) {
         console.error(`❌ Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`, err);
@@ -151,7 +163,7 @@ useEffect(() => {
   };
   
   fetchNews();
-}, []);
+}, [reloadProductsTick]);
 
 
 // Get all unique categories from products dynamically
@@ -355,9 +367,12 @@ const filteredProducts = useMemo(() => {
       <div className="relative z-10 text-[#2f3e46] min-h-screen p-6">
          {/* SECTION TITLE */}
   <div className="relative z-10 text-center py-10">
-    <h2 className="text-3xl font-semibold text-[#4b3b2a]">
-      Sustainable Coconut Products
-    </h2>
+    <div className="flex items-center justify-center gap-4">
+      <h2 className="text-3xl font-semibold text-[#4b3b2a]">
+        Sustainable Coconut Products
+      </h2>
+
+    </div>
     <div className="w-24 h-[2px] bg-green-600 mx-auto mt-3"></div>
   </div>
         <div className="flex flex-col lg:flex-row gap-6">
@@ -394,7 +409,7 @@ const filteredProducts = useMemo(() => {
                 name="price-filter"
                 type="range"
                 min="0"
-                max="500"
+                max="100000"
                 value={filters.price}
                 onChange={(e) => setFilters({ ...filters, price: Number(e.target.value) })}
                 className="w-full accent-green-400"
