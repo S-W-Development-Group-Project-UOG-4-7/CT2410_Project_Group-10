@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import hello_coco, register, login, me
+from .views import hello_coco, register, login, me, change_password
 from rest_framework_simplejwt.views import TokenRefreshView
 from connect.jwt_views import MyTokenObtainPairView
 
@@ -9,6 +9,7 @@ urlpatterns = [
     path("login/", login),
 
     path("me/", me),
+    path("api/change-password/", change_password),
     path("blockchain/", include("blockchain_records.urls")),
 
     # ✅ remove the extra "api/"

@@ -107,11 +107,11 @@ export default function LoginModal({
 
       onClose();
 
-      if (String(apiUser.role).toLowerCase() === "admin") {
+      {/*if (String(apiUser.role).toLowerCase() === "admin") {
         navigate("/admin/blockchain");
       } else {
         navigate("/customer");
-      }
+      }*/}
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
     } finally {

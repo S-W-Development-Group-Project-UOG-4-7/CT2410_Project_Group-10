@@ -19,6 +19,10 @@ export default function CustomerLayout() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // ✅ Custom logout modal state
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const mobileMenuRef = useRef(null);
 
   const user = useMemo(() => {
@@ -66,10 +70,12 @@ export default function CustomerLayout() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ single source of truth logout
-  const handleLogout = () => {
-    const ok = window.confirm("Are you sure you want to sign out?");
-    if (!ok) return;
+  // ✅ open modal instead of window.confirm
+  const handleLogout = () => setShowLogoutModal(true);
+
+  // ✅ real logout
+  const confirmLogout = () => {
+    setShowLogoutModal(false);
 
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
@@ -111,6 +117,53 @@ export default function CustomerLayout() {
 
   return (
     <div className="min-h-screen bg-[#ece7e1]">
+      {/* ✅ Custom Logout Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowLogoutModal(false)}
+          />
+
+          <div className="relative z-10 w-[92%] max-w-md rounded-2xl bg-white shadow-2xl border border-gray-100 p-6 animate-[fadeIn_.18s_ease-out]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Sign out of CocoConnect?
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  You will be logged out and need to sign in again to access your dashboard.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Header */}
       <header className="lg:hidden sticky top-0 z-50 bg-[#2e7d32] px-4 py-3 text-white shadow-lg">
         <div className="flex items-center justify-between">
@@ -124,7 +177,11 @@ export default function CustomerLayout() {
             {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          <h1 className="text-lg font-bold tracking-wide">COCOCONNECT</h1>
+          {/* ✅ Correct Logo */}
+          <Link to="/" className="logo-text logo-md">
+            <span className="coco-text">COCO</span>
+            <span className="connect-text">CONNECT</span>
+          </Link>
 
           <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center font-bold text-sm">
             {initials}
@@ -193,12 +250,26 @@ export default function CustomerLayout() {
             ${isSidebarCollapsed ? "w-20" : "w-64"} sticky top-0`}
         >
           <div className="px-4 py-4 border-b border-green-700 flex items-center justify-between">
-            {!isSidebarCollapsed && (
-              <h1 className="text-xl font-bold tracking-wide">COCOCONNECT</h1>
+            {!isSidebarCollapsed ? (
+              /* ✅ Correct Logo */
+              <Link to="/" className="logo-text logo-lg">
+                <span className="coco-text">COCO</span>
+                <span className="connect-text">CONNECT</span>
+              </Link>
+            ) : (
+              <Link
+                to="/"
+                className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center font-extrabold"
+                title="CocoConnect"
+              >
+                CC
+              </Link>
             )}
+
             <button
               onClick={() => setIsSidebarCollapsed((v) => !v)}
               className="p-2 rounded-lg hover:bg-white/10 active:scale-95 transition"
+              aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               <ChevronLeft
                 size={20}
@@ -253,7 +324,7 @@ export default function CustomerLayout() {
             })}
           </nav>
 
-          {/* ✅ fixed bottom sign out (always aligned) */}
+          {/* Bottom sign out */}
           <div className="px-3 py-4 border-t border-green-700">
             <button
               onClick={handleLogout}
@@ -315,7 +386,6 @@ export default function CustomerLayout() {
 
           <div className="px-4 sm:px-6 lg:px-8 py-6 bg-gradient-to-b from-[#f9faf7] to-[#ece7e1] min-h-[calc(100vh-64px)]">
             <div className="max-w-7xl mx-auto">
-              {/* ✅ expose logout to child pages (Profile can use it) */}
               <Outlet context={{ handleLogout }} />
             </div>
           </div>
@@ -328,6 +398,10 @@ export default function CustomerLayout() {
           to { transform: translateX(0); }
         }
         .animate-slideIn { animation: slideIn 0.25s ease-out; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
     </div>
   );

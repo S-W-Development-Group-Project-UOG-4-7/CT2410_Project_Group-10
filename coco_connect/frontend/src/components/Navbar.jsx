@@ -22,6 +22,9 @@ const Navbar = () => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreMenuRef = useRef(null);
 
+  // ✅ NEW: Custom Logout Modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -176,21 +179,39 @@ const Navbar = () => {
     }
   };
 
+  // ✅ LOGIN SUCCESS -> go to HOME PAGE
   const handleAuthSuccess = (userObj) => {
     setUser(userObj);
     setIsLoginOpen(false);
     setIsRegisterOpen(false);
+    setIsUserMenuOpen(false);
+    setIsMobileOpen(false);
+    setIsMoreOpen(false);
+    setIsSearchExpanded(false);
+
+    navigate("/"); // ✅ always go to homepage after login
   };
 
+  // ✅ open custom logout modal (NO browser popup)
   const handleLogout = () => {
+    setIsUserMenuOpen(false);
+    setIsMobileOpen(false);
+    setIsMoreOpen(false);
+    setIsSearchExpanded(false);
+    setShowLogoutModal(true);
+  };
+
+  // ✅ confirm logout action
+  const confirmLogout = () => {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
     localStorage.removeItem("user");
     localStorage.removeItem("role");
     localStorage.removeItem("name");
     localStorage.removeItem("email");
+
     setUser(null);
-    setIsUserMenuOpen(false);
+    setShowLogoutModal(false);
     navigate("/");
   };
 
@@ -219,6 +240,57 @@ const Navbar = () => {
 
   return (
     <>
+      {/* ✅ CUSTOM LOGOUT MODAL */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowLogoutModal(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-100 p-6 animate-[fadeIn_.18s_ease-out]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Sign out of CocoConnect?
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  You’ll be logged out and need to sign in again.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+                aria-label="Close"
+              >
+                <i className="fas fa-times" />
+              </button>
+            </div>
+
+            <div className="mt-5 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(6px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+        </div>
+      )}
+
       <header
         ref={navbarRef}
         className={`sticky top-0 z-50 transition-all duration-300 ${
@@ -433,7 +505,7 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {/* ✅ Cart (added) */}
+              {/* ✅ Cart */}
               <Link
                 to="/cart"
                 className="relative p-2 rounded-full text-accent2 hover:text-[#4caf50] hover:bg-accent5/10 transition-all active:scale-95"
@@ -514,9 +586,7 @@ const Navbar = () => {
                 aria-expanded={isMobileOpen}
               >
                 <i
-                  className={`fas ${
-                    isMobileOpen ? "fa-times" : "fa-bars"
-                  } text-xl transition-transform duration-300`}
+                  className={`fas ${isMobileOpen ? "fa-times" : "fa-bars"} text-xl transition-transform duration-300`}
                 />
               </button>
             </div>
@@ -553,7 +623,7 @@ const Navbar = () => {
                     </div>
                   )}
 
-                  {/* ✅ Cart in mobile */}
+                  {/* Cart in mobile */}
                   <div className="mb-4">
                     <Link
                       to="/cart"
@@ -600,49 +670,21 @@ const Navbar = () => {
                     </Link>
                   </div>
 
-                  <div className="px-1 mb-6">
-                    <h3 className="text-accent3 text-sm font-semibold uppercase mb-3">
-                      Language
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {languages.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => {
-                            handleLanguageChange(lang.code);
-                            setIsMobileOpen(false);
-                          }}
-                          className={`flex items-center px-4 py-2 rounded-full transition-all ${
-                            activeLanguage === lang.code
-                              ? "bg-gradient-to-r from-accent1 to-accent2 text-white shadow-md"
-                              : "bg-accent5/10 text-accent6 hover:bg-accent5/20"
-                          }`}
-                        >
-                          <i className={`fas ${lang.icon} mr-2`} />
-                          {lang.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="px-1 pt-6 border-t border-accent5/20">
-                    <div className="grid grid-cols-2 gap-3">
-                      <Link
-                        to="/help"
-                        className="text-center p-3 bg-accent5/5 rounded-lg text-accent6 hover:text-[#4caf50] transition-colors"
-                        onClick={() => setIsMobileOpen(false)}
+                  {/* ✅ Logout in mobile (opens modal) */}
+                  {user && (
+                    <div className="pt-3 border-t border-accent5/20">
+                      <button
+                        onClick={() => {
+                          setIsMobileOpen(false);
+                          handleLogout();
+                        }}
+                        className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold transition active:scale-[0.98]"
                       >
-                        <p className="text-sm font-semibold">Help Center</p>
-                      </Link>
-                      <Link
-                        to="/faq"
-                        className="text-center p-3 bg-accent5/5 rounded-lg text-accent6 hover:text-[#4caf50] transition-colors"
-                        onClick={() => setIsMobileOpen(false)}
-                      >
-                        <p className="text-sm font-semibold">FAQ</p>
-                      </Link>
+                        <i className="fas fa-sign-out-alt" />
+                        Logout
+                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -657,6 +699,7 @@ const Navbar = () => {
         onOpenRegister={openRegisterModal}
         onAuthSuccess={handleAuthSuccess}
       />
+
       <RegisterModal
         isOpen={isRegisterOpen}
         onClose={() => setIsRegisterOpen(false)}

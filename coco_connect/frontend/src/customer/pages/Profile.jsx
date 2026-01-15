@@ -1,28 +1,83 @@
-import { useOutletContext, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useOutletContext, Link, useNavigate } from "react-router-dom";
 
 export default function Profile() {
   const { handleLogout } = useOutletContext();
+  const navigate = useNavigate();
 
-  // ✅ read user safely
-  const user = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {
-      return {};
-    }
-  })();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // ✅ support multiple backend/localStorage shapes:
-  // - first_name / last_name (Django auth_user)
-  // - firstName / lastName (camelCase)
-  // - name (single field)
-  const firstName = user.first_name || user.firstName || "";
-  const lastName = user.last_name || user.lastName || "";
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-  const fullName =
-    (firstName || lastName)
-      ? `${firstName} ${lastName}`.trim()
-      : (user.name || "-");
+        const token = localStorage.getItem("access");
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const res = await fetch("http://127.0.0.1:8000/api/me/", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("access");
+          localStorage.removeItem("refresh");
+          navigate("/login");
+          return;
+        }
+
+        const data = await res.json();
+        setProfile(data);
+
+        // ✅ keep localStorage in sync (optional but useful)
+        const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...storedUser,
+            first_name: data.first_name,
+            last_name: data.last_name,
+            name: data.full_name || `${data.first_name} ${data.last_name}`.trim(),
+            email: data.email,
+            role: data.role,
+            username: data.username,
+          })
+        );
+      } catch (e) {
+        setError("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <div className="animate-spin h-8 w-8 border-b-2 border-green-600 rounded-full" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg">
+        {error}
+      </div>
+    );
+  }
+
+  const firstName = profile?.first_name || "";
+  const lastName = profile?.last_name || "";
+  const fullName = profile?.full_name || `${firstName} ${lastName}`.trim() || "-";
 
   return (
     <div className="max-w-2xl">
@@ -30,35 +85,35 @@ export default function Profile() {
         <h2 className="text-2xl font-bold mb-6">My Profile</h2>
 
         <div className="space-y-4 text-gray-700">
-          {/* Full Name */}
           <div>
             <p className="text-sm text-gray-500">Full Name</p>
             <p className="font-semibold">{fullName}</p>
           </div>
 
-          {/* First Name */}
           <div>
             <p className="text-sm text-gray-500">First Name</p>
             <p className="font-semibold">{firstName || "-"}</p>
           </div>
 
-          {/* Last Name */}
           <div>
             <p className="text-sm text-gray-500">Last Name</p>
             <p className="font-semibold">{lastName || "-"}</p>
           </div>
 
-          {/* Email */}
           <div>
             <p className="text-sm text-gray-500">Email</p>
-            <p className="font-semibold">{user.email || "-"}</p>
+            <p className="font-semibold">{profile?.email || "-"}</p>
           </div>
 
-          {/* Role */}
+          <div>
+            <p className="text-sm text-gray-500">Username</p>
+            <p className="font-semibold">{profile?.username || "-"}</p>
+          </div>
+
           <div>
             <p className="text-sm text-gray-500">Role</p>
             <span className="inline-block px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">
-              {user.role || "User"}
+              {profile?.role || "User"}
             </span>
           </div>
         </div>
