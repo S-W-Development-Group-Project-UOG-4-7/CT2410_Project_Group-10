@@ -1,121 +1,83 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 
 export default function Profile() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { handleLogout } = useOutletContext();
 
-  const navigate = useNavigate();
-
-  const fetchProfile = async () => {
+  // ✅ read user safely
+  const user = (() => {
     try {
-      setLoading(true);
-      setError(null);
-
-      const token = localStorage.getItem("access");
-
-      if (!token) {
-        throw new Error("Not authenticated");
-      }
-
-      const response = await fetch("http://127.0.0.1:8000/api/me/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.status === 401) {
-        // Token expired or invalid
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        navigate("/login");
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error("Failed to load profile");
-      }
-
-      const data = await response.json();
-      setUser(data);
-    } catch (err) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
     }
-  };
+  })();
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  // ✅ support multiple backend/localStorage shapes:
+  // - first_name / last_name (Django auth_user)
+  // - firstName / lastName (camelCase)
+  // - name (single field)
+  const firstName = user.first_name || user.firstName || "";
+  const lastName = user.last_name || user.lastName || "";
 
-  /* -------------------- UI STATES -------------------- */
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-40">
-        <div className="animate-spin h-8 w-8 border-b-2 border-green-600 rounded-full" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-md p-4 bg-red-50 border border-red-200 rounded">
-        <p className="text-red-600 mb-3">{error}</p>
-        <button
-          onClick={fetchProfile}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  /* -------------------- MAIN UI -------------------- */
+  const fullName =
+    (firstName || lastName)
+      ? `${firstName} ${lastName}`.trim()
+      : (user.name || "-");
 
   return (
-    <div className="max-w-md space-y-4 bg-white p-6 rounded shadow">
-      <h1 className="text-2xl font-bold">My Profile</h1>
+    <div className="max-w-2xl">
+      <div className="bg-white rounded-2xl shadow p-6">
+        <h2 className="text-2xl font-bold mb-6">My Profile</h2>
 
-      <div>
-        <p className="text-sm text-gray-500">Name</p>
-        <p className="text-lg font-medium">{user?.name}</p>
-      </div>
+        <div className="space-y-4 text-gray-700">
+          {/* Full Name */}
+          <div>
+            <p className="text-sm text-gray-500">Full Name</p>
+            <p className="font-semibold">{fullName}</p>
+          </div>
 
-      <div>
-        <p className="text-sm text-gray-500">Email</p>
-        <p className="text-lg font-medium">{user?.email}</p>
-      </div>
+          {/* First Name */}
+          <div>
+            <p className="text-sm text-gray-500">First Name</p>
+            <p className="font-semibold">{firstName || "-"}</p>
+          </div>
 
-      <div>
-        <p className="text-sm text-gray-500">Role</p>
-        <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-          {user?.role}
-        </span>
-      </div>
+          {/* Last Name */}
+          <div>
+            <p className="text-sm text-gray-500">Last Name</p>
+            <p className="font-semibold">{lastName || "-"}</p>
+          </div>
 
-      <div className="flex gap-3 pt-4">
-        <Link
-          to="/customer/profile/edit"
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-        >
-          Edit Profile
-        </Link>
+          {/* Email */}
+          <div>
+            <p className="text-sm text-gray-500">Email</p>
+            <p className="font-semibold">{user.email || "-"}</p>
+          </div>
 
-        <button
-          onClick={() => {
-            localStorage.removeItem("access");
-            localStorage.removeItem("refresh");
-            navigate("/login");
-          }}
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-        >
-          Logout
-        </button>
+          {/* Role */}
+          <div>
+            <p className="text-sm text-gray-500">Role</p>
+            <span className="inline-block px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-semibold">
+              {user.role || "User"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            to="/customer/profile/edit"
+            className="px-5 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition"
+          >
+            Edit Profile
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            className="px-5 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,20 +1,44 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { 
-  Home, 
-  User, 
-  Package, 
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Home,
+  User,
+  Package,
   LogOut,
   ChevronRight,
   Bell,
-  HelpCircle
+  HelpCircle,
+  Menu,
+  X,
+  ChevronLeft,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 
 export default function CustomerLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Navigation items with icons
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const mobileMenuRef = useRef(null);
+
+  const user = useMemo(() => {
+    try {
+      const u = localStorage.getItem("user");
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const displayName = user?.name || user?.email?.split("@")[0] || "User";
+  const initials =
+    displayName
+      .split(" ")
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "U";
+
   const navItems = [
     { path: "/customer", label: "Overview", icon: <Home size={20} /> },
     { path: "/customer/profile", label: "My Profile", icon: <User size={20} /> },
@@ -23,185 +47,287 @@ export default function CustomerLayout() {
     { path: "/customer/support", label: "Help & Support", icon: <HelpCircle size={20} /> },
   ];
 
-  // Close mobile menu on route change
+  const isActivePath = (itemPath) =>
+    location.pathname === itemPath || location.pathname.startsWith(itemPath + "/");
+
+  useEffect(() => setIsMobileMenuOpen(false), [location.pathname]);
+
   useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [location.pathname]);
+    const handleClickOutside = (event) => {
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target) &&
+        !event.target.closest('[data-menu-toggle]')
+      ) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ✅ single source of truth logout
+  const handleLogout = () => {
+    const ok = window.confirm("Are you sure you want to sign out?");
+    if (!ok) return;
+
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    localStorage.removeItem("name");
+    localStorage.removeItem("email");
+
+    navigate("/");
+  };
+
+  const getCurrentPageTitle = () => {
+    const currentItem = navItems.find(
+      (item) =>
+        location.pathname === item.path ||
+        location.pathname.startsWith(item.path + "/")
+    );
+    return currentItem?.label || "Dashboard";
+  };
+
+  const getBreadcrumbs = () => {
+    const paths = location.pathname.split("/").filter(Boolean);
+    const filtered = paths.filter((p) => p !== "customer");
+
+    return filtered.map((path, index) => {
+      const fullPath = `/customer/${filtered.slice(0, index + 1).join("/")}`.replace(
+        "/customer/customer",
+        "/customer"
+      );
+      const item = navItems.find((nav) => nav.path === fullPath);
+
+      return {
+        label: item?.label || path.charAt(0).toUpperCase() + path.slice(1),
+        path: fullPath,
+        isLast: index === filtered.length - 1,
+      };
+    });
+  };
 
   return (
     <div className="min-h-screen bg-[#ece7e1]">
       {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-40 bg-white border-b border-[#e5e7eb] p-4">
+      <header className="lg:hidden sticky top-0 z-50 bg-[#2e7d32] px-4 py-3 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-lg hover:bg-[#f9faf7] transition-colors"
+            data-menu-toggle
+            onClick={() => setIsMobileMenuOpen((v) => !v)}
+            className="p-2 rounded-lg hover:bg-white/10 active:scale-95 transition"
+            aria-label="Toggle menu"
+            aria-expanded={isMobileMenuOpen}
           >
-            <div className="space-y-1">
-              <span className="block w-6 h-0.5 bg-[#2f3e46]"></span>
-              <span className="block w-4 h-0.5 bg-[#2f3e46]"></span>
-              <span className="block w-5 h-0.5 bg-[#2f3e46]"></span>
-            </div>
+            {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-          
-          <h1 className="logo-text text-xl">
-            <span className="coco-text">Coco</span>
-            <span className="connect-text">Connect</span>
-          </h1>
-          
-          <div className="w-10"></div> {/* Spacer */}
+
+          <h1 className="text-lg font-bold tracking-wide">COCOCONNECT</h1>
+
+          <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center font-bold text-sm">
+            {initials}
+          </div>
         </div>
       </header>
 
-      <div className="flex">
-        {/* Sidebar - Desktop */}
-        <aside className="hidden lg:flex flex-col w-64 bg-white text-black border-r border-[#e5e7eb] min-h-screen">
-          {/* Logo */}
-          <div className="p-6 border-b border-[#e5e7eb]">
-            <h1 className="logo-text text-2xl text-center">
-              <span className="coco-text">Coco</span>
-              <span className="connect-text">Connect</span>
-            </h1>
-            <p className="text-sm text-[#6b7280] mt-1 text-center">Customer Portal</p>
-          </div>
-          
-          {/* User Info */}
-          <div className="p-6 border-b border-[#e5e7eb]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#8bc34a] to-[#689f38] rounded-full flex items-center justify-center text-white font-semibold">
-                JD
+      {/* Mobile Sidebar */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <div
+            ref={mobileMenuRef}
+            className="absolute left-0 top-0 h-full w-72 bg-[#2e7d32] text-white shadow-xl animate-slideIn flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-6 pb-5 border-b border-green-700 flex gap-3 items-center">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-bold text-lg">
+                {initials}
               </div>
-              <div>
-                <p className="font-semibold">John Doe</p>
-                <p className="text-sm text-[#6b7280]">Premium Member</p>
+              <div className="min-w-0">
+                <p className="font-semibold text-base truncate">{displayName}</p>
+                <p className="text-sm opacity-80">Customer Portal</p>
               </div>
             </div>
-          </div>
-          
-          {/* Navigation */}
-          <nav className="flex-1 p-4">
-            <div className="space-y-1">
+
+            <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
               {navItems.map((item) => {
-                const isActive = location.pathname === item.path;
+                const active = isActivePath(item.path);
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={`
-                      flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
-                      ${isActive 
-                        ? 'bg-gradient-to-r from-[#8bc34a]/10 to-transparent border-l-4 border-[#8bc34a] text-[#2f3e46] font-semibold' 
-                        : 'hover:bg-[#f9faf7] text-[#4b5563]'
-                      }
-                    `}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition
+                      ${active ? "bg-white/20 font-semibold" : "hover:bg-white/10"}`}
                   >
-                    <span className={isActive ? 'text-[#8bc34a]' : 'text-[#9ca3af]'}>
-                      {item.icon}
-                    </span>
-                    <span>{item.label}</span>
-                    {isActive && (
-                      <ChevronRight size={16} className="ml-auto text-[#8bc34a]" />
-                    )}
+                    {item.icon}
+                    <span className="flex-1">{item.label}</span>
+                    {active && <ChevronRight size={16} />}
                   </Link>
                 );
               })}
+            </nav>
+
+            <div className="p-4 border-t border-green-700">
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-200 hover:bg-red-500/20 transition"
+              >
+                <LogOut size={20} />
+                <span>Sign Out</span>
+              </button>
             </div>
-          </nav>
-          
-          {/* Logout */}
-          <div className="p-4 border-t border-[#e5e7eb]">
-            <button className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-[#ef4444] hover:bg-[#fee2e2] transition-colors">
-              <LogOut size={20} />
-              <span>Sign Out</span>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Layout */}
+      <div className="flex">
+        {/* Sidebar */}
+        <aside
+          className={`hidden lg:flex flex-col bg-[#2e7d32] text-white min-h-screen transition-all duration-300
+            ${isSidebarCollapsed ? "w-20" : "w-64"} sticky top-0`}
+        >
+          <div className="px-4 py-4 border-b border-green-700 flex items-center justify-between">
+            {!isSidebarCollapsed && (
+              <h1 className="text-xl font-bold tracking-wide">COCOCONNECT</h1>
+            )}
+            <button
+              onClick={() => setIsSidebarCollapsed((v) => !v)}
+              className="p-2 rounded-lg hover:bg-white/10 active:scale-95 transition"
+            >
+              <ChevronLeft
+                size={20}
+                className={`transition-transform ${isSidebarCollapsed ? "rotate-180" : ""}`}
+              />
             </button>
           </div>
-        </aside>
 
-        {/* Mobile Sidebar Overlay */}
-        {isMobileMenuOpen && (
-          <div 
-            className="lg:hidden fixed inset-0 bg-black/50 z-50"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-        )}
-        
-        {/* Mobile Sidebar */}
-        <aside className={`
-          lg:hidden fixed top-0 left-0 h-full w-64 bg-white z-50 transform transition-transform duration-300
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
-          {/* Mobile Sidebar Content */}
-          <div className="p-6 border-b border-[#e5e7eb]">
-            <h1 className="logo-text text-xl">
-              <span className="coco-text">Coco</span>
-              <span className="connect-text">Connect</span>
-            </h1>
+          <div
+            className={`px-4 py-5 border-b border-green-700 flex ${
+              isSidebarCollapsed ? "justify-center" : "gap-3 items-center"
+            }`}
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold text-sm">
+              {initials}
+            </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{displayName}</p>
+                <p className="text-sm opacity-80">Customer Portal</p>
+              </div>
+            )}
           </div>
-          <nav className="p-4 space-y-2">
+
+          <nav className="flex-1 px-3 py-4 space-y-1">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const active = isActivePath(item.path);
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-                    ${isActive 
-                      ? 'bg-gradient-to-r from-[#8bc34a]/10 to-transparent text-[#2f3e46] font-semibold' 
-                      : 'hover:bg-[#f9faf7] text-[#4b5563]'
-                    }
-                  `}
+                  className={`relative group flex items-center rounded-xl transition
+                    ${isSidebarCollapsed ? "justify-center px-3 py-3" : "px-4 py-3"}
+                    ${active ? "bg-white/20 font-semibold" : "hover:bg-white/10"}`}
+                  title={isSidebarCollapsed ? item.label : undefined}
                 >
-                  <span className={isActive ? 'text-[#8bc34a]' : 'text-[#9ca3af]'}>
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
+                  {item.icon}
+                  {!isSidebarCollapsed && (
+                    <>
+                      <span className="ml-3 flex-1">{item.label}</span>
+                      {active && <ChevronRight size={16} />}
+                    </>
+                  )}
+
+                  {isSidebarCollapsed && (
+                    <div className="absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition z-50 whitespace-nowrap">
+                      {item.label}
+                    </div>
+                  )}
                 </Link>
               );
             })}
           </nav>
+
+          {/* ✅ fixed bottom sign out (always aligned) */}
+          <div className="px-3 py-4 border-t border-green-700">
+            <button
+              onClick={handleLogout}
+              className={`flex items-center gap-3 w-full rounded-xl text-red-200 hover:bg-red-500/20 transition
+                ${isSidebarCollapsed ? "justify-center px-3 py-3" : "px-4 py-3"}`}
+              title={isSidebarCollapsed ? "Sign Out" : undefined}
+            >
+              <LogOut size={20} />
+              {!isSidebarCollapsed && <span>Sign Out</span>}
+            </button>
+          </div>
         </aside>
 
-        {/* Main Content */}
+        {/* Main */}
         <main className="flex-1 min-h-screen">
-          {/* Breadcrumb */}
-          <div className="bg-white border-b border-[#e5e7eb] px-6 py-4">
-            <nav className="flex items-center gap-2 text-sm">
-              <Link 
-                to="/" 
-                className="text-[#6b7280] hover:text-[#2f3e46] transition-colors"
-              >
-                Home
-              </Link>
-              <ChevronRight size={16} className="text-[#9ca3af]" />
-              <span className="text-[#2f3e46] font-medium">
-                {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
-              </span>
-            </nav>
+          <div className="bg-white border-b shadow-sm px-4 sm:px-6 py-4">
+            <div className="flex items-start sm:items-center justify-between gap-4">
+              <div className="min-w-0">
+                <nav className="flex flex-wrap items-center gap-2 text-sm">
+                  <Link to="/" className="text-gray-500 hover:text-[#2e7d32] transition">
+                    Home
+                  </Link>
+
+                  {getBreadcrumbs().map((crumb, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <ChevronRight size={16} className="text-gray-400" />
+                      {crumb.isLast ? (
+                        <span className="font-semibold text-gray-900 truncate">
+                          {crumb.label}
+                        </span>
+                      ) : (
+                        <Link
+                          to={crumb.path}
+                          className="text-gray-600 hover:text-[#2e7d32] transition truncate"
+                        >
+                          {crumb.label}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </nav>
+
+                <h1 className="text-2xl font-bold text-gray-900 mt-2">
+                  {getCurrentPageTitle()}
+                </h1>
+              </div>
+
+              <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
+                <button className="p-2 rounded-full hover:bg-gray-100">
+                  <Bell size={20} />
+                </button>
+                <div className="h-6 w-px bg-gray-300" />
+                <span className="text-sm text-gray-600 whitespace-nowrap">
+                  Welcome, <span className="font-semibold">{displayName}</span>
+                </span>
+              </div>
+            </div>
           </div>
-          
-          {/* Content Area */}
-          <div className="p-4 lg:p-6 bg-gradient-to-b from-[#f9faf7] to-[#ece7e1] min-h-[calc(100vh-64px)]">
+
+          <div className="px-4 sm:px-6 lg:px-8 py-6 bg-gradient-to-b from-[#f9faf7] to-[#ece7e1] min-h-[calc(100vh-64px)]">
             <div className="max-w-7xl mx-auto">
-              <Outlet />
+              {/* ✅ expose logout to child pages (Profile can use it) */}
+              <Outlet context={{ handleLogout }} />
             </div>
           </div>
         </main>
       </div>
 
-      {/* Add these Tailwind classes to your existing CSS */}
-      <style jsx>{`
-        .logo-text {
-          font-family: "Bangers", cursive;
-          font-size: 2.5rem;
-          letter-spacing: 2px;
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
         }
-        
-        @media (max-width: 1024px) {
-          .logo-text {
-            font-size: 1.75rem;
-          }
-        }
+        .animate-slideIn { animation: slideIn 0.25s ease-out; }
       `}</style>
     </div>
   );
