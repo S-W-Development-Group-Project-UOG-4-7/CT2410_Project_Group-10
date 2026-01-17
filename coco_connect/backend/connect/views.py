@@ -20,7 +20,6 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import Profile, InvestmentCategory, InvestmentProject, Investment, Product
 
-
 # ----------------------------
 # AUTH HELPER (SESSION + JWT)
 # ----------------------------
@@ -55,10 +54,6 @@ def check_auth(request):
             return None
 
     return None
-
-
-
-
 
 # ------------------ Hello API ------------------
 def hello_coco(request):
@@ -161,7 +156,6 @@ def login(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 # ----------------------------
 # GET PROJECTS
