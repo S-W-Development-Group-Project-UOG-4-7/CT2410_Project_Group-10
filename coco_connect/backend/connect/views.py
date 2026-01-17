@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
@@ -10,10 +11,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 
-
+# ------------------ Hello API ------------------
 def hello_coco(request):
     return JsonResponse({"message": "CocoConnect API is running"})
 
+# ------------------ Register ------------------
 @csrf_exempt
 def register(request):
     if request.method == "POST":
@@ -22,10 +24,10 @@ def register(request):
         name = data.get("name")
         email = data.get("email")
         password = data.get("password")
-        role = data.get("role")
+        role = data.get("role")  # optional, can store in DB later
 
-        if not all([name, email, password, role]):
-            return JsonResponse({"error": "All fields required"}, status=400)
+        if not all([name, email, password]):
+            return JsonResponse({"error": "Name, email, and password required"}, status=400)
 
         if User.objects.filter(username=email).exists():
             return JsonResponse({"error": "User already exists"}, status=400)
@@ -43,6 +45,7 @@ def register(request):
             user.is_staff = True
             user.save()
 
+        # For now, skip role until you create a Profile model
         return JsonResponse({"message": "User registered successfully"}, status=201)
 
     return JsonResponse({"error": "Invalid request"}, status=405)
@@ -53,6 +56,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
 
+# ------------------ Login ------------------
 @csrf_exempt
 def login(request):
     if request.method == "POST":
@@ -83,6 +87,7 @@ def login(request):
                 "email": user.email,
                 "name": user.first_name,
                 "role": "Admin" if user.is_staff else "User",
+                # "role": role,  # skip role for now
             }
         }, status=200)
 
