@@ -9,7 +9,7 @@ export default function LoginModal({
   onOpenRegister,
   onAuthSuccess,
 }) {
-  const modalRef = useRef();
+  const modalRef = useRef(null);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -42,8 +42,10 @@ export default function LoginModal({
   }, [formData.email, formData.password]);
 
   // ✅ Map backend error -> friendly message
+  // (works for both DRF/SimpleJWT and custom JSON errors)
   const getLoginErrorMessage = (err) => {
     const status = err?.response?.status;
+
     const detail =
       err?.response?.data?.detail ||
       err?.response?.data?.error ||
@@ -52,15 +54,10 @@ export default function LoginModal({
 
     const d = String(detail).toLowerCase();
 
-    // Django / DRF common messages:
-    // - "No active account found with the given credentials"
-    // - "Invalid credentials" / "Unable to log in with provided credentials"
-    // - Sometimes 404 for "user not found" (depends on your backend)
     if (d.includes("no active account")) {
       return "No active account found. Contact admin to activate the account.";
     }
 
-    // treat invalid credentials / user not found as "account not found"
     if (
       status === 401 ||
       status === 404 ||
@@ -72,7 +69,6 @@ export default function LoginModal({
       return "Account not found. Register to create a new account.";
     }
 
-    // fallback
     return "Login failed. Check email/password and make sure Django is running.";
   };
 
@@ -84,34 +80,51 @@ export default function LoginModal({
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
+      // loginUser should return something like:
+      // { access, refresh, user: { id, name, email, role } }
+      // OR { access, refresh, id, name, email, role }
       const data = await loginUser(formData.email, formData.password);
-      const apiUser = data.user ?? data;
 
-      localStorage.setItem("access", data.access);
-      localStorage.setItem("refresh", data.refresh);
+      const apiUser = data?.user ?? data ?? {};
+      const access = data?.access;
+      const refresh = data?.refresh;
 
-      localStorage.setItem("role", apiUser.role);
-      localStorage.setItem("name", apiUser.name);
-      localStorage.setItem("email", apiUser.email);
+      if (!access) {
+        throw new Error("Missing access token from backend response");
+      }
 
+      // ✅ persist tokens
+      localStorage.setItem("access", access);
+      if (refresh) localStorage.setItem("refresh", refresh);
+
+      // ✅ store user in ONE consistent structure (important for views.py usage + frontend pages)
       const userObj = {
-        id: apiUser.id,
-        name: apiUser.name,
-        email: apiUser.email,
-        role: apiUser.role,
+        id: apiUser?.id ?? null,
+        name: apiUser?.name || apiUser?.first_name || formData.email,
+        email: apiUser?.email || formData.email,
+        role: apiUser?.role || (apiUser?.is_staff ? "admin" : "user"),
         rememberMe,
       };
 
       localStorage.setItem("user", JSON.stringify(userObj));
+
+      // (optional) keep compatibility with existing code you already have
+      localStorage.setItem("role", userObj.role || "");
+      localStorage.setItem("name", userObj.name || "");
+      localStorage.setItem("email", userObj.email || "");
+
+      // ✅ update navbar/state once
       onAuthSuccess?.(userObj);
 
+      // ✅ close once
       onClose();
 
-      {/*if (String(apiUser.role).toLowerCase() === "admin") {
-        navigate("/admin/blockchain");
-      } else {
-        navigate("/customer");
-      }*/}
+      // ✅ optional redirect if you want (leave commented if you handle routing elsewhere)
+      // if (String(userObj.role).toLowerCase() === "admin") {
+      //   navigate("/admin/blockchain");
+      // } else {
+      //   navigate("/customer");
+      // }
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
@@ -170,7 +183,7 @@ export default function LoginModal({
         aria-modal="true"
         role="dialog"
       >
-        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" />
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
           <div
@@ -215,6 +228,7 @@ export default function LoginModal({
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100/70"
+            aria-label="Close"
           >
             ✕
           </button>
@@ -227,14 +241,13 @@ export default function LoginModal({
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
               <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
 
-              {/* ✅ If account not found, show quick register action */}
-              {errors.submit.toLowerCase().includes("account not found") && (
+              {String(errors.submit).toLowerCase().includes("account not found") && (
                 <button
                   type="button"
                   className="mt-3 text-sm text-green-700 font-semibold hover:underline"
                   onClick={() => {
                     onClose();
-                    onOpenRegister();
+                    onOpenRegister?.();
                   }}
                 >
                   Create a new account
@@ -262,6 +275,7 @@ export default function LoginModal({
                       : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                   }`}
                 placeholder="you@example.com"
+                autoComplete="email"
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email}</p>
@@ -288,6 +302,7 @@ export default function LoginModal({
                         : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                     }`}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
 
                 <button
@@ -319,6 +334,7 @@ export default function LoginModal({
               <button
                 type="button"
                 className="text-sm text-green-700 hover:underline"
+                onClick={() => alert("Forgot password not implemented yet")}
               >
                 Forgot Password?
               </button>
@@ -345,7 +361,7 @@ export default function LoginModal({
               className="text-green-700 font-semibold hover:underline"
               onClick={() => {
                 onClose();
-                onOpenRegister();
+                onOpenRegister?.();
               }}
             >
               Create one
