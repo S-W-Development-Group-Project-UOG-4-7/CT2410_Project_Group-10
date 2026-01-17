@@ -36,7 +36,9 @@ export default function EditProfile() {
 
   // -------------------- Regex validations --------------------
   // Username: 3–30 chars, starts with letter, letters/numbers/._ only (no spaces)
-  const usernameRegex = /^[A-Za-z][A-Za-z0-9._]{2,29}$/;
+//  const usernameRegex = /^[A-Za-z][A-Za-z0-9._]{2,29}$/;
+  const usernameRegex = /^[\w.@+-]{3,150}$/;
+
 
   // Names: 2–50, letters + spaces + . ' -
   const nameRegex = /^[A-Za-z\s.'-]{2,50}$/;
