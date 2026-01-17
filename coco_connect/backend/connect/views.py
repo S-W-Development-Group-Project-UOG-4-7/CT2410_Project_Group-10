@@ -12,6 +12,10 @@ import decimal
 from django.utils import timezone
 import random, string
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import Profile, InvestmentCategory, InvestmentProject, Investment, Product
@@ -53,20 +57,8 @@ def check_auth(request):
     return None
 
 
-# ----------------------------
-# REGISTER
-# ----------------------------
-@csrf_exempt
-def register(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Invalid request"}, status=405)
 
-    try:
-        data = json.loads(request.body)
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from django.contrib.auth import authenticate
+
 
 # ------------------ Hello API ------------------
 def hello_coco(request):
@@ -75,19 +67,29 @@ def hello_coco(request):
 # ------------------ Register ------------------
 @csrf_exempt
 def register(request):
-    if request.method == "POST":
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
         data = json.loads(request.body or "{}")
 
         name = data.get("name")
         email = data.get("email")
         password = data.get("password")
-        role = data.get("role")  # optional, can store in DB later
+        role = data.get("role")  # optional
 
         if not all([name, email, password]):
-            return JsonResponse({"error": "Name, email, and password required"}, status=400)
+            return JsonResponse(
+                {"error": "Name, email, and password are required"},
+                status=400
+            )
 
+        # use email as username
         if User.objects.filter(username=email).exists():
-            return JsonResponse({"error": "User already exists"}, status=400)
+            return JsonResponse(
+                {"error": "User already exists"},
+                status=400
+            )
 
         user = User.objects.create_user(
             username=email,
@@ -112,8 +114,10 @@ def register(request):
         )
 
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
+        return JsonResponse(
+            {"error": str(e)},
+            status=500
+        )
 
 # ----------------------------
 # LOGIN (SESSION ONLY)
