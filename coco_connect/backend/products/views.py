@@ -3,7 +3,7 @@ from rest_framework.generics import ListAPIView, CreateAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import Product, NewsItem
-from .serializers import ProductSerializer, NewsSerializer
+from .serializers import ProductSerializer, ProductCreateSerializer, NewsSerializer
 
 
 class ProductListAPIView(ListAPIView):
@@ -67,7 +67,7 @@ class ProductListAPIView(ListAPIView):
 
 class ProductCreateAPIView(CreateAPIView):
     """API view to allow authenticated users to create products"""
-    serializer_class = ProductSerializer
+    serializer_class = ProductCreateSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 

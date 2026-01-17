@@ -136,3 +136,29 @@ body {
     transform: translate(-5vw, 120vh);
   }
 }
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes coconutDrop {
+  from {
+    top: -15%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.25;
+  }
+  to {
+    top: 115%;
+    opacity: 0;
+  }
+}
+
+.animate-coconut-drop {
+  animation-name: coconutDrop;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

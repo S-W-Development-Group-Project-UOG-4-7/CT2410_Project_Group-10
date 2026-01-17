@@ -22,6 +22,8 @@ import news5 from "../assets/news5.png";
 import shopBg from "../assets/shopbg.png";
 import shopheroBg from "../assets/cocoshopherobg.png";
 
+import AddProductModal from "../components/AddProductModal";
+
 
 const Product = () => {
   const [filters, setFilters] = useState({
@@ -39,6 +41,11 @@ const [productsError, setProductsError] = useState(null);
 const [reloadProductsTick, setReloadProductsTick] = useState(0);
 // Ensure price filter expands at first load if products contain more expensive items
 const hasSetMaxPrice = useRef(false);
+// Logged-in user (null if not logged in)
+const user = JSON.parse(localStorage.getItem("user"));
+
+// Add Product modal control
+const [isAddProductOpen, setIsAddProductOpen] = useState(false);
 
 const [newsItems, setNewsItems] = useState([]);
 const [isLoadingNews, setIsLoadingNews] = useState(true);
@@ -517,7 +524,24 @@ const filteredProducts = useMemo(() => {
                         </div>
                       )}
                       <h3 className="font-semibold mt-3">{product.name || 'Unnamed Product'}</h3>
-                      <p className="text-xs text-gray-400">By {product.author || 'Unknown'}</p>
+                      <div className="flex items-center gap-2">
+                        <p
+                          className="text-xs text-green-700 cursor-pointer hover:underline"
+                          onClick={() => user && setIsAddProductOpen(true)}
+                        >
+                          By {product.author || "Unknown"}
+                        </p>
+
+                        {user && (
+                          <button
+                            onClick={() => setIsAddProductOpen(true)}
+                            className="text-green-600 font-bold hover:scale-110 transition"
+                            title="Add your product"
+                          >
+                            +
+                          </button>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500 line-clamp-2">{product.description || ''}</p>
                       <div className="flex justify-between items-center mt-2">
                         <p className="font-semibold">${Number(product.price || 0).toFixed(2)}</p>
@@ -553,6 +577,24 @@ const filteredProducts = useMemo(() => {
 
         </div>
       </div>
+
+      {/* Floating Add Product Button */}
+      {user && (
+        <button
+          onClick={() => setIsAddProductOpen(true)}
+          className="fixed bottom-6 left-6 w-14 h-14 rounded-full bg-green-600 text-white text-3xl font-bold flex items-center justify-center shadow-lg hover:bg-green-700 hover:scale-105 transition z-50"
+          title="Add your product"
+        >
+          +
+        </button>
+      )}
+
+      <AddProductModal
+        isOpen={isAddProductOpen}
+        onClose={() => setIsAddProductOpen(false)}
+        onSuccess={() => setReloadProductsTick(t => t + 1)}
+      />
+
     </div>
   );
 };
