@@ -90,6 +90,21 @@ export default function LoginModal({
       localStorage.setItem("access", data.access);
       localStorage.setItem("refresh", data.refresh);
 
+      const userObj = {
+        name: formData.email, // later you can replace with real name from backend
+        email: formData.email,
+        rememberMe,
+      };
+
+      localStorage.setItem("user", JSON.stringify(userObj));
+
+      // ✅ tell Navbar immediately
+      onAuthSuccess?.(userObj);
+
+      console.log("Logged in with token:", data);
+
+      // ✅ Close modal
+      onClose();
       localStorage.setItem("role", apiUser.role);
       localStorage.setItem("name", apiUser.name);
       localStorage.setItem("email", apiUser.email);
@@ -225,6 +240,9 @@ export default function LoginModal({
 
           {errors.submit && (
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
+              <p className="text-red-600 text-sm font-medium">
+                {errors.submit}
+              </p>
               <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
 
               {/* ✅ If account not found, show quick register action */}
