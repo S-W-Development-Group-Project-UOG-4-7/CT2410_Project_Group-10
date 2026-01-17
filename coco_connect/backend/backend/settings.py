@@ -26,6 +26,18 @@ ALLOWED_HOSTS = [
 # -------------------------------------------------
 # APPLICATIONS
 # -------------------------------------------------
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = 'django-insecure-at&fdji3%7$q!^d&ja!bu8@#afa^wg$bp82m(_h+l#kn4n-4**'
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
+
+ALLOWED_HOSTS = []
+
+# Application definition
 INSTALLED_APPS = [
     # Django
     "django.contrib.admin",
@@ -60,6 +72,19 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # third-party apps
+    'rest_framework',
+    'corsheaders',
+    'django_filters',
+    
+
+    "blockchain_records",
+
+    # your app
+    #'connect',
+    'connect.apps.ConnectConfig',
+
+    'rest_framework_simplejwt',
 ]
 
 
@@ -88,6 +113,10 @@ TEMPLATES = [
     },
 ]
 
+WSGI_APPLICATION = 'backend.wsgi.application'
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # -------------------------------------------------
 # DATABASE (PostgreSQL)
@@ -107,6 +136,9 @@ DATABASES = {
 # -------------------------------------------------
 # PASSWORD VALIDATION
 # -------------------------------------------------
+# Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -159,6 +191,8 @@ REST_FRAMEWORK = {
     # - POST/PUT/DELETE → authenticated
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.AllowAny",
     ),
 }
 

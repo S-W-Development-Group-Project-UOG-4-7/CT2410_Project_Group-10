@@ -735,3 +735,5 @@ export default function IdeaSharing() {
     </div>
   );
 }
+
+export default IdeaSharing;

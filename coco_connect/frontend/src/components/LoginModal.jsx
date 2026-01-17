@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { loginUser } from "../services/authService";
 
@@ -9,6 +10,7 @@ export default function LoginModal({
   onAuthSuccess,
 }) {
   const modalRef = useRef();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
@@ -20,20 +22,59 @@ export default function LoginModal({
     if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
   };
 
+  // ✅ Regex → format-based checks
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  const passwordRegex = /^.{6,}$/;
+
   const validateForm = useCallback(() => {
     const newErrors = {};
 
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
+    else if (!emailRegex.test(formData.email))
       newErrors.email = "Enter a valid email";
 
     if (!formData.password.trim()) newErrors.password = "Password is required";
-    else if (formData.password.length < 6)
+    else if (!passwordRegex.test(formData.password))
       newErrors.password = "At least 6 characters";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
+
+  // ✅ Map backend error -> friendly message
+  const getLoginErrorMessage = (err) => {
+    const status = err?.response?.status;
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "";
+
+    const d = String(detail).toLowerCase();
+
+    // Django / DRF common messages:
+    // - "No active account found with the given credentials"
+    // - "Invalid credentials" / "Unable to log in with provided credentials"
+    // - Sometimes 404 for "user not found" (depends on your backend)
+    if (d.includes("no active account")) {
+      return "No active account found. Contact admin to activate the account.";
+    }
+
+    // treat invalid credentials / user not found as "account not found"
+    if (
+      status === 401 ||
+      status === 404 ||
+      d.includes("unable to log in") ||
+      d.includes("invalid") ||
+      d.includes("not found") ||
+      d.includes("does not exist")
+    ) {
+      return "Account not found. Register to create a new account.";
+    }
+
+    // fallback
+    return "Login failed. Check email/password and make sure Django is running.";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,10 +84,9 @@ export default function LoginModal({
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
-      // ✅ Call backend JWT token endpoint via authService
       const data = await loginUser(formData.email, formData.password);
+      const apiUser = data.user ?? data;
 
-      // ✅ Save tokens
       localStorage.setItem("access", data.access);
       localStorage.setItem("refresh", data.refresh);
 
@@ -65,13 +105,30 @@ export default function LoginModal({
 
       // ✅ Close modal
       onClose();
+      localStorage.setItem("role", apiUser.role);
+      localStorage.setItem("name", apiUser.name);
+      localStorage.setItem("email", apiUser.email);
+
+      const userObj = {
+        id: apiUser.id,
+        name: apiUser.name,
+        email: apiUser.email,
+        role: apiUser.role,
+        rememberMe,
+      };
+
+      localStorage.setItem("user", JSON.stringify(userObj));
+      onAuthSuccess?.(userObj);
+
+      onClose();
+
+      {/*if (String(apiUser.role).toLowerCase() === "admin") {
+        navigate("/admin/blockchain");
+      } else {
+        navigate("/customer");
+      }*/}
     } catch (err) {
-      // show a nicer error if backend is down vs wrong password
-      setErrors({
-        submit:
-          err?.response?.data?.detail ||
-          "Login failed. Check email/password and make sure Django is running.",
-      });
+      setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
       setIsSubmitting(false);
     }
@@ -80,6 +137,7 @@ export default function LoginModal({
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.id]: e.target.value }));
     if (errors[e.target.id]) setErrors((p) => ({ ...p, [e.target.id]: "" }));
+    if (errors.submit) setErrors((p) => ({ ...p, submit: "" }));
   };
 
   useEffect(() => {
@@ -127,10 +185,8 @@ export default function LoginModal({
         aria-modal="true"
         role="dialog"
       >
-        {/* overlay */}
         <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
 
-        {/* floating dots */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
           <div
             className="absolute top-1/4 left-1/4 w-40 h-40 p1 rounded-full blur-2xl opacity-80"
@@ -162,7 +218,6 @@ export default function LoginModal({
           />
         </div>
 
-        {/* modal */}
         <div
           ref={modalRef}
           className="relative z-20 bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
@@ -188,6 +243,21 @@ export default function LoginModal({
               <p className="text-red-600 text-sm font-medium">
                 {errors.submit}
               </p>
+              <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
+
+              {/* ✅ If account not found, show quick register action */}
+              {errors.submit.toLowerCase().includes("account not found") && (
+                <button
+                  type="button"
+                  className="mt-3 text-sm text-green-700 font-semibold hover:underline"
+                  onClick={() => {
+                    onClose();
+                    onOpenRegister();
+                  }}
+                >
+                  Create a new account
+                </button>
+              )}
             </div>
           )}
 
