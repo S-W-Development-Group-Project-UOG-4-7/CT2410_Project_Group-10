@@ -14,7 +14,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # -------------------------------------------------
 # SECURITY
 # -------------------------------------------------
-# ✅ Keep these ONLY ONCE (you had duplicates later in the file)
 SECRET_KEY = "django-insecure-at&fdji3%7$q!^d&ja!bu8@#afa^wg$bp82m(_h+l#kn4n-4**"
 DEBUG = True
 
@@ -22,11 +21,6 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
-
-# ❌ WRONG (duplicate settings) — this overwrote your correct values above
-# SECRET_KEY = 'django-insecure-at&fdji3%7$q!^d&ja!bu8@#afa^wg$bp82m(_h+l#kn4n-4**'
-# DEBUG = True
-# ALLOWED_HOSTS = []   # ❌ would override and block localhost
 
 
 # -------------------------------------------------
@@ -41,26 +35,23 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # Third-party (✅ correct place)
+    # Third-party
     "rest_framework",
     "corsheaders",
     "rest_framework_simplejwt",
-    "django_filters",  # ✅ if you use filtering
+    "django_filters",
 
-    # Local apps (✅ correct place)
+    # Local apps
     "connect.apps.ConnectConfig",
     "blockchain_records",
 ]
-
-# ❌ WRONG (you had apps inside MIDDLEWARE) — apps must be in INSTALLED_APPS, not middleware:
-# 'rest_framework', 'corsheaders', 'django_filters', 'blockchain_records', 'connect.apps.ConnectConfig', 'rest_framework_simplejwt'
 
 
 # -------------------------------------------------
 # MIDDLEWARE
 # -------------------------------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # ✅ should be near the top
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -70,14 +61,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-
-    # ❌ WRONG (you put apps here). Middleware should ONLY contain middleware classes:
-    # 'rest_framework',
-    # 'corsheaders',
-    # 'django_filters',
-    # "blockchain_records",
-    # 'connect.apps.ConnectConfig',
-    # 'rest_framework_simplejwt',
 ]
 
 
@@ -85,11 +68,7 @@ MIDDLEWARE = [
 # URL / WSGI
 # -------------------------------------------------
 ROOT_URLCONF = "backend.urls"
-
 WSGI_APPLICATION = "backend.wsgi.application"
-
-# ❌ WRONG (duplicate line)
-# WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # -------------------------------------------------
@@ -158,7 +137,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # -------------------------------------------------
 # CORS (React ↔ Django)
 # -------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True          # ✅ DEV ONLY
+CORS_ALLOW_ALL_ORIGINS = True  # DEV ONLY
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
@@ -171,34 +150,19 @@ CSRF_TRUSTED_ORIGINS = [
 # DRF + JWT
 # -------------------------------------------------
 REST_FRAMEWORK = {
-    # ✅ JWT auth
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        # If you also want session login support (admin / browser):
+        # Optional: for Django admin / browsable API sessions
         # "rest_framework.authentication.SessionAuthentication",
     ),
-
-    # ✅ pick ONE default permission policy
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ),
 
-    # If you want EVERYTHING public (not recommended), use this instead:
-    # "DEFAULT_PERMISSION_CLASSES": (
-    #     "rest_framework.permissions.AllowAny",
-    # ),
+    # ✅ from admin-dashboard branch (safe to keep)
+    "DATE_INPUT_FORMATS": ["%Y-%m-%d", "%m/%d/%Y"],
+    "DATE_FORMAT": "%Y-%m-%d",
 }
-
-# ❌ WRONG (your REST_FRAMEWORK block had duplicates + broken brackets)
-# REST_FRAMEWORK = {
-#     ...
-#     "DEFAULT_PERMISSION_CLASSES": (
-#         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
-#     "DEFAULT_PERMISSION_CLASSES": (
-#         "rest_framework.permissions.AllowAny",
-#     ),
-# }
-
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),

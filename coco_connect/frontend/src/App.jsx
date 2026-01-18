@@ -1,17 +1,26 @@
 // src/App.jsx
 import { Routes, Route, useLocation } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
+// PUBLIC PAGES
 import Home from "./pages/Home";
 import About from "./pages/About";
 import IdeaSharing from "./pages/IdeaSharing";
 import Product from "./pages/Product-pg";
 import Cart from "./pages/Cart";
 import Investment from "./pages/Investment";
-import Blockchain from "./admin/pages/Blockchain";
 import News from "./pages/News";
 
+// ADMIN PAGES
+import AdminLayout from "./admin/layout/AdminLayout";
+import Dashboard from "./admin/pages/Dashboard";
+import Users from "./admin/pages/Users";
+import Blockchain from "./admin/pages/Blockchain";
+import AdminNews from "./admin/pages/AdminNews";
+
+// CUSTOMER PAGES
 import CustomerLayout from "./customer/layout/CustomerLayout";
 import Overview from "./customer/pages/Overview";
 import Profile from "./customer/pages/Profile";
@@ -21,7 +30,13 @@ import ProtectedCustomerRoute from "./customer/ProtectedCustomerRoute";
 
 function LayoutWrapper({ children }) {
   const { pathname } = useLocation();
+
+  // Customer dashboard controls its own layout
   if (pathname.startsWith("/customer")) return <>{children}</>;
+
+  // Admin dashboard controls its own layout
+  if (pathname.startsWith("/admin")) return <>{children}</>;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-gray-200">
       <Navbar />
@@ -32,12 +47,15 @@ function LayoutWrapper({ children }) {
 }
 
 const W = (Page) => (
-  <LayoutWrapper> <Page /> </LayoutWrapper>
+  <LayoutWrapper>
+    <Page />
+  </LayoutWrapper>
 );
 
-function App() {
+export default function App() {
   return (
     <Routes>
+      {/* PUBLIC */}
       <Route path="/" element={W(Home)} />
       <Route path="/about" element={W(About)} />
       <Route path="/investment" element={W(Investment)} />
@@ -45,8 +63,42 @@ function App() {
       <Route path="/shop" element={W(Product)} />
       <Route path="/cart" element={W(Cart)} />
       <Route path="/news" element={W(News)} />
-      <Route path="/admin/blockchain" element={W(Blockchain)} />
 
+      {/* ADMIN */}
+      <Route
+        path="/admin"
+        element={
+          <AdminLayout>
+            <Dashboard />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <AdminLayout>
+            <Users />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/blockchain"
+        element={
+          <AdminLayout>
+            <Blockchain />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/news"
+        element={
+          <AdminLayout>
+            <AdminNews />
+          </AdminLayout>
+        }
+      />
+
+      {/* CUSTOMER (PROTECTED) */}
       <Route element={<ProtectedCustomerRoute />}>
         <Route path="/customer/*" element={<CustomerLayout />}>
           <Route index element={<Overview />} />
@@ -55,9 +107,6 @@ function App() {
           <Route path="orders" element={<Orders />} />
         </Route>
       </Route>
-
     </Routes>
   );
 }
-
-export default App;

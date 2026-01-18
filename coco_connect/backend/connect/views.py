@@ -1,4 +1,5 @@
 # connect/views.py
+
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
@@ -7,10 +8,15 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 import json
 import decimal
-import random, string
+import random
+import string
 
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import (
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+    IsAdminUser,
+)
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
@@ -23,11 +29,12 @@ from .models import (
     InvestmentProject,
     Investment,
     Product,
+    News,
 )
-from .serializers import IdeaSerializer
+from .serializers import IdeaSerializer, NewsSerializer
 from .permissions import IsOwner
 
-# ✅ AI similarity imports (FREE)
+# AI similarity imports
 from .services.embeddings import get_embedding
 from .services.similarity import cosine_similarity
 
@@ -68,7 +75,7 @@ def hello_coco(request):
     return JsonResponse({"message": "CocoConnect API is running"})
 
 
-# ------------------ Register (FUNCTION) ------------------
+# ------------------ Register ------------------
 @csrf_exempt
 def register(request):
     if request.method != "POST":
@@ -98,7 +105,8 @@ def register(request):
             first_name=name,
         )
 
-        Profile.objects.get_or_create(user=user, defaults={"role": role})
+        # store role in Profile
+        Profile.objects.get_or_create(user=user, defaults={"role": role or "buyer"})
 
         return JsonResponse(
             {
@@ -107,7 +115,7 @@ def register(request):
                     "id": user.id,
                     "email": user.email,
                     "name": user.first_name,
-                    "role": role,
+                    "role": role or "buyer",
                 },
             },
             status=201,
@@ -140,6 +148,7 @@ def login(request):
 
         # session login
         from django.contrib.auth import login as auth_login
+
         auth_login(request, user)
 
         return JsonResponse(
@@ -159,8 +168,97 @@ def login(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+# ==================================================
+# ADMIN: USERS MANAGEMENT (Staff only)
+# ==================================================
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def users_list(request):
+    q = (request.GET.get("q") or "").strip()
+
+    qs = User.objects.all().order_by("-date_joined")
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(username__icontains=q)
+        )
+
+    users = []
+    for u in qs:
+        profile = getattr(u, "profile", None)
+        users.append(
+            {
+                "id": u.id,
+                "name": (u.first_name + " " + u.last_name).strip() or u.username,
+                "email": u.email,
+                "role": getattr(profile, "role", ""),
+                "is_active": u.is_active,
+                "is_staff": u.is_staff,
+            }
+        )
+
+    return Response({"users": users})
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAdminUser])
+def users_delete(request, user_id):
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if u.is_superuser:
+        return Response({"error": "Cannot delete superuser"}, status=status.HTTP_403_FORBIDDEN)
+
+    u.delete()
+    return Response({"message": "User deleted"})
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAdminUser])
+def users_update(request, user_id):
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if "is_active" in request.data:
+        u.is_active = bool(request.data["is_active"])
+        u.save(update_fields=["is_active"])
+
+    # optional: allow staff toggle
+    if "is_staff" in request.data:
+        u.is_staff = bool(request.data["is_staff"])
+        u.save(update_fields=["is_staff"])
+
+    # optional: update role
+    if "role" in request.data:
+        profile, _ = Profile.objects.get_or_create(user=u)
+        profile.role = request.data["role"]
+        profile.save(update_fields=["role"])
+
+    return Response({"message": "User updated"})
+
+
+# ==================================================
+# NEWS API
+# ==================================================
+class NewsViewSet(ModelViewSet):
+    queryset = News.objects.all().order_by("-date", "-id")
+    serializer_class = NewsSerializer
+
+    # read is public, write is staff-only
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser()]
+        return [IsAuthenticatedOrReadOnly()]
+
+
 # ============================
-# 🔐 IDEAS API (AI Similarity Check)
+# IDEAS API (AI Similarity Check)
 # ============================
 class IdeaViewSet(ModelViewSet):
     queryset = Idea.objects.all().order_by("-created_at")
@@ -178,7 +276,11 @@ class IdeaViewSet(ModelViewSet):
         return perms
 
     def build_combined_text(self, title, short_desc, full_desc):
-        return f"Title: {title}\nShort Description: {short_desc}\nFull Description: {full_desc}"
+        return (
+            f"Title: {title}\n"
+            f"Short Description: {short_desc}\n"
+            f"Full Description: {full_desc}"
+        )
 
     def find_similar_ideas(self, new_embedding, exclude_id=None):
         matches = []
@@ -189,7 +291,9 @@ class IdeaViewSet(ModelViewSet):
         for idea in qs:
             score = cosine_similarity(new_embedding, idea.embedding)
             if score >= self.SIM_THRESHOLD:
-                matches.append({"id": idea.id, "title": idea.title, "score": round(score, 3)})
+                matches.append(
+                    {"id": idea.id, "title": idea.title, "score": round(score, 3)}
+                )
 
         return sorted(matches, key=lambda x: x["score"], reverse=True)[:5]
 
@@ -204,7 +308,10 @@ class IdeaViewSet(ModelViewSet):
         matches = self.find_similar_ideas(emb)
         if matches:
             return Response(
-                {"error": "Similar idea already exists. Please check before publishing.", "matches": matches},
+                {
+                    "error": "Similar idea already exists. Please check before publishing.",
+                    "matches": matches,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -226,7 +333,10 @@ class IdeaViewSet(ModelViewSet):
         matches = self.find_similar_ideas(emb, exclude_id=instance.id)
         if matches:
             return Response(
-                {"error": "Updating this idea will create a duplicate. Please modify before saving.", "matches": matches},
+                {
+                    "error": "Updating this idea will create a duplicate. Please modify before saving.",
+                    "matches": matches,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -248,7 +358,10 @@ class IdeaViewSet(ModelViewSet):
         matches = self.find_similar_ideas(emb, exclude_id=instance.id)
         if matches:
             return Response(
-                {"error": "Updating this idea will create a duplicate. Please modify before saving.", "matches": matches},
+                {
+                    "error": "Updating this idea will create a duplicate. Please modify before saving.",
+                    "matches": matches,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -346,7 +459,9 @@ def get_projects(request):
                 }
             )
 
-        return JsonResponse({"success": True, "projects": projects_data, "total": len(projects_data)})
+        return JsonResponse(
+            {"success": True, "projects": projects_data, "total": len(projects_data)}
+        )
 
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -462,7 +577,9 @@ def create_investment(request):
 def get_categories(request):
     try:
         categories = InvestmentCategory.objects.all()
-        return JsonResponse({"success": True, "categories": [{"id": c.id, "name": c.name} for c in categories]})
+        return JsonResponse(
+            {"success": True, "categories": [{"id": c.id, "name": c.name} for c in categories]}
+        )
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
@@ -480,8 +597,13 @@ def get_locations(request):
 def get_platform_stats(request):
     try:
         total_projects = InvestmentProject.objects.count()
-        total_investment = Investment.objects.filter(status="completed").aggregate(total=Sum("amount"))["total"] or 0
-        unique_investors = Investment.objects.filter(status="completed").values("investor").distinct().count()
+        total_investment = (
+            Investment.objects.filter(status="completed").aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+        unique_investors = (
+            Investment.objects.filter(status="completed").values("investor").distinct().count()
+        )
 
         avg_roi = 0
         projects = InvestmentProject.objects.all()
@@ -513,7 +635,11 @@ def create_demo_projects(request):
     try:
         farmer, created = User.objects.get_or_create(
             username="demo_farmer@coco.com",
-            defaults={"email": "demo_farmer@coco.com", "first_name": "Ravi", "last_name": "Perera"},
+            defaults={
+                "email": "demo_farmer@coco.com",
+                "first_name": "Ravi",
+                "last_name": "Perera",
+            },
         )
         if created:
             farmer.set_password("demo123")
@@ -540,7 +666,9 @@ def create_demo_projects(request):
             investors_count=24,
         )
 
-        return JsonResponse({"success": True, "message": "Created 1 demo project", "project_id": project.id})
+        return JsonResponse(
+            {"success": True, "message": "Created 1 demo project", "project_id": project.id}
+        )
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -599,12 +727,17 @@ def me(request):
 
         if username:
             if User.objects.exclude(id=user.id).filter(username=username).exists():
-                return Response({"error": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Username already taken"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             user.username = username
 
         user.first_name = first_name
         user.last_name = last_name
         user.save()
+
+    profile = getattr(user, "profile", None)
 
     return Response(
         {
@@ -613,8 +746,9 @@ def me(request):
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
-            "role": "Admin" if user.is_staff else "User",
+            "role": getattr(profile, "role", ""),
             "is_active": user.is_active,
+            "is_staff": user.is_staff,
         }
     )
 
@@ -629,16 +763,25 @@ def change_password(request):
     confirm_password = request.data.get("confirm_password")
 
     if not current_password or not new_password:
-        return Response({"error": "Current and new password required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Current and new password required"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     if confirm_password is not None and new_password != confirm_password:
         return Response({"error": "Passwords do not match"}, status=status.HTTP_400_BAD_REQUEST)
 
     if not user.check_password(current_password):
-        return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Current password is incorrect"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     if len(new_password) < 6:
-        return Response({"error": "Password must be at least 6 characters"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Password must be at least 6 characters"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     user.set_password(new_password)
     user.save()
