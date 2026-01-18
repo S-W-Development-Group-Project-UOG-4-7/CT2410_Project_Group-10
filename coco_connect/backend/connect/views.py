@@ -160,102 +160,191 @@ def login(request):
 
 
 # ============================
-# 🔐 IDEAS API (AI Similarity Check)
+# 🔐 IDEAS API (AI Similarity)
 # ============================
 class IdeaViewSet(ModelViewSet):
     queryset = Idea.objects.all().order_by("-created_at")
     serializer_class = IdeaSerializer
 
-    SIM_THRESHOLD = 0.80
+    # 🔥 Similarity thresholds
+    BLOCK_THRESHOLD = 0.85
+    WARNING_THRESHOLD = 0.65
 
     def get_permissions(self):
         if self.action in ["update", "partial_update", "destroy"]:
-            perms = [IsAuthenticated(), IsOwner()]
+            return [IsAuthenticated(), IsOwner()]
         elif self.action == "create":
-            perms = [IsAuthenticated()]
-        else:
-            perms = [IsAuthenticatedOrReadOnly()]
-        return perms
+            return [IsAuthenticated()]
+        return [IsAuthenticatedOrReadOnly()]
 
-    def build_combined_text(self, title, short_desc, full_desc):
-        return f"Title: {title}\nShort Description: {short_desc}\nFull Description: {full_desc}"
+    def build_text(self, title, short_desc, full_desc):
+        return f"{title}\n{short_desc}\n{full_desc}".strip()
 
-    def find_similar_ideas(self, new_embedding, exclude_id=None):
+    def find_similar(self, embedding, exclude_id=None):
         matches = []
+
+        if not embedding:
+            return matches
+
         qs = Idea.objects.exclude(embedding=None)
         if exclude_id:
             qs = qs.exclude(id=exclude_id)
 
         for idea in qs:
-            score = cosine_similarity(new_embedding, idea.embedding)
-            if score >= self.SIM_THRESHOLD:
-                matches.append({"id": idea.id, "title": idea.title, "score": round(score, 3)})
+            if not idea.embedding:
+                continue
 
-        return sorted(matches, key=lambda x: x["score"], reverse=True)[:5]
+            score = cosine_similarity(embedding, idea.embedding)
 
+            matches.append(
+                {
+                    "id": idea.id,
+                    "title": idea.title,
+                    "author": (
+                        idea.author.get_full_name()
+                        or idea.author.email
+                        or idea.author.username
+                    ),
+                    "score": round(score, 3),
+                }
+            )
+
+        matches.sort(key=lambda x: x["score"], reverse=True)
+        return matches[:5]
+
+    # -------- CREATE --------
     def create(self, request, *args, **kwargs):
         title = request.data.get("title", "")
         short_desc = request.data.get("short_description", "")
         full_desc = request.data.get("full_description", "")
 
-        combined = self.build_combined_text(title, short_desc, full_desc)
-        emb = get_embedding(combined)
+        combined = self.build_text(title, short_desc, full_desc)
+        embedding = get_embedding(combined)
 
-        matches = self.find_similar_ideas(emb)
-        if matches:
+        # ✅ detect "Publish Anyway"
+        force_publish = str(
+            request.data.get("force_publish", "")
+        ).lower() in ["1", "true", "yes"]
+
+        matches = self.find_similar(embedding)
+        best_score = matches[0]["score"] if matches else 0
+
+        # 🔴 BLOCK (always)
+        if best_score >= self.BLOCK_THRESHOLD:
             return Response(
-                {"error": "Similar idea already exists. Please check before publishing.", "matches": matches},
+                {
+                    "type": "BLOCK",
+                    "error": "This idea is too similar to an existing idea.",
+                    "matches": matches,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
+        # 🟡 WARNING (only if NOT forced)
+        if (
+            self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD
+            and not force_publish
+        ):
+            return Response(
+                {
+                    "type": "WARNING",
+                    "matches": matches,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # 🟢 ALLOW or FORCED PUBLISH
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        obj = serializer.save(author=request.user, embedding=emb)
-        return Response(self.get_serializer(obj).data, status=status.HTTP_201_CREATED)
+        idea = serializer.save(
+            author=request.user,
+            embedding=embedding,
+        )
 
+        return Response(
+            self.get_serializer(idea).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    # -------- UPDATE --------
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
 
         title = request.data.get("title", instance.title)
-        short_desc = request.data.get("short_description", instance.short_description)
-        full_desc = request.data.get("full_description", instance.full_description)
+        short_desc = request.data.get(
+            "short_description", instance.short_description
+        )
+        full_desc = request.data.get(
+            "full_description", instance.full_description
+        )
 
-        combined = self.build_combined_text(title, short_desc, full_desc)
-        emb = get_embedding(combined)
+        combined = self.build_text(title, short_desc, full_desc)
+        embedding = get_embedding(combined)
 
-        matches = self.find_similar_ideas(emb, exclude_id=instance.id)
-        if matches:
+        matches = self.find_similar(
+            embedding, exclude_id=instance.id
+        )
+        best_score = matches[0]["score"] if matches else 0
+
+        if best_score >= self.BLOCK_THRESHOLD:
             return Response(
-                {"error": "Updating this idea will create a duplicate. Please modify before saving.", "matches": matches},
+                {
+                    "type": "BLOCK",
+                    "error": "Updated idea is too similar to another idea.",
+                    "matches": matches,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        serializer = self.get_serializer(instance, data=request.data)
+        serializer = self.get_serializer(
+            instance, data=request.data
+        )
         serializer.is_valid(raise_exception=True)
-        obj = serializer.save(embedding=emb)
-        return Response(self.get_serializer(obj).data, status=status.HTTP_200_OK)
+        idea = serializer.save(embedding=embedding)
 
+        return Response(self.get_serializer(idea).data)
+
+    # -------- PARTIAL UPDATE --------
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
 
         title = request.data.get("title", instance.title)
-        short_desc = request.data.get("short_description", instance.short_description)
-        full_desc = request.data.get("full_description", instance.full_description)
+        short_desc = request.data.get(
+            "short_description", instance.short_description
+        )
+        full_desc = request.data.get(
+            "full_description", instance.full_description
+        )
 
-        combined = self.build_combined_text(title, short_desc, full_desc)
-        emb = get_embedding(combined)
+        combined = self.build_text(title, short_desc, full_desc)
+        embedding = get_embedding(combined)
 
-        matches = self.find_similar_ideas(emb, exclude_id=instance.id)
-        if matches:
+        matches = self.find_similar(
+            embedding, exclude_id=instance.id
+        )
+        best_score = matches[0]["score"] if matches else 0
+
+        if best_score >= self.BLOCK_THRESHOLD:
             return Response(
-                {"error": "Updating this idea will create a duplicate. Please modify before saving.", "matches": matches},
+                {
+                    "type": "BLOCK",
+                    "error": "Updated idea is too similar to another idea.",
+                    "matches": matches,
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = self.get_serializer(
+            instance,
+            data=request.data,
+            partial=True,
+        )
         serializer.is_valid(raise_exception=True)
-        obj = serializer.save(embedding=emb)
-        return Response(self.get_serializer(obj).data, status=status.HTTP_200_OK)
+        idea = serializer.save(embedding=embedding)
+
+        return Response(self.get_serializer(idea).data)
+
+
 
 
 # ----------------------------

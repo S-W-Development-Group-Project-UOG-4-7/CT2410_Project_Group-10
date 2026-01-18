@@ -6,24 +6,33 @@ from .models import Idea
 
 
 # ==================================================
-# IDEA SERIALIZER
+# IDEA SERIALIZER (FIXED)
 # ==================================================
 class IdeaSerializer(serializers.ModelSerializer):
-    author_name = serializers.CharField(
-        source="author.email",
-        read_only=True
-    )
+    # ✅ Send owner info to frontend
+    author_email = serializers.SerializerMethodField()
+    author_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Idea
         fields = "__all__"
 
-        # ✅ embedding is read-only (backend handles it)
-        read_only_fields = ["author", "created_at", "embedding"]
+        # backend-controlled fields
+        read_only_fields = [
+            "author",
+            "created_at",
+            "embedding",
+        ]
+
+    def get_author_email(self, obj):
+        return obj.author.email if obj.author else ""
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
 
 
 # ==================================================
-# JWT LOGIN WITH EMAIL (🔥 IMPORTANT FIX)
+# JWT LOGIN WITH EMAIL (UNCHANGED & WORKING)
 # ==================================================
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
@@ -46,7 +55,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "No active account found with the given credentials"
             )
 
-        # Map email → username for JWT
+        # map email → username (SimpleJWT requirement)
         attrs["username"] = user.username
 
         return super().validate(attrs)

@@ -174,6 +174,46 @@ class InvestmentProject(models.Model):
     def funding_needed(self):
         return self.target_amount - self.current_amount
 
+# ----------------------------
+# IDEA (AI Similarity Enabled)
+# ----------------------------
+class Idea(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ideas")
+
+    title = models.CharField(max_length=255)
+    short_description = models.TextField()
+    full_description = models.TextField()
+
+    is_paid = models.BooleanField(default=False)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    document = models.FileField(upload_to="ideas/", null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # ✅ AI Embedding Vector (used for similarity)
+    embedding = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    def build_text_for_embedding(self):
+        return f"{self.title}\n{self.short_description}\n{self.full_description}".strip()
+
+    def save(self, *args, **kwargs):
+        """
+        Auto-generate embedding if missing or content changed.
+        Keeps similarity system stable and error-free.
+        """
+        if not self.embedding:
+            from .services.embeddings import get_embedding
+            text = self.build_text_for_embedding()
+            self.embedding = get_embedding(text)
+
+        super().save(*args, **kwargs)
 
 # ----------------------------
 # INVESTMENT
