@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { loginUser } from "../services/authService";
 
-export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSuccess }) {
-  const modalRef = useRef();
+export default function LoginModal({
+  isOpen,
+  onClose,
+  onOpenRegister,
+  onAuthSuccess,
+}) {
+  const modalRef = useRef(null);
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
@@ -15,20 +22,55 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
     if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
   };
 
+  // ✅ Regex → format-based checks
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  const passwordRegex = /^.{6,}$/;
+
   const validateForm = useCallback(() => {
     const newErrors = {};
 
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
+    else if (!emailRegex.test(formData.email))
       newErrors.email = "Enter a valid email";
 
     if (!formData.password.trim()) newErrors.password = "Password is required";
-    else if (formData.password.length < 6)
+    else if (!passwordRegex.test(formData.password))
       newErrors.password = "At least 6 characters";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
+
+  // ✅ Map backend error -> friendly message
+  // (works for both DRF/SimpleJWT and custom JSON errors)
+  const getLoginErrorMessage = (err) => {
+    const status = err?.response?.status;
+
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "";
+
+    const d = String(detail).toLowerCase();
+
+    if (d.includes("no active account")) {
+      return "No active account found. Contact admin to activate the account.";
+    }
+
+    if (
+      status === 401 ||
+      status === 404 ||
+      d.includes("unable to log in") ||
+      d.includes("invalid") ||
+      d.includes("not found") ||
+      d.includes("does not exist")
+    ) {
+      return "Account not found. Register to create a new account.";
+    }
+
+    return "Login failed. Check email/password and make sure Django is running.";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,36 +80,53 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
-      // ✅ Call backend JWT token endpoint via authService
+      // loginUser should return something like:
+      // { access, refresh, user: { id, name, email, role } }
+      // OR { access, refresh, id, name, email, role }
       const data = await loginUser(formData.email, formData.password);
 
-      // ✅ Save tokens
-      localStorage.setItem("access", data.access);
-      localStorage.setItem("refresh", data.refresh);
+      const apiUser = data?.user ?? data ?? {};
+      const access = data?.access;
+      const refresh = data?.refresh;
 
+      if (!access) {
+        throw new Error("Missing access token from backend response");
+      }
+
+      // ✅ persist tokens
+      localStorage.setItem("access", access);
+      if (refresh) localStorage.setItem("refresh", refresh);
+
+      // ✅ store user in ONE consistent structure (important for views.py usage + frontend pages)
       const userObj = {
-  name: formData.email,   // later you can replace with real name from backend
-  email: formData.email,
-  rememberMe,
-};
+        id: apiUser?.id ?? null,
+        name: apiUser?.name || apiUser?.first_name || formData.email,
+        email: apiUser?.email || formData.email,
+        role: apiUser?.role || (apiUser?.is_staff ? "admin" : "user"),
+        rememberMe,
+      };
 
-localStorage.setItem("user", JSON.stringify(userObj));
+      localStorage.setItem("user", JSON.stringify(userObj));
 
-// ✅ tell Navbar immediately
-onAuthSuccess?.(userObj);
+      // (optional) keep compatibility with existing code you already have
+      localStorage.setItem("role", userObj.role || "");
+      localStorage.setItem("name", userObj.name || "");
+      localStorage.setItem("email", userObj.email || "");
 
-console.log("Logged in with token:", data);
+      // ✅ update navbar/state once
+      onAuthSuccess?.(userObj);
 
-// ✅ Close modal
-onClose();
+      // ✅ close once
+      onClose();
 
+      // ✅ optional redirect if you want (leave commented if you handle routing elsewhere)
+      // if (String(userObj.role).toLowerCase() === "admin") {
+      //   navigate("/admin/blockchain");
+      // } else {
+      //   navigate("/customer");
+      // }
     } catch (err) {
-      // show a nicer error if backend is down vs wrong password
-      setErrors({
-        submit:
-          err?.response?.data?.detail ||
-          "Login failed. Check email/password and make sure Django is running.",
-      });
+      setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
       setIsSubmitting(false);
     }
@@ -76,6 +135,7 @@ onClose();
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.id]: e.target.value }));
     if (errors[e.target.id]) setErrors((p) => ({ ...p, [e.target.id]: "" }));
+    if (errors.submit) setErrors((p) => ({ ...p, submit: "" }));
   };
 
   useEffect(() => {
@@ -123,10 +183,8 @@ onClose();
         aria-modal="true"
         role="dialog"
       >
-        {/* overlay */}
-        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" />
 
-        {/* floating dots */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
           <div
             className="absolute top-1/4 left-1/4 w-40 h-40 p1 rounded-full blur-2xl opacity-80"
@@ -158,7 +216,6 @@ onClose();
           />
         </div>
 
-        {/* modal */}
         <div
           ref={modalRef}
           className="relative z-20 bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
@@ -171,6 +228,7 @@ onClose();
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100/70"
+            aria-label="Close"
           >
             ✕
           </button>
@@ -182,6 +240,19 @@ onClose();
           {errors.submit && (
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
               <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
+
+              {String(errors.submit).toLowerCase().includes("account not found") && (
+                <button
+                  type="button"
+                  className="mt-3 text-sm text-green-700 font-semibold hover:underline"
+                  onClick={() => {
+                    onClose();
+                    onOpenRegister?.();
+                  }}
+                >
+                  Create a new account
+                </button>
+              )}
             </div>
           )}
 
@@ -204,6 +275,7 @@ onClose();
                       : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                   }`}
                 placeholder="you@example.com"
+                autoComplete="email"
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email}</p>
@@ -230,6 +302,7 @@ onClose();
                         : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                     }`}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
 
                 <button
@@ -261,6 +334,7 @@ onClose();
               <button
                 type="button"
                 className="text-sm text-green-700 hover:underline"
+                onClick={() => alert("Forgot password not implemented yet")}
               >
                 Forgot Password?
               </button>
@@ -287,7 +361,7 @@ onClose();
               className="text-green-700 font-semibold hover:underline"
               onClick={() => {
                 onClose();
-                onOpenRegister();
+                onOpenRegister?.();
               }}
             >
               Create one
