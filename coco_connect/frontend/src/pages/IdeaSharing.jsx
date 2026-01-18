@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import BackgroundRain from "../components/BackgroundRain";
 import PayHerePayment from "../components/PayHerePayment";
+import SimilarityAlerts from "../components/SimilarityAlerts";
 
 const API = "http://127.0.0.1:8000/api";
 
@@ -9,7 +10,13 @@ function getInitials(name = "U") {
     .split(" ")
     .map((n) => n[0])
     .join("")
-    .toUpperCase();
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function toPercent(score) {
+  if (score === null || score === undefined) return "";
+  return `${Math.round(Number(score) * 100)}%`;
 }
 
 export default function IdeaSharing() {
@@ -19,8 +26,10 @@ export default function IdeaSharing() {
 
   const [ideas, setIdeas] = useState([]);
   const [selected, setSelected] = useState(null);
+
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+
   const [payIdea, setPayIdea] = useState(null);
   const [purchased, setPurchased] = useState([]);
 
@@ -34,31 +43,47 @@ export default function IdeaSharing() {
   const [isPaid, setIsPaid] = useState(false);
   const [price, setPrice] = useState("");
 
-  // ✅ publishing state
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // ✅ similarity error state (409)
-  const [similarError, setSimilarError] = useState(null);
+  const [similarBlock, setSimilarBlock] = useState(null);
+  const [similarWarning, setSimilarWarning] = useState(null);
 
-  // LOAD IDEAS
+  const [alertsCount, setAlertsCount] = useState(0);
+  const [showAlerts, setShowAlerts] = useState(false);
+
   useEffect(() => {
     fetch(`${API}/ideas/`)
       .then((res) => res.json())
-      .then((data) => setIdeas(Array.isArray(data) ? data : []));
+      .then((data) => setIdeas(Array.isArray(data) ? data : []))
+      .catch(() => setIdeas([]));
   }, []);
 
-  // FILTER + SEARCH
-  const filteredIdeas = ideas.filter((idea) => {
-    const ownerOk = filter === "mine" ? idea.author_name === myEmail : true;
+  useEffect(() => {
+    if (!token) return;
 
-    const searchOk =
-      (idea.title || "").toLowerCase().includes(search.toLowerCase()) ||
-      (idea.short_description || "")
-        .toLowerCase()
-        .includes(search.toLowerCase());
+    fetch(`${API}/alerts/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAlertsCount(data.length);
+        }
+      })
+      .catch(() => setAlertsCount(0));
+  }, [token]);
 
-    return ownerOk && searchOk;
-  });
+  const filteredIdeas = useMemo(() => {
+    return ideas.filter((idea) => {
+      const ownerOk = filter === "mine" ? idea.author_name === myEmail : true;
+      const s = search.toLowerCase();
+      const searchOk =
+        (idea.title || "").toLowerCase().includes(s) ||
+        (idea.short_description || "").toLowerCase().includes(s);
+
+      return ownerOk && searchOk;
+    });
+  }, [ideas, filter, search, myEmail]);
 
   const resetForm = () => {
     setTitle("");
@@ -70,7 +95,46 @@ export default function IdeaSharing() {
     setEditing(null);
   };
 
-  // ✅ CREATE / UPDATE (Updated with AI similarity error handling)
+  const reloadIdeas = async () => {
+    try {
+      const res = await fetch(`${API}/ideas/`);
+      const data = await res.json();
+      setIdeas(Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const openBestMatch = async (matches) => {
+    if (!matches || matches.length === 0) return;
+
+    const best = matches[0];
+    let found = ideas.find((i) => i.id === best.id);
+
+    if (!found) {
+      const refreshed = await reloadIdeas();
+      found = refreshed.find((i) => i.id === best.id);
+    }
+
+    if (found) setSelected(found);
+  };
+
+  const reportIdea = (payload) => {
+    try {
+      const reports = JSON.parse(localStorage.getItem("idea_reports") || "[]");
+      reports.push({
+        time: new Date().toISOString(),
+        reporter: myEmail || "unknown",
+        payload,
+      });
+      localStorage.setItem("idea_reports", JSON.stringify(reports));
+      alert("Report saved. Admin review module will be added later.");
+    } catch {
+      alert("Report saving failed. Please try again.");
+    }
+  };
+
   const handlePublish = async () => {
     if (!token) return alert("Please login");
 
@@ -79,11 +143,12 @@ export default function IdeaSharing() {
     if (!fullDesc.trim()) return alert("Full description is required");
 
     if (isPaid && (!price || Number(price) <= 0)) {
-      return alert("Enter valid price");
+      return alert("Enter a valid price");
     }
 
     setIsPublishing(true);
-    setSimilarError(null);
+    setSimilarBlock(null);
+    setSimilarWarning(null);
 
     const formData = new FormData();
     formData.append("title", title);
@@ -103,29 +168,39 @@ export default function IdeaSharing() {
         body: formData,
       });
 
-      // ✅ AI Similarity error (409)
-      if (res.status === 409) {
-        const err = await res.json();
-        setSimilarError(err);
+      const responseJson = await res.json().catch(() => null);
+
+      if (res.status === 409 && responseJson?.type === "BLOCK") {
+        setSimilarBlock(responseJson);
         setIsPublishing(false);
         return;
       }
 
       if (!res.ok) {
-        alert("Failed to publish idea");
+        alert(responseJson?.error || "Failed to publish idea");
         setIsPublishing(false);
         return;
       }
 
-      const data = await res.json();
+      if (responseJson?.type === "WARNING") {
+        const createdIdea = responseJson.idea;
+        setIdeas((prev) => [createdIdea, ...prev]);
+        setSimilarWarning(responseJson);
 
-      setIdeas(
+        setShowForm(false);
+        resetForm();
+        setIsPublishing(false);
+        return;
+      }
+
+      const data = responseJson;
+
+      setIdeas((prev) =>
         editing
-          ? ideas.map((i) => (i.id === data.id ? data : i))
-          : [data, ...ideas]
+          ? prev.map((i) => (i.id === data.id ? data : i))
+          : [data, ...prev]
       );
 
-      // ✅ update selected view if currently opened
       if (selected && editing && selected.id === data.id) {
         setSelected(data);
       }
@@ -140,7 +215,6 @@ export default function IdeaSharing() {
     }
   };
 
-  // DELETE
   const handleDelete = async (id) => {
     const res = await fetch(`${API}/ideas/${id}/`, {
       method: "DELETE",
@@ -149,7 +223,7 @@ export default function IdeaSharing() {
 
     if (!res.ok) return alert("Only owner can delete");
 
-    setIdeas(ideas.filter((i) => i.id !== id));
+    setIdeas((prev) => prev.filter((i) => i.id !== id));
     setSelected(null);
   };
 
@@ -164,11 +238,10 @@ export default function IdeaSharing() {
   };
 
   const unlockIdea = (id) => {
-    setPurchased([...purchased, id]);
+    setPurchased((prev) => [...prev, id]);
     setPayIdea(null);
   };
 
-  // Check if user can view full details
   const canViewFullDetails = (idea) => {
     return (
       !idea.is_paid ||
@@ -181,12 +254,53 @@ export default function IdeaSharing() {
     <div className="min-h-screen bg-gradient-to-br from-[#f7faf8] to-[#eef4ef]">
       <BackgroundRain />
 
-      {/* ✅ PROFESSIONAL SIMILAR IDEAS MODAL - CLEAN & MINIMAL */}
-      {similarError && (
+      {showAlerts && <SimilarityAlerts onClose={() => setShowAlerts(false)} />}
+
+      {/* ================================
+   🔔 FLOATING ACTION BUTTONS (UPDATED)
+================================ */}
+      <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
+        {/* ➕ ADD IDEA BUTTON */}
+        <button
+          onClick={() => setShowForm(true)}
+          title="Add New Idea"
+          className="w-16 h-16 bg-green-600 text-white rounded-full shadow-2xl flex items-center justify-center text-4xl hover:bg-green-700 hover:scale-110 transition-all duration-200 font-light"
+        >
+          +
+        </button>
+
+        {/* 🚨 SIMILARITY ALERT BUTTON */}
+        {token && alertsCount > 0 && (
+          <button
+            onClick={() => setShowAlerts(true)}
+            className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-full shadow-xl hover:bg-red-700 transition-all duration-200 hover:scale-105"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+            <span className="font-semibold text-sm">Alerts</span>
+            <span className="bg-white text-red-600 font-bold px-2 py-0.5 rounded-full text-xs">
+              {alertsCount}
+            </span>
+          </button>
+        )}
+      </div>
+
+      {/* BLOCK MODAL */}
+      {similarBlock && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-[9999]">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl border border-gray-200 overflow-hidden">
-            {/* Header */}
-            <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+            <div className="px-6 py-5 border-b border-gray-200 bg-red-50">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                   <svg
@@ -199,81 +313,184 @@ export default function IdeaSharing() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
                 </div>
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-gray-900">
-                    Similar Idea Detected
+                    Publishing Blocked
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    {similarError.error ||
-                      "An idea with similar content already exists in the system."}
+                    {similarBlock.error ||
+                      "This idea is too similar to an existing idea. Please modify and try again."}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Body */}
             <div className="px-6 py-5">
-              <div className="mb-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                  Matching Ideas
-                </h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Closest Matches
+              </h3>
 
-                <div className="space-y-2">
-                  {similarError?.matches?.map((m, index) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="text-xs font-bold text-gray-400">
-                          #{index + 1}
-                        </span>
-                        <span className="font-medium text-gray-900 truncate">
-                          {m.title}
-                        </span>
-                      </div>
-                      <span className="text-xs font-semibold text-gray-600 bg-gray-200 px-2.5 py-1 rounded-md ml-2">
-                        {m.score}
-                      </span>
+              <div className="space-y-2">
+                {similarBlock?.matches?.map((m, index) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <p className="font-medium text-gray-900 truncate">
+                        #{index + 1} {m.title}
+                      </p>
+                      {m.author && (
+                        <p className="text-xs text-gray-500 truncate">
+                          Owner:{" "}
+                          <span className="font-semibold">{m.author}</span>
+                        </p>
+                      )}
                     </div>
-                  ))}
-                </div>
+                    <span className="text-xs font-bold text-red-700 bg-red-100 px-3 py-1 rounded-full ml-2">
+                      {toPercent(m.score)}
+                    </span>
+                  </div>
+                ))}
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
-                <p className="text-sm text-blue-900">
-                  <span className="font-semibold">Tip:</span> Please modify your
-                  idea to make it more unique, or review the similar ideas
-                  before proceeding.
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div className="mt-5 flex gap-3">
                 <button
                   onClick={() => {
-                    const bestMatch = similarError?.matches?.[0];
-                    if (bestMatch) {
-                      const ideaToOpen = ideas.find(
-                        (i) => i.id === bestMatch.id
-                      );
-                      if (ideaToOpen) setSelected(ideaToOpen);
-                    }
-                    setSimilarError(null);
+                    openBestMatch(similarBlock?.matches);
+                    setSimilarBlock(null);
                   }}
                   className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
                 >
                   View Similar
                 </button>
+
                 <button
-                  onClick={() => setSimilarError(null)}
+                  onClick={() => setSimilarBlock(null)}
                   className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition"
                 >
                   Edit My Idea
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WARNING MODAL */}
+      {similarWarning && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-[9999]">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl border border-gray-200 overflow-hidden">
+            {/* HEADER */}
+            <div className="px-6 py-5 border-b border-yellow-200 bg-yellow-50">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg
+                    className="w-5 h-5 text-yellow-700"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Similar Ideas Found
+                  </h2>
+                  <p className="text-sm text-gray-700 mt-1">
+                    Your idea was published successfully, but it is similar to
+                    existing ideas.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* BODY */}
+            <div className="px-6 py-5">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Matching Ideas
+              </h3>
+
+              <div className="space-y-2 mb-5 max-h-60 overflow-y-auto">
+                {similarWarning?.matches?.map((m, index) => (
+                  <div
+                    key={m.id || index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <p className="font-medium text-gray-900 truncate">
+                        #{index + 1} {m.title}
+                      </p>
+                      {m.author && (
+                        <p className="text-xs text-gray-500 truncate">
+                          Owner:{" "}
+                          <span className="font-semibold">{m.author}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <span className="text-xs font-bold text-yellow-800 bg-yellow-100 px-3 py-1 rounded-full ml-2">
+                      {toPercent(m.score)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* INFO */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5 flex gap-3">
+                <svg
+                  className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <p className="text-sm text-blue-900">
+                  You may review similar ideas or publish your idea anyway.
+                </p>
+              </div>
+
+              {/* ACTIONS */}
+              <div className="flex gap-3">
+                {/* VIEW SIMILAR */}
+                <button
+                  onClick={() => openBestMatch(similarWarning?.matches)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                >
+                  View Similar
+                </button>
+
+                {/* PUBLISH ANYWAY */}
+                <button
+                  onClick={() => setSimilarWarning(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+                >
+                  Publish Anyway
+                </button>
+
+                {/* OK */}
+                <button
+                  onClick={() => setSimilarWarning(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition"
+                >
+                  OK
                 </button>
               </div>
             </div>
@@ -353,14 +570,49 @@ export default function IdeaSharing() {
                     <p className="text-xs text-gray-400">Innovator</p>
                   </div>
                 </div>
+
                 <span
-                  className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+                  className={`px-3 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 ${
                     idea.is_paid
                       ? "bg-yellow-100 text-yellow-700 shadow-sm"
                       : "bg-green-100 text-green-700"
                   }`}
                 >
-                  {idea.is_paid ? `LKR ${idea.price}` : "FREE"}
+                  {idea.is_paid ? (
+                    <>
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      LKR {idea.price}
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      FREE
+                    </>
+                  )}
                 </span>
               </div>
 
@@ -372,10 +624,23 @@ export default function IdeaSharing() {
                 {idea.short_description}
               </p>
 
-              <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
                 <span className="text-xs text-green-600 font-semibold group-hover:underline">
-                  View Details →
+                  View Details
                 </span>
+                <svg
+                  className="w-4 h-4 text-green-600 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
               </div>
             </div>
           ))}
@@ -407,14 +672,6 @@ export default function IdeaSharing() {
           </div>
         )}
       </main>
-
-      {/* ADD BUTTON */}
-      <button
-        onClick={() => setShowForm(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-green-600 text-white rounded-2xl text-3xl shadow-2xl hover:shadow-green-300 hover:scale-110 transition-all duration-300 font-light flex items-center justify-center hover:bg-green-700"
-      >
-        +
-      </button>
 
       {/* VIEW MODAL */}
       {selected && (
@@ -451,13 +708,47 @@ export default function IdeaSharing() {
               </div>
 
               <span
-                className={`ml-auto px-4 py-2 text-sm font-bold rounded-full ${
+                className={`ml-auto px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 ${
                   selected.is_paid
                     ? "bg-yellow-100 text-yellow-700"
                     : "bg-green-100 text-green-700"
                 }`}
               >
-                {selected.is_paid ? `LKR ${selected.price}` : "FREE"}
+                {selected.is_paid ? (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    LKR {selected.price}
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    FREE
+                  </>
+                )}
               </span>
             </div>
 
@@ -511,29 +802,27 @@ export default function IdeaSharing() {
               </>
             ) : (
               <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-200">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-yellow-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
+                <div className="flex items-start gap-3 mb-4">
+                  <svg
+                    className="w-6 h-6 text-yellow-600 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
                   <div>
-                    <h3 className="font-bold text-gray-800">
+                    <h3 className="font-bold text-gray-800 mb-1">
                       Premium Content Locked
                     </h3>
                     <p className="text-sm text-gray-600">
-                      Purchase this idea to unlock the full description and all
-                      resources
+                      Purchase this idea to unlock full description and all
+                      resources.
                     </p>
                   </div>
                 </div>
@@ -546,8 +835,21 @@ export default function IdeaSharing() {
                     }
                     setPayIdea(selected);
                   }}
-                  className="w-full bg-yellow-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-lg hover:shadow-xl"
+                  className="w-full bg-yellow-500 text-white px-6 py-4 rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                 >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
                   Purchase Now - LKR {selected.price}
                 </button>
               </div>
@@ -557,14 +859,40 @@ export default function IdeaSharing() {
               <div className="border-t border-gray-100 mt-8 pt-6 flex gap-3">
                 <button
                   onClick={startEdit}
-                  className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg"
+                  className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                 >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
                   Edit Idea
                 </button>
                 <button
                   onClick={() => handleDelete(selected.id)}
-                  className="flex-1 px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
+                  className="flex-1 px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                 >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
                   Delete Idea
                 </button>
               </div>
@@ -603,9 +931,7 @@ export default function IdeaSharing() {
               <h2 className="text-3xl font-bold text-gray-800 mb-2">
                 {editing ? "Edit Your Idea" : "Share New Idea"}
               </h2>
-              <p className="text-gray-500">
-                Fill in the details to publish your idea
-              </p>
+              <p className="text-gray-500">Fill in the details to publish</p>
             </div>
 
             <div className="space-y-5">
@@ -615,7 +941,7 @@ export default function IdeaSharing() {
                 </label>
                 <input
                   className="w-full border border-gray-200 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-                  placeholder="Enter a catchy title..."
+                  placeholder="Enter a catchy title for your idea..."
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -627,7 +953,7 @@ export default function IdeaSharing() {
                 </label>
                 <input
                   className="w-full border border-gray-200 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-                  placeholder="Brief summary of your idea..."
+                  placeholder="Brief overview of your idea..."
                   value={shortDesc}
                   onChange={(e) => setShortDesc(e.target.value)}
                 />
@@ -638,8 +964,8 @@ export default function IdeaSharing() {
                   Full Description
                 </label>
                 <textarea
-                  className="w-full border border-gray-200 p-4 rounded-xl h-40 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all resize-none"
-                  placeholder="Provide detailed information about your idea..."
+                  className="w-full border border-gray-200 p-4 rounded-xl h-40 resize-none focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                  placeholder="Detailed description of your idea..."
                   value={fullDesc}
                   onChange={(e) => setFullDesc(e.target.value)}
                 />
@@ -653,24 +979,50 @@ export default function IdeaSharing() {
                   <button
                     type="button"
                     onClick={() => setIsPaid(false)}
-                    className={`py-4 rounded-xl font-semibold transition-all ${
+                    className={`py-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                       !isPaid
                         ? "bg-green-600 text-white shadow-lg"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
                     Free Idea
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setIsPaid(true)}
-                    className={`py-4 rounded-xl font-semibold transition-all ${
+                    className={`py-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
                       isPaid
                         ? "bg-yellow-500 text-white shadow-lg"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
                     Paid Idea
                   </button>
                 </div>
@@ -681,13 +1033,18 @@ export default function IdeaSharing() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Price (LKR)
                   </label>
-                  <input
-                    type="number"
-                    className="w-full border border-gray-200 p-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
-                    placeholder="Enter price in LKR..."
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                  />
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">
+                      LKR
+                    </span>
+                    <input
+                      type="number"
+                      className="w-full border border-gray-200 p-4 pl-16 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent transition-all"
+                      placeholder="0.00"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -695,11 +1052,11 @@ export default function IdeaSharing() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Attach Document (Optional)
                 </label>
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-green-300 transition-colors">
+                <div className="relative">
                   <input
                     type="file"
                     onChange={(e) => setFile(e.target.files[0])}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    className="w-full text-sm text-gray-600 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 file:cursor-pointer cursor-pointer"
                   />
                 </div>
               </div>
@@ -707,24 +1064,53 @@ export default function IdeaSharing() {
               <button
                 onClick={handlePublish}
                 disabled={isPublishing}
-                className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl ${
+                className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all ${
                   isPublishing
                     ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                    : "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl"
                 }`}
               >
-                {isPublishing
-                  ? "Publishing..."
-                  : editing
-                  ? "Update Idea"
-                  : "Publish Idea"}
+                {isPublishing ? (
+                  <>
+                    <svg
+                      className="animate-spin w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    Publishing...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {editing ? "Update Idea" : "Publish Idea"}
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PAYMENT */}
       {payIdea && (
         <PayHerePayment
           idea={payIdea}
@@ -735,5 +1121,3 @@ export default function IdeaSharing() {
     </div>
   );
 }
-
-//export default IdeaSharing;
