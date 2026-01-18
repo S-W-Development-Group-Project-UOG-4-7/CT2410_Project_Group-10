@@ -16,11 +16,42 @@ class Idea(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # ✅ AI Embedding Vector (for similarity checking)
+    # ✅ AI Embedding Vector
     embedding = models.JSONField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]  # ✅ newest first automatically
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.title}"
+        return self.title
+
+
+class SimilarityAlert(models.Model):
+    original_idea = models.ForeignKey(
+        Idea,
+        on_delete=models.CASCADE,
+        related_name="alerts_as_original"
+    )
+    similar_idea = models.ForeignKey(
+        Idea,
+        on_delete=models.CASCADE,
+        related_name="alerts_as_similar"
+    )
+    original_owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="similarity_alerts"
+    )
+
+    similarity_score = models.FloatField(default=0)
+
+    is_reported = models.BooleanField(default=False)
+    report_reason = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Alert: {self.original_idea.title} ↔ {self.similar_idea.title}"
