@@ -391,88 +391,273 @@ export default function IdeaSharing() {
       </header>
 
       {/* =========================
-         GRID
-      ========================= */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredIdeas.map((idea) => {
-            const ownerLabel =
-              safeStr(idea.author_name, "") ||
-              safeStr(idea.author_email, "") ||
-              "Unknown";
+     IDEAS GRID – MAIN CONTENT
+  ========================= */}
+      <main className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-12 md:py-16">
+        {filteredIdeas.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 auto-rows-fr">
+            {filteredIdeas.map((idea) => {
+              const ownerLabel =
+                safeStr(idea.author_name, "") ||
+                safeStr(idea.author_email, "") ||
+                "Anonymous";
 
-            return (
-              <div
-                key={idea.id}
-                onClick={() => setSelectedId(idea.id)}
-                className="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-2xl cursor-pointer transition-all duration-300 border border-gray-100 hover:border-green-200 hover:-translate-y-1"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center font-bold text-sm shadow-md">
-                      {getInitials(ownerLabel)}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-800 text-sm">
-                        {ownerLabel}
-                      </p>
-                      {idea.author_email && (
-                        <p className="text-xs text-gray-400">
-                          {idea.author_email}
-                        </p>
-                      )}
-                    </div>
-                  </div>
+              const isMyIdea =
+                safeStr(idea.author_email, "").toLowerCase() ===
+                myEmail.toLowerCase();
+              const hasAlert = hasWarning(idea.id);
 
-                  <div className="flex items-center gap-2">
-                    {/* PRICE */}
-                    <span
-                      className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+              return (
+                <article
+                  key={idea.id}
+                  onClick={() => setSelectedId(idea.id)}
+                  className={`
+              group bg-white rounded-2xl overflow-hidden
+              border border-gray-200 shadow-md hover:shadow-xl hover:shadow-green-100/30
+              hover:border-green-300 transition-all duration-300 ease-out
+              cursor-pointer flex flex-col h-full
+              focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+            `}
+                >
+                  <div className="flex flex-col flex-1 p-6">
+                    {/* Header: Avatar + Owner + Badges */}
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                      <div className="flex items-center gap-3.5">
+                        <div className="relative flex-shrink-0">
+                          <div
+                            className="
+                      w-12 h-12 bg-gradient-to-br from-green-500 to-green-600
+                      text-white rounded-xl flex items-center justify-center
+                      font-bold text-base shadow-md
+                    "
+                          >
+                            {getInitials(ownerLabel)}
+                          </div>
+
+                          {isMyIdea && (
+                            <div
+                              className="
+                        absolute -top-1 -right-1 w-5 h-5
+                        bg-blue-500 rounded-full border-2 border-white
+                        flex items-center justify-center shadow-sm
+                      "
+                            >
+                              <svg
+                                className="w-3 h-3 text-white"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 text-base truncate">
+                            {ownerLabel}
+                          </p>
+                          {idea.author_email && (
+                            <p className="text-xs text-gray-500 mt-0.5 truncate max-w-[180px]">
+                              {idea.author_email}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Badges - vertical, using your gradient style but softer */}
+                      <div className="flex flex-col items-end gap-2.5">
+                        <span
+                          className={`
+                      px-4 py-1.5 text-xs font-bold rounded-full shadow-sm whitespace-nowrap
+                      ${
                         idea.is_paid
-                          ? "bg-yellow-100 text-yellow-700 shadow-sm"
-                          : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {idea.is_paid ? `LKR ${idea.price}` : "FREE"}
-                    </span>
-
-                    {/* ⚠️ SHOW ONLY IF WARNING EXISTS FOR THIS IDEA */}
-                    {safeStr(idea.author_email, "").toLowerCase() === myEmail &&
-                      hasWarning(idea.id) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // ✅ stop opening idea modal
-                            setShowAlerts(true); // ✅ open alerts modal
-                          }}
-                          title="Similarity Warning"
-                          className="px-2 py-1 rounded-full bg-red-100 text-red-600 text-xs font-bold hover:bg-red-200"
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white"
+                          : "bg-gradient-to-r from-green-400 to-green-500 text-white"
+                      }
+                    `}
                         >
-                          ⚠️
-                        </button>
-                      )}
+                          {idea.is_paid
+                            ? `₦${Number(idea.price).toLocaleString()}`
+                            : "FREE"}
+                        </span>
+
+                        {isMyIdea && hasAlert && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowAlerts(true);
+                            }}
+                            title="Similarity Alert – Click to review"
+                            className="
+                        inline-flex items-center gap-1.5 px-3.5 py-1.5
+                        bg-gradient-to-r from-red-400 to-red-500 text-white
+                        hover:from-red-500 hover:to-red-600
+                        rounded-full text-xs font-bold shadow-sm
+                        transition-all duration-200
+                      "
+                          >
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            Alert
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <h3
+                      className="
+                text-xl font-bold text-gray-900 mb-3 leading-tight
+                group-hover:text-green-700 transition-colors duration-200
+                line-clamp-2 min-h-[3.5rem]
+              "
+                    >
+                      {idea.title}
+                    </h3>
+
+                    {/* Description */}
+                    <p
+                      className="
+                text-sm text-gray-600 leading-relaxed line-clamp-3
+                flex-1 mb-6
+              "
+                    >
+                      {idea.short_description}
+                    </p>
+
+                    {/* Footer */}
+                    <div
+                      className="
+                flex items-center justify-between mt-auto pt-4
+                border-t border-gray-100 text-xs text-gray-500
+              "
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <svg
+                          className="w-4 h-4 opacity-70"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <time
+                          dateTime={idea.created_at || new Date().toISOString()}
+                        >
+                          {new Date(
+                            idea.created_at || Date.now()
+                          ).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </time>
+                      </div>
+
+                      <span
+                        className="
+                  px-3 py-1 bg-gray-100 text-gray-600 rounded-full
+                  text-xs font-medium
+                "
+                      >
+                        {idea.is_paid ? "Premium" : "Community"}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <h3 className="text-xl font-bold mb-3 text-gray-800 group-hover:text-green-600 transition-colors line-clamp-2">
-                  {idea.title}
-                </h3>
+                  {/* Subtle bottom hover line – keeps your original idea but refined */}
+                  <div
+                    className="
+              h-1 bg-gradient-to-r from-green-400 via-green-500 to-green-400
+              opacity-0 group-hover:opacity-70 transition-opacity duration-300
+            "
+                  />
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          /* Empty State – clean & matching theme */
+          <div
+            className="
+      text-center py-20 px-6 bg-white rounded-2xl border border-gray-200 shadow-sm
+    "
+          >
+            <div
+              className="
+        w-20 h-20 mx-auto mb-6 rounded-full bg-green-50 flex items-center justify-center
+      "
+            >
+              <svg
+                className="w-10 h-10 text-green-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+            </div>
 
-                <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
-                  {idea.short_description}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        {filteredIdeas.length === 0 && (
-          <div className="text-center py-20">
-            <h3 className="text-xl font-bold text-gray-700 mb-2">
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">
               No ideas found
             </h3>
-            <p className="text-gray-500">
-              Try adjusting your search or filters
+
+            <p className="text-gray-600 max-w-md mx-auto mb-8 text-base">
+              {search
+                ? `No results for "${search}". Try different keywords or clear search.`
+                : filter === "mine"
+                ? "You haven't shared any ideas yet. Start creating!"
+                : "This category is empty. Be the first to share your idea."}
             </p>
+
+            {!search && filter !== "mine" && (
+              <button
+                onClick={openAddIdea}
+                className="
+            inline-flex items-center gap-2 px-6 py-3
+            bg-gradient-to-r from-green-500 to-green-600 text-white font-medium
+            rounded-xl shadow-md hover:shadow-lg hover:from-green-600 hover:to-green-700
+            transition-all duration-200
+          "
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Share Your Idea
+              </button>
+            )}
           </div>
         )}
       </main>
