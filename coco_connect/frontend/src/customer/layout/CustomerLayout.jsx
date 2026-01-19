@@ -20,7 +20,6 @@ export default function CustomerLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // ✅ Custom logout modal state
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const mobileMenuRef = useRef(null);
@@ -47,12 +46,21 @@ export default function CustomerLayout() {
     { path: "/customer", label: "Overview", icon: <Home size={20} /> },
     { path: "/customer/profile", label: "My Profile", icon: <User size={20} /> },
     { path: "/customer/orders", label: "My Orders", icon: <Package size={20} /> },
-    { path: "/customer/notifications", label: "Notifications", icon: <Bell size={20} /> },
-    { path: "/customer/support", label: "Help & Support", icon: <HelpCircle size={20} /> },
+    {
+      path: "/customer/notifications",
+      label: "Notifications",
+      icon: <Bell size={20} />,
+    },
+    {
+      path: "/customer/support",
+      label: "Help & Support",
+      icon: <HelpCircle size={20} />,
+    },
   ];
 
   const isActivePath = (itemPath) =>
-    location.pathname === itemPath || location.pathname.startsWith(itemPath + "/");
+    location.pathname === itemPath ||
+    location.pathname.startsWith(itemPath + "/");
 
   useEffect(() => setIsMobileMenuOpen(false), [location.pathname]);
 
@@ -70,10 +78,8 @@ export default function CustomerLayout() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ open modal instead of window.confirm
   const handleLogout = () => setShowLogoutModal(true);
 
-  // ✅ real logout
   const confirmLogout = () => {
     setShowLogoutModal(false);
 
@@ -117,7 +123,7 @@ export default function CustomerLayout() {
 
   return (
     <div className="min-h-screen bg-[#ece7e1]">
-      {/* ✅ Custom Logout Modal */}
+      {/* ✅ Logout Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center">
           <div
@@ -125,14 +131,15 @@ export default function CustomerLayout() {
             onClick={() => setShowLogoutModal(false)}
           />
 
-          <div className="relative z-10 w-[92%] max-w-md rounded-2xl bg-white shadow-2xl border border-gray-100 p-6 animate-[fadeIn_.18s_ease-out]">
+          <div className="relative z-10 w-[92%] max-w-md rounded-2xl bg-white shadow-2xl border border-emerald-100 p-6 animate-[fadeIn_.18s_ease-out]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
+                <h3 className="text-lg font-extrabold text-emerald-950">
                   Sign out of CocoConnect?
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  You will be logged out and need to sign in again to access your dashboard.
+                  You will be logged out and need to sign in again to access your
+                  dashboard.
                 </p>
               </div>
 
@@ -145,7 +152,13 @@ export default function CustomerLayout() {
               </button>
             </div>
 
-            <div className="mt-5 flex gap-3 justify-end">
+            <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-sm text-emerald-900 font-medium">
+                ✅ Tip: You’ll need to login again to access customer pages.
+              </p>
+            </div>
+
+            <div className="mt-6 flex gap-3 justify-end">
               <button
                 onClick={() => setShowLogoutModal(false)}
                 className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition"
@@ -155,7 +168,7 @@ export default function CustomerLayout() {
 
               <button
                 onClick={confirmLogout}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition"
+                className="px-4 py-2 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800 transition"
               >
                 Yes, Sign Out
               </button>
@@ -164,8 +177,8 @@ export default function CustomerLayout() {
         </div>
       )}
 
-      {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-50 bg-[#2e7d32] px-4 py-3 text-white shadow-lg">
+      {/* ✅ Mobile Header (MATCHES SIDEBAR GRADIENT) */}
+      <header className="lg:hidden sticky top-0 z-50 text-white shadow-lg border-b border-white/10 bg-gradient-to-r from-emerald-950 via-emerald-900 to-green-950 px-4 py-3">
         <div className="flex items-center justify-between">
           <button
             data-menu-toggle
@@ -177,19 +190,18 @@ export default function CustomerLayout() {
             {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          {/* ✅ Correct Logo */}
           <Link to="/" className="logo-text logo-md">
-            <span className="coco-text">COCO</span>
-            <span className="connect-text">CONNECT</span>
+            <span className="text-white">COCO</span>
+            <span className="text-lime-300">CONNECT</span>
           </Link>
 
-          <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center font-bold text-sm">
+          <div className="w-9 h-9 bg-white/15 rounded-2xl flex items-center justify-center font-extrabold text-sm border border-white/15">
             {initials}
           </div>
         </div>
       </header>
 
-      {/* Mobile Sidebar */}
+      {/* ✅ Mobile Sidebar */}
       {isMobileMenuOpen && (
         <div
           className="lg:hidden fixed inset-0 z-40 bg-black/50"
@@ -197,20 +209,21 @@ export default function CustomerLayout() {
         >
           <div
             ref={mobileMenuRef}
-            className="absolute left-0 top-0 h-full w-72 bg-[#2e7d32] text-white shadow-xl animate-slideIn flex flex-col"
+            className="absolute left-0 top-0 h-full w-72 text-white shadow-xl animate-slideIn flex flex-col
+                       bg-gradient-to-b from-emerald-950 via-emerald-900 to-green-950 border-r border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 pt-6 pb-5 border-b border-green-700 flex gap-3 items-center">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-bold text-lg">
+            <div className="px-5 pt-6 pb-5 border-b border-white/10 flex gap-3 items-center">
+              <div className="w-12 h-12 bg-lime-300 text-emerald-950 rounded-2xl flex items-center justify-center font-extrabold text-lg shadow-sm">
                 {initials}
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-base truncate">{displayName}</p>
-                <p className="text-sm opacity-80">Customer Portal</p>
+                <p className="text-sm text-white/70">Customer Portal</p>
               </div>
             </div>
 
-            <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+            <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
               {navItems.map((item) => {
                 const active = isActivePath(item.path);
                 return (
@@ -218,21 +231,33 @@ export default function CustomerLayout() {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition
-                      ${active ? "bg-white/20 font-semibold" : "hover:bg-white/10"}`}
+                    className={[
+                      "relative flex items-center gap-3 px-4 py-3 rounded-2xl transition font-semibold",
+                      "outline-none focus:ring-2 focus:ring-lime-300/50",
+                      active
+                        ? "bg-white/15 text-white shadow-[0_12px_30px_rgba(0,0,0,.22)]"
+                        : "text-white/90 hover:bg-white/10 hover:text-white",
+                    ].join(" ")}
                   >
+                    <span
+                      className={[
+                        "absolute left-0 top-2 bottom-2 w-1 rounded-full transition",
+                        active ? "bg-lime-300" : "bg-transparent",
+                      ].join(" ")}
+                    />
                     {item.icon}
                     <span className="flex-1">{item.label}</span>
-                    {active && <ChevronRight size={16} />}
+                    {active && <ChevronRight size={16} className="text-lime-200" />}
                   </Link>
                 );
               })}
             </nav>
 
-            <div className="p-4 border-t border-green-700">
+            <div className="p-4 border-t border-white/10">
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-200 hover:bg-red-500/20 transition"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-2xl font-semibold
+                           bg-white/10 hover:bg-white/15 border border-white/15 transition"
               >
                 <LogOut size={20} />
                 <span>Sign Out</span>
@@ -246,15 +271,18 @@ export default function CustomerLayout() {
       <div className="flex">
         {/* Sidebar */}
         <aside
-          className={`hidden lg:flex flex-col bg-[#2e7d32] text-white min-h-screen transition-all duration-300
-            ${isSidebarCollapsed ? "w-20" : "w-64"} sticky top-0`}
+          className={[
+            "hidden lg:flex flex-col min-h-screen sticky top-0 transition-all duration-300",
+            isSidebarCollapsed ? "w-20" : "w-64",
+            "text-white border-r border-white/10",
+            "bg-gradient-to-b from-emerald-950 via-emerald-900 to-green-950",
+          ].join(" ")}
         >
-          <div className="px-4 py-4 border-b border-green-700 flex items-center justify-between">
+          <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between">
             {!isSidebarCollapsed ? (
-              /* ✅ Correct Logo */
               <Link to="/" className="logo-text logo-lg">
-                <span className="coco-text">COCO</span>
-                <span className="connect-text">CONNECT</span>
+                <span className="text-white">COCO</span>
+                <span className="text-lime-300">CONNECT</span>
               </Link>
             ) : (
               <Link
@@ -279,38 +307,52 @@ export default function CustomerLayout() {
           </div>
 
           <div
-            className={`px-4 py-5 border-b border-green-700 flex ${
+            className={`px-4 py-5 border-b border-white/10 flex ${
               isSidebarCollapsed ? "justify-center" : "gap-3 items-center"
             }`}
           >
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold text-sm">
+            <div className="w-10 h-10 rounded-2xl bg-lime-300 text-emerald-950 grid place-items-center font-extrabold shadow-sm">
               {initials}
             </div>
             {!isSidebarCollapsed && (
               <div className="min-w-0">
-                <p className="font-semibold truncate">{displayName}</p>
-                <p className="text-sm opacity-80">Customer Portal</p>
+                <p className="font-bold truncate">{displayName}</p>
+                <p className="text-sm text-white/70">Customer Portal</p>
               </div>
             )}
           </div>
 
-          <nav className="flex-1 px-3 py-4 space-y-1">
+          <nav className="flex-1 p-3 space-y-2 overflow-y-auto">
             {navItems.map((item) => {
               const active = isActivePath(item.path);
+
               return (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`relative group flex items-center rounded-xl transition
-                    ${isSidebarCollapsed ? "justify-center px-3 py-3" : "px-4 py-3"}
-                    ${active ? "bg-white/20 font-semibold" : "hover:bg-white/10"}`}
+                  className={[
+                    "relative group flex items-center rounded-2xl transition font-semibold",
+                    "outline-none focus:ring-2 focus:ring-lime-300/50",
+                    isSidebarCollapsed ? "justify-center px-3 py-3" : "px-4 py-3",
+                    active
+                      ? "bg-white/15 text-white shadow-[0_12px_30px_rgba(0,0,0,.22)]"
+                      : "text-white/90 hover:bg-white/10 hover:text-white",
+                  ].join(" ")}
                   title={isSidebarCollapsed ? item.label : undefined}
                 >
+                  <span
+                    className={[
+                      "absolute left-0 top-2 bottom-2 w-1 rounded-full transition",
+                      active ? "bg-lime-300" : "bg-transparent",
+                    ].join(" ")}
+                  />
+
                   {item.icon}
+
                   {!isSidebarCollapsed && (
                     <>
                       <span className="ml-3 flex-1">{item.label}</span>
-                      {active && <ChevronRight size={16} />}
+                      {active && <ChevronRight size={16} className="text-lime-200" />}
                     </>
                   )}
 
@@ -324,12 +366,14 @@ export default function CustomerLayout() {
             })}
           </nav>
 
-          {/* Bottom sign out */}
-          <div className="px-3 py-4 border-t border-green-700">
+          <div className="p-3 border-t border-white/10">
             <button
               onClick={handleLogout}
-              className={`flex items-center gap-3 w-full rounded-xl text-red-200 hover:bg-red-500/20 transition
-                ${isSidebarCollapsed ? "justify-center px-3 py-3" : "px-4 py-3"}`}
+              className={[
+                "flex items-center gap-3 w-full rounded-2xl font-semibold transition",
+                "bg-white/10 hover:bg-white/15 border border-white/15",
+                isSidebarCollapsed ? "justify-center px-3 py-3" : "px-4 py-3",
+              ].join(" ")}
               title={isSidebarCollapsed ? "Sign Out" : undefined}
             >
               <LogOut size={20} />
@@ -338,52 +382,68 @@ export default function CustomerLayout() {
           </div>
         </aside>
 
-        {/* Main */}
+        {/* ✅ Main */}
         <main className="flex-1 min-h-screen">
-          <div className="bg-white border-b shadow-sm px-4 sm:px-6 py-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="min-w-0">
-                <nav className="flex flex-wrap items-center gap-2 text-sm">
-                  <Link to="/" className="text-gray-500 hover:text-[#2e7d32] transition">
-                    Home
-                  </Link>
+          {/* ✅ Desktop Topbar (MATCHES SIDEBAR ✅) */}
+          <div className="hidden lg:block sticky top-0 z-30 border-b border-white/10 text-white shadow-lg bg-gradient-to-r from-emerald-950 via-emerald-900 to-green-950">
+            <div className="px-4 sm:px-6 py-4">
+              <div className="flex items-start sm:items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <nav className="flex flex-wrap items-center gap-2 text-sm text-white/80">
+                    <Link to="/" className="hover:text-lime-200 transition">
+                      Home
+                    </Link>
 
-                  {getBreadcrumbs().map((crumb, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <ChevronRight size={16} className="text-gray-400" />
-                      {crumb.isLast ? (
-                        <span className="font-semibold text-gray-900 truncate">
-                          {crumb.label}
-                        </span>
-                      ) : (
-                        <Link
-                          to={crumb.path}
-                          className="text-gray-600 hover:text-[#2e7d32] transition truncate"
-                        >
-                          {crumb.label}
-                        </Link>
-                      )}
+                    {getBreadcrumbs().map((crumb, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <ChevronRight size={16} className="text-white/40" />
+                        {crumb.isLast ? (
+                          <span className="font-semibold text-white truncate">
+                            {crumb.label}
+                          </span>
+                        ) : (
+                          <Link
+                            to={crumb.path}
+                            className="hover:text-lime-200 transition truncate"
+                          >
+                            {crumb.label}
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </nav>
+
+                  <h1 className="text-2xl font-extrabold text-white mt-2">
+                    {getCurrentPageTitle()}
+                  </h1>
+                </div>
+
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button className="p-2 rounded-xl hover:bg-white/10 border border-white/10">
+                    <Bell size={20} />
+                  </button>
+
+                  <div className="h-8 w-px bg-white/15" />
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-2xl bg-lime-300 text-emerald-950 grid place-items-center font-extrabold border border-white/10">
+                      {initials}
                     </div>
-                  ))}
-                </nav>
-
-                <h1 className="text-2xl font-bold text-gray-900 mt-2">
-                  {getCurrentPageTitle()}
-                </h1>
-              </div>
-
-              <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
-                <button className="p-2 rounded-full hover:bg-gray-100">
-                  <Bell size={20} />
-                </button>
-                <div className="h-6 w-px bg-gray-300" />
-                <span className="text-sm text-gray-600 whitespace-nowrap">
-                  Welcome, <span className="font-semibold">{displayName}</span>
-                </span>
+                    <div className="hidden xl:block">
+                      <div className="text-sm font-semibold text-white leading-tight">
+                        {displayName}
+                      </div>
+                      <div className="text-xs text-white/70 leading-tight">
+                        Customer Portal
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
+          {/* Content */}
           <div className="px-4 sm:px-6 lg:px-8 py-6 bg-gradient-to-b from-[#f9faf7] to-[#ece7e1] min-h-[calc(100vh-64px)]">
             <div className="max-w-7xl mx-auto">
               <Outlet context={{ handleLogout }} />

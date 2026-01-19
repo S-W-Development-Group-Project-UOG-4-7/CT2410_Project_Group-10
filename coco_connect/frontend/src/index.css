@@ -159,3 +159,25 @@ body {
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
+
+/* Green scrollbar for sidebar */
+.sidebar-scroll-green {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(163, 230, 53, 0.7) transparent; /* lime */
+}
+
+.sidebar-scroll-green::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll-green::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll-green::-webkit-scrollbar-thumb {
+  background: rgba(163, 230, 53, 0.55);
+  border-radius: 999px;
+}
+.sidebar-scroll-green::-webkit-scrollbar-thumb:hover {
+  background: rgba(163, 230, 53, 0.75);
+}
