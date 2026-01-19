@@ -67,6 +67,7 @@ export default function IdeaSharing() {
 
   // alerts
   const [alertsCount, setAlertsCount] = useState(0);
+  const [alerts, setAlerts] = useState([]); // ✅ ADDED
   const [showAlerts, setShowAlerts] = useState(false);
 
   /* =========================
@@ -100,8 +101,15 @@ export default function IdeaSharing() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
-      .then((data) => setAlertsCount(Array.isArray(data) ? data.length : 0))
-      .catch(() => setAlertsCount(0));
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setAlerts(list); // ✅ save full alert list
+        setAlertsCount(list.length); // ✅ keep count
+      })
+      .catch(() => {
+        setAlerts([]);
+        setAlertsCount(0);
+      });
   }, [token]);
 
   /* =========================
@@ -111,6 +119,13 @@ export default function IdeaSharing() {
     if (!selectedId) return null;
     return ideas.find((i) => i.id === selectedId) || null;
   }, [selectedId, ideas]);
+
+  /* =========================
+     HELPER: check if idea has warning
+  ========================= */
+  const hasWarning = (ideaId) => {
+    return alerts.some((a) => a.idea === ideaId);
+  };
 
   /* =========================
      FILTERED IDEAS
@@ -409,15 +424,33 @@ export default function IdeaSharing() {
                     </div>
                   </div>
 
-                  <span
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full ${
-                      idea.is_paid
-                        ? "bg-yellow-100 text-yellow-700 shadow-sm"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {idea.is_paid ? `LKR ${idea.price}` : "FREE"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {/* PRICE */}
+                    <span
+                      className={`px-3 py-1.5 text-xs font-bold rounded-full ${
+                        idea.is_paid
+                          ? "bg-yellow-100 text-yellow-700 shadow-sm"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {idea.is_paid ? `LKR ${idea.price}` : "FREE"}
+                    </span>
+
+                    {/* ⚠️ SHOW ONLY IF WARNING EXISTS FOR THIS IDEA */}
+                    {safeStr(idea.author_email, "").toLowerCase() === myEmail &&
+                      hasWarning(idea.id) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // ✅ stop opening idea modal
+                            setShowAlerts(true); // ✅ open alerts modal
+                          }}
+                          title="Similarity Warning"
+                          className="px-2 py-1 rounded-full bg-red-100 text-red-600 text-xs font-bold hover:bg-red-200"
+                        >
+                          ⚠️
+                        </button>
+                      )}
+                  </div>
                 </div>
 
                 <h3 className="text-xl font-bold mb-3 text-gray-800 group-hover:text-green-600 transition-colors line-clamp-2">
