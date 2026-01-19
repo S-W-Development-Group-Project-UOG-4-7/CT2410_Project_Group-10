@@ -19,6 +19,7 @@ import Dashboard from "./admin/pages/Dashboard";
 import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
 import AdminNews from "./admin/pages/AdminNews";
+import ProtectedAdminRoute from "./admin/ProtectedAdminRoute";
 
 // CUSTOMER PAGES
 import CustomerLayout from "./customer/layout/CustomerLayout";
@@ -31,10 +32,7 @@ import ProtectedCustomerRoute from "./customer/ProtectedCustomerRoute";
 function LayoutWrapper({ children }) {
   const { pathname } = useLocation();
 
-  // Customer dashboard controls its own layout
   if (pathname.startsWith("/customer")) return <>{children}</>;
-
-  // Admin dashboard controls its own layout
   if (pathname.startsWith("/admin")) return <>{children}</>;
 
   return (
@@ -46,11 +44,7 @@ function LayoutWrapper({ children }) {
   );
 }
 
-const W = (Page) => (
-  <LayoutWrapper>
-    <Page />
-  </LayoutWrapper>
-);
+const W = (Page) => (<LayoutWrapper> <Page /></LayoutWrapper>);
 
 export default function App() {
   return (
@@ -64,39 +58,13 @@ export default function App() {
       <Route path="/cart" element={W(Cart)} />
       <Route path="/news" element={W(News)} />
 
-      {/* ADMIN */}
-      <Route
-        path="/admin"
-        element={
-          <AdminLayout>
-            <Dashboard />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/users"
-        element={
-          <AdminLayout>
-            <Users />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/blockchain"
-        element={
-          <AdminLayout>
-            <Blockchain />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/news"
-        element={
-          <AdminLayout>
-            <AdminNews />
-          </AdminLayout>
-        }
-      />
+      {/* ADMIN (PROTECTED) */}
+      <Route element={<ProtectedAdminRoute />}>
+        <Route  path="/admin"  element={  <AdminLayout>  <Dashboard />  </AdminLayout>  }  />
+        <Route  path="/admin/users" element={  <AdminLayout>  <Users />  </AdminLayout>  }  />
+        <Route  path="/admin/blockchain"  element={  <AdminLayout> <Blockchain />  </AdminLayout>  }  />
+        <Route  path="/admin/news"  element={ <AdminLayout> <AdminNews /> </AdminLayout> }/>
+      </Route>
 
       {/* CUSTOMER (PROTECTED) */}
       <Route element={<ProtectedCustomerRoute />}>

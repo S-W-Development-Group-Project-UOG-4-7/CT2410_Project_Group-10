@@ -54,8 +54,10 @@ export default function LoginModal({
 
     const d = String(detail).toLowerCase();
 
-    // SimpleJWT 400 often looks like: {"username":["This field is required."]}
-    if (status === 400 && (d.includes("username") || d.includes("field is required"))) {
+    if (
+      status === 400 &&
+      (d.includes("username") || d.includes("field is required"))
+    ) {
       return "Login payload mismatch (backend expects username). Fix token endpoint or send username.";
     }
 
@@ -77,14 +79,21 @@ export default function LoginModal({
     return "Login failed. Check email/password and make sure Django is running.";
   };
 
-  // ✅ fallback token request using username (SimpleJWT default)
   async function loginFallbackUsername(email, password) {
     const res = await axios.post(`${API_BASE}/token/`, {
-      username: email, // ✅ important
+      username: email,
       password,
     });
     return res.data;
   }
+
+  const redirectAfterLogin = (role) => {
+    const isAdmin = String(role || "").toLowerCase().trim() === "admin";
+    const target = isAdmin ? "/admin" : "/";
+
+    onClose?.();
+    setTimeout(() => navigate(target), 0);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -97,12 +106,9 @@ export default function LoginModal({
       let data;
 
       try {
-        // 1) try whatever your authService currently does
         data = await loginUser(formData.email, formData.password);
       } catch (err1) {
-        // 2) if backend is SimpleJWT default, it returns 400 for {email,password}
-        const status = err1?.response?.status;
-        if (status === 400) {
+        if (err1?.response?.status === 400) {
           data = await loginFallbackUsername(formData.email, formData.password);
         } else {
           throw err1;
@@ -113,15 +119,11 @@ export default function LoginModal({
       const access = data?.access;
       const refresh = data?.refresh;
 
-      if (!access) {
-        throw new Error("Missing access token from backend response");
-      }
+      if (!access) throw new Error("Missing access token from backend response");
 
-      // ✅ persist tokens (keep same keys so other pages don’t break)
       localStorage.setItem("access", access);
       if (refresh) localStorage.setItem("refresh", refresh);
 
-      // ✅ keep same user object format
       const userObj = {
         id: apiUser?.id ?? null,
         name: apiUser?.name || apiUser?.first_name || formData.email,
@@ -131,14 +133,12 @@ export default function LoginModal({
       };
 
       localStorage.setItem("user", JSON.stringify(userObj));
-
-      // compatibility
       localStorage.setItem("role", userObj.role || "");
       localStorage.setItem("name", userObj.name || "");
       localStorage.setItem("email", userObj.email || "");
 
       onAuthSuccess?.(userObj);
-      onClose();
+      redirectAfterLogin(userObj.role);
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
@@ -255,7 +255,9 @@ export default function LoginModal({
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
               <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
 
-              {String(errors.submit).toLowerCase().includes("account not found") && (
+              {String(errors.submit)
+                .toLowerCase()
+                .includes("account not found") && (
                 <button
                   type="button"
                   className="mt-3 text-sm text-green-700 font-semibold hover:underline"
