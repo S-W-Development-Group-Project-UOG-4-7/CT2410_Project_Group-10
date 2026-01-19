@@ -1,6 +1,27 @@
 import { useEffect, useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 const API_BASE = "http://localhost:8000/api";
+
+function getAccessToken() {
+  // support whichever key you used earlier
+  return (
+    localStorage.getItem("access") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("access_token") ||
+    ""
+  );
+}
+
+function authHeaders(extra = {}) {
+  const token = getAccessToken();
+  return {
+    ...extra,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -19,9 +40,24 @@ export default function Users() {
     setLoading(true);
     try {
       const url = `${API_BASE}/users/${query ? `?q=${encodeURIComponent(query)}` : ""}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to fetch users");
+
+      const res = await fetch(url, {
+        headers: authHeaders(),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // Helpful message for auth failures
+        const msg =
+          res.status === 401
+            ? "Unauthorized (401). You are not sending a valid JWT token."
+            : res.status === 403
+            ? "Forbidden (403). You are authenticated but not an admin/staff user."
+            : data?.error || "Failed to fetch users";
+        throw new Error(msg);
+      }
+
       setUsers(data.users || []);
     } catch (err) {
       console.error(err);
@@ -40,16 +76,18 @@ export default function Users() {
     fetchUsers(q);
   };
 
-  // ✅ Add user -> uses your existing register endpoint
+  // ✅ Add user
   const onAddUser = async (e) => {
     e.preventDefault();
     try {
       const res = await fetch(`${API_BASE}/register/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(form),
       });
-      const data = await res.json();
+
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) throw new Error(data?.error || "Failed to add user");
 
       setForm({ name: "", email: "", password: "", role: "User" });
@@ -64,9 +102,14 @@ export default function Users() {
   const onDeleteUser = async (id) => {
     if (!confirm("Delete this user?")) return;
     try {
-      const res = await fetch(`${API_BASE}/users/${id}/`, { method: "DELETE" });
-      const data = await res.json();
+      const res = await fetch(`${API_BASE}/users/${id}/`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to delete user");
+
       fetchUsers(q);
     } catch (err) {
       console.error(err);
@@ -79,17 +122,42 @@ export default function Users() {
     try {
       const res = await fetch(`${API_BASE}/users/${id}/update/`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ is_active }),
       });
-      const data = await res.json();
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Failed to update status");
+
       fetchUsers(q);
     } catch (err) {
       console.error(err);
       alert(err.message);
     }
   };
+
+  const exportUsersPDF = () => {
+    const doc = new jsPDF();
+
+    doc.setFontSize(16);
+    doc.text("Registered Users Report", 14, 15);
+
+    const rows = users.map((u) => [
+      u.name,
+      u.email,
+      u.is_active ? "Active" : "Inactive",
+      u.role || "",
+    ]);
+
+    autoTable(doc, {
+      head: [["Name", "Email", "Status", "Role"]],
+      body: rows,
+      startY: 22,
+    });
+
+    doc.save("users-report.pdf");
+  };
+
 
   return (
     <div className="bg-white border-2 border-[#ece7e1] rounded-2xl p-8 shadow-md space-y-8">
@@ -106,10 +174,17 @@ export default function Users() {
           <button className="rounded-xl px-4 py-2 font-semibold bg-[#4caf50] text-white hover:opacity-90">
             Search
           </button>
+          <button
+              type="button"
+              onClick={exportUsersPDF}
+              className="rounded-xl px-4 py-2 font-semibold bg-[#6b3f23] text-white hover:opacity-90"
+            >
+              Export PDF
+            </button>
         </form>
       </div>
 
-      {/* ✅ Add user form */}
+      {/* Add user form */}
       <form
         onSubmit={onAddUser}
         className="rounded-2xl border border-[#ece7e1] bg-[#f9faf7] p-5"

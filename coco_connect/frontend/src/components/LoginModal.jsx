@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import axios from "axios";
 import { loginUser } from "../services/authService";
+
+const API_BASE = "http://localhost:8000/api";
 
 export default function LoginModal({
   isOpen,
@@ -22,7 +25,6 @@ export default function LoginModal({
     if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
   };
 
-  // ✅ Regex → format-based checks
   const emailRegex = /^\S+@\S+\.\S+$/;
   const passwordRegex = /^.{6,}$/;
 
@@ -41,8 +43,6 @@ export default function LoginModal({
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
 
-  // ✅ Map backend error -> friendly message
-  // (works for both DRF/SimpleJWT and custom JSON errors)
   const getLoginErrorMessage = (err) => {
     const status = err?.response?.status;
 
@@ -53,6 +53,11 @@ export default function LoginModal({
       "";
 
     const d = String(detail).toLowerCase();
+
+    // SimpleJWT 400 often looks like: {"username":["This field is required."]}
+    if (status === 400 && (d.includes("username") || d.includes("field is required"))) {
+      return "Login payload mismatch (backend expects username). Fix token endpoint or send username.";
+    }
 
     if (d.includes("no active account")) {
       return "No active account found. Contact admin to activate the account.";
@@ -72,6 +77,15 @@ export default function LoginModal({
     return "Login failed. Check email/password and make sure Django is running.";
   };
 
+  // ✅ fallback token request using username (SimpleJWT default)
+  async function loginFallbackUsername(email, password) {
+    const res = await axios.post(`${API_BASE}/token/`, {
+      username: email, // ✅ important
+      password,
+    });
+    return res.data;
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -80,10 +94,20 @@ export default function LoginModal({
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
-      // loginUser should return something like:
-      // { access, refresh, user: { id, name, email, role } }
-      // OR { access, refresh, id, name, email, role }
-      const data = await loginUser(formData.email, formData.password);
+      let data;
+
+      try {
+        // 1) try whatever your authService currently does
+        data = await loginUser(formData.email, formData.password);
+      } catch (err1) {
+        // 2) if backend is SimpleJWT default, it returns 400 for {email,password}
+        const status = err1?.response?.status;
+        if (status === 400) {
+          data = await loginFallbackUsername(formData.email, formData.password);
+        } else {
+          throw err1;
+        }
+      }
 
       const apiUser = data?.user ?? data ?? {};
       const access = data?.access;
@@ -93,11 +117,11 @@ export default function LoginModal({
         throw new Error("Missing access token from backend response");
       }
 
-      // ✅ persist tokens
+      // ✅ persist tokens (keep same keys so other pages don’t break)
       localStorage.setItem("access", access);
       if (refresh) localStorage.setItem("refresh", refresh);
 
-      // ✅ store user in ONE consistent structure (important for views.py usage + frontend pages)
+      // ✅ keep same user object format
       const userObj = {
         id: apiUser?.id ?? null,
         name: apiUser?.name || apiUser?.first_name || formData.email,
@@ -108,23 +132,13 @@ export default function LoginModal({
 
       localStorage.setItem("user", JSON.stringify(userObj));
 
-      // (optional) keep compatibility with existing code you already have
+      // compatibility
       localStorage.setItem("role", userObj.role || "");
       localStorage.setItem("name", userObj.name || "");
       localStorage.setItem("email", userObj.email || "");
 
-      // ✅ update navbar/state once
       onAuthSuccess?.(userObj);
-
-      // ✅ close once
       onClose();
-
-      // ✅ optional redirect if you want (leave commented if you handle routing elsewhere)
-      // if (String(userObj.role).toLowerCase() === "admin") {
-      //   navigate("/admin/blockchain");
-      // } else {
-      //   navigate("/customer");
-      // }
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
@@ -257,7 +271,6 @@ export default function LoginModal({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
@@ -282,7 +295,6 @@ export default function LoginModal({
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
