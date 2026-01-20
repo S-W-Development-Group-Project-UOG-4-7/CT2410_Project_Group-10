@@ -2,19 +2,35 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from django.http import JsonResponse
+
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+
+def api_root(request):
+    """Simple API root to verify backend is running"""
+    return JsonResponse({
+        "status": "ok",
+        "routes": {
+            "auth": "/api/auth/",
+            "products": "/api/products/",
+            "token": "/api/token/",
+            "token_refresh": "/api/token/refresh/",
+        }
+    })
+
 
 urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
 
+    # API Root (optional but helpful)
+    path("api/", api_root),
+
     # Authentication (login / register)
     path("api/auth/", include("connect.urls")),
 
-    # Products & News APIs
+    # Products + News + Cart (mounted inside products.urls)
     path("api/products/", include("products.urls")),
 
     # JWT

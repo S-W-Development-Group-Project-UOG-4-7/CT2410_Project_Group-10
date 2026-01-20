@@ -2,6 +2,9 @@ from django.db import models
 from django.conf import settings
 
 
+# =========================
+# CATEGORY
+# =========================
 class Category(models.Model):
     """
     Product category model
@@ -17,6 +20,9 @@ class Category(models.Model):
         return self.name
 
 
+# =========================
+# PRODUCT TYPE
+# =========================
 class ProductType(models.Model):
     """
     Product type model (Raw Materials, Processed Goods, Equipment)
@@ -31,6 +37,9 @@ class ProductType(models.Model):
         return self.name
 
 
+# =========================
+# PRODUCT
+# =========================
 class Product(models.Model):
     """
     Product model
@@ -93,6 +102,9 @@ class Product(models.Model):
         return self.name
 
 
+# =========================
+# NEWS
+# =========================
 class NewsItem(models.Model):
     """
     News item model
@@ -108,3 +120,56 @@ class NewsItem(models.Model):
 
     def __str__(self):
         return self.text
+
+
+# =========================
+# CART
+# =========================
+class Cart(models.Model):
+    """
+    Shopping cart (one per user)
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cart"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.email}'s Cart"
+
+    @property
+    def total_items(self):
+        return sum(item.quantity for item in self.items.all())
+
+
+# =========================
+# CART ITEM
+# =========================
+class CartItem(models.Model):
+    """
+    Cart item model
+    """
+    cart = models.ForeignKey(
+        Cart,
+        related_name="items",
+        on_delete=models.CASCADE
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="cart_items"
+    )
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        unique_together = ("cart", "product")
+        verbose_name_plural = "Cart Items"
+
+    def __str__(self):
+        return f"{self.product.name} × {self.quantity}"
+
+    @property
+    def total_price(self):
+        return self.quantity * self.product.price

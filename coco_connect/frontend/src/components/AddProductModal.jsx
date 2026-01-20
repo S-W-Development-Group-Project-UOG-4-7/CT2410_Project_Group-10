@@ -21,6 +21,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
   });
 
   const [fallingCoconuts, setFallingCoconuts] = useState([]);
+  const [errors, setErrors] = useState({});
 
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
@@ -103,14 +104,56 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setForm({
+        name: "",
+        description: "",
+        price: "",
+        category: "",
+        type: "",
+        image: null,
+      });
+      setErrors({});
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const validateForm = () => {
+    const errors = {};
+    if (form.name.trim().length < 3) {
+      errors.name = 'Product name must be at least 3 characters long.';
+    }
+    if (form.description.trim().length < 10) {
+      errors.description = 'Description must be at least 10 characters long.';
+    }
+    if (!form.price || parseFloat(form.price) <= 0) {
+      errors.price = 'Price is required and must be greater than 0.';
+    }
+    if (!form.category) {
+      errors.category = 'Category is required.';
+    }
+    if (!form.type) {
+      errors.type = 'Product type is required.';
+    }
+    if (!form.image) {
+      errors.image = 'Product image is required.';
+    }
+    setErrors(errors);
+    return errors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
 
     const token = localStorage.getItem("access");
     if (!token) {
@@ -143,15 +186,13 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
 
       if (!response.ok) {
         let errorMessage = "Failed to add product";
-        
+
         try {
           const errorData = await response.json();
-          
-          // Handle validation errors from backend
+
           if (errorData && typeof errorData === 'object') {
             const errors = [];
-            
-            // Handle field-specific errors
+
             if (errorData.name) {
               errors.push(`Name: ${Array.isArray(errorData.name) ? errorData.name[0] : errorData.name}`);
             }
@@ -171,12 +212,11 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             if (errorData.image) {
               errors.push(`Image: ${Array.isArray(errorData.image) ? errorData.image[0] : errorData.image}`);
             }
-            
-            // Handle non-field errors
+
             if (errorData.non_field_errors) {
               errors.push(...errorData.non_field_errors);
             }
-            
+
             if (errors.length > 0) {
               errorMessage = errors.join('\n');
             } else if (errorData.detail) {
@@ -186,13 +226,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             }
           }
         } catch (parseError) {
-          // If JSON parsing fails, use the raw text
           const errorText = await response.text();
           if (errorText) {
             errorMessage = errorText;
           }
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -221,7 +260,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
                    border border-white/50
                    p-8 overflow-hidden"
       >
-        {/* 🥥 CONTINUOUS FLOATING COCONUTS */}
+        {/* CONTINUOUS FLOATING COCONUTS */}
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
           {fallingCoconuts.map((c) => (
             <img
@@ -246,6 +285,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
         {/* FORM CONTENT */}
         <form
           onSubmit={handleSubmit}
+          noValidate
           className="relative z-10 space-y-5"
         >
           <h2 className="text-2xl font-bold text-[#3a2a1a] text-center">
@@ -262,6 +302,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             onChange={(e) => updateField("name", e.target.value)}
             required
           />
+          {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
 
           <textarea
             placeholder="Product description"
@@ -269,21 +310,37 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             className="w-full rounded-lg px-4 py-3
                        bg-white/95 border border-[#d6c3a5]
                        text-[#2f2a24] placeholder-[#6b5e4b]
-                       focus:outline-none focus:ring-2 focus:ring-green-600"
+                       focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
             onChange={(e) => updateField("description", e.target.value)}
             required
           />
+          {errors.description && <p className="text-red-500 text-xs">{errors.description}</p>}
 
-          <input
-            type="number"
-            placeholder="Price"
-            className="w-full rounded-lg px-4 py-3
-                       bg-white/95 border border-[#d6c3a5]
-                       text-[#2f2a24]
-                       focus:outline-none focus:ring-2 focus:ring-green-600"
-            onChange={(e) => updateField("price", e.target.value)}
-            required
-          />
+<input
+  type="text"
+  inputMode="decimal"
+  placeholder="Price (e.g. 10.50)"
+  value={form.price}
+  className="w-full rounded-lg px-4 py-3
+             bg-white/95 border border-[#d6c3a5]
+             text-[#2f2a24]
+             focus:outline-none focus:ring-2 focus:ring-green-600"
+  onChange={(e) => {
+    const value = e.target.value;
+
+    // allow empty or decimals up to 2 places
+    if (/^\d*\.?\d{0,2}$/.test(value)) {
+      updateField("price", value);
+
+      if (errors.price) {
+        setErrors((prev) => ({ ...prev, price: "" }));
+      }
+    }
+  }}
+  required
+/>
+
+          {errors.price && <p className="text-red-500 text-xs">{errors.price}</p>}
 
           <select
             className="w-full rounded-lg px-4 py-3
@@ -298,6 +355,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             <option value="food-items">Processed Goods</option>
             <option value="cups">Equipment</option>
           </select>
+          {errors.category && <p className="text-red-500 text-xs">{errors.category}</p>}
 
           <select
             className="w-full rounded-lg px-4 py-3
@@ -312,6 +370,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             <option value="Processed Goods">Processed Goods</option>
             <option value="Equipment">Equipment</option>
           </select>
+          {errors.type && <p className="text-red-500 text-xs">{errors.type}</p>}
 
           <input
             type="file"
@@ -320,14 +379,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
               const file = e.target.files[0];
               if (!file) return;
 
-              // Validate type
               if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
                 alert("Only JPG, PNG, and WEBP images are allowed.");
                 e.target.value = "";
                 return;
               }
 
-              // Validate size
               const sizeMB = file.size / (1024 * 1024);
               if (sizeMB > MAX_IMAGE_SIZE_MB) {
                 alert("Image size must be under 5MB.");
@@ -345,6 +402,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
               }
             }}
           />
+          {errors.image && <p className="text-red-500 text-xs">{errors.image}</p>}
 
           {form.image && (
             <p className="text-xs text-green-700">

@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import { debounce } from "lodash";
+import { useCart } from "../context/CartContext";
+
 
 const Navbar = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -13,7 +15,7 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
 
-  const cartItemCount = 3; // TODO: replace with context / redux
+  const { cartCount } = useCart();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -182,14 +184,15 @@ const Navbar = () => {
               )}
 
               {/* Cart */}
-              <Link to="/cart" className="relative">
-                <i className="fa-solid fa-cart-shopping text-xl" />
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                    {cartItemCount}
-                  </span>
-                )}
-              </Link>
+<Link to="/cart" className="relative">
+  <i className="fa-solid fa-cart-shopping text-xl" />
+  {cartCount > 0 && (
+    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+      {cartCount}
+    </span>
+  )}
+</Link>
+
 
               {/* User */}
               {user ? (
