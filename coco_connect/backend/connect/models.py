@@ -1,7 +1,36 @@
 from django.db import models
-
 from django.contrib.auth.models import User
 
+class Product(models.Model):
+    CATEGORY_CHOICES = [
+        ('oil', 'Coconut Oil'),
+        ('fiber', 'Coir Fiber'),
+        ('water', 'Coconut Water'),
+    ]
+
+    TYPE_CHOICES = [
+        ('Raw Materials', 'Raw Materials'),
+        ('Processed Goods', 'Processed Goods'),
+        ('Equipment', 'Equipment'),
+    ]
+
+    STOCK_CHOICES = [
+        ('In Stock', 'In Stock'),
+        ('Low Stock', 'Low Stock'),
+        ('Out of Stock', 'Out of Stock'),
+    ]
+
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=8, decimal_places=2)
+    stock = models.CharField(max_length=20, choices=STOCK_CHOICES)
+    description = models.TextField()
+    reviews = models.PositiveIntegerField(default=0)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+
+    def __str__(self):
+        return self.name
+    
 class Profile(models.Model):
     ROLE_CHOICES = [
         ("farmer", "Farmer"),
@@ -15,21 +44,3 @@ class Profile(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.role}"
 
-
-class News(models.Model):
-    STATUS_CHOICES = (
-        ("Draft", "Draft"),
-        ("Published", "Published"),
-    )
-
-    title = models.CharField(max_length=255)
-    content = models.TextField(blank=True)  # optional (for "View" page)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Draft")
-    image = models.ImageField(upload_to="news/", null=True, blank=True)
-    date = models.DateField()  # you can also use auto_now_add if you want
-    likes = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def _str_(self):
-        return self.title
