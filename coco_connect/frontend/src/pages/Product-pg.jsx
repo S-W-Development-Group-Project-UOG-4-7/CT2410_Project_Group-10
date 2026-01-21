@@ -23,6 +23,7 @@ import news5 from "../assets/news5.png";
 // Background images
 import shopBg from "../assets/shopbg.png";
 import shopheroBg from "../assets/cocoshopherobg.png";
+import { useCart } from "../context/CartContext";
 
 import AddProductModal from "../components/AddProductModal";
 import ProductDetailsModal from "../components/ProductDetailsModal";
@@ -284,45 +285,11 @@ const Product = () => {
     setVisibleCount((prev) => Math.min(prev + 3, filteredProducts.length));
   };
 
+  const { addToCart } = useCart();
+
   const handleAddToCart = async (productId) => {
-    const token = localStorage.getItem("access");
-    if (!user || !token) {
-      alert("Please login to add items to cart");
-      return;
-    }
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/api/products/cart/add/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ product_id: productId }),
-      });
-
-      if (response.ok) {
-        alert("Product added to cart!");
-      } else {
-        const textStr = await response.text();
-        try {
-          const errorData = JSON.parse(textStr);
-          const errorMessage = errorData.detail || errorData.error || "Unknown error occurred";
-
-          if (response.status === 401) {
-            alert("Session expired. Please login again.");
-          } else {
-            alert(`Failed to add to cart: ${errorMessage}`);
-          }
-        } catch (e) {
-          console.error("Non-JSON error response:", textStr);
-          alert(`Server error (${response.status}): The server returned an invalid response. Check console for details.`);
-        }
-      }
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      alert(`Network error: ${error.message}. Ensure backend is running.`);
-    }
+    // Logic moved to Context
+    await addToCart(productId);
   };
 
   const handleReset = () => {

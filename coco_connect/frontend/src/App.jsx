@@ -12,9 +12,24 @@ import Investment from "./pages/Investment";
 import About from "./pages/About"; // I can create this for you
 
 
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 function App() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-gray-200">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+      />
       <Navbar />
 
       <div className="flex-1">
@@ -37,4 +52,3 @@ function App() {
 }
 
 export default App;
-        

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { toast } from "react-toastify";
 
 const CartContext = createContext();
 
@@ -56,29 +57,54 @@ export const CartProvider = ({ children }) => {
   // =========================
   // ADD TO CART
   // =========================
+
+  // ... existing imports
+
+  // =========================
+  // ADD TO CART
+  // =========================
   const addToCart = async (productId) => {
     const token = getToken();
-    if (!token) throw new Error("Not authenticated");
 
-    const res = await fetch(`${API_BASE}/cart/add/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ product_id: productId }),
-    });
-
-    if (res.status === 401) {
-      throw new Error("Unauthorized");
+    if (!token) {
+      toast.info("Please login to add items to cart 🔐");
+      return;
     }
 
-    if (!res.ok) {
-      throw new Error("Failed to add to cart");
-    }
+    try {
+      // Corrected URL based on previous fixes
+      const res = await fetch(`${API_BASE}/cart/add/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ product_id: productId }),
+      });
 
-    const data = await res.json();
-    setCartCount(Number(data.cart_count || 0));
+      if (res.status === 401) {
+        toast.error("Session expired. Please login again.");
+        return;
+      }
+
+      if (!res.ok) {
+        const errorData = await res.text(); // safe text parse first
+        try {
+          const jsonErr = JSON.parse(errorData);
+          throw new Error(jsonErr.detail || jsonErr.error || "Failed to add items");
+        } catch {
+          throw new Error("Server error");
+        }
+      }
+
+      const data = await res.json();
+      setCartCount(Number(data.cart_count || 0));
+      toast.success("Product added to cart 🛒");
+
+    } catch (err) {
+      console.error("Add to cart error:", err);
+      toast.error(err.message || "Failed to add item");
+    }
   };
 
   const value = useMemo(

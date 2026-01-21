@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import shopBg from "../assets/shopbg.png";
 import { useCart } from "../context/CartContext";
+import PayHerePayment from "../components/PayHerePayment";
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showPayment, setShowPayment] = useState(false);
 
   const { setCartCount } = useCart();
 
@@ -16,6 +19,8 @@ const Cart = () => {
   // =========================
   // FETCH CART
   // =========================
+  const errorShown = React.useRef(false);
+
   const fetchCart = async () => {
     try {
       const res = await fetch("http://localhost:8000/api/products/cart/", {
@@ -23,11 +28,27 @@ const Cart = () => {
           Authorization: `Bearer ${token}`,
         },
       });
+
+      if (res.status === 401) {
+        setLoading(false);
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch");
+      }
+
       const data = await res.json();
-      setCartItems(data.items);
-      setCartCount(data.total_items);
+      setCartItems(data.items || []);
+      setCartCount(data.total_items || 0);
     } catch (err) {
-      console.error("Failed to load cart", err);
+      // 🔒 RULES
+      if (cartItems.length > 0) return;
+
+      if (!errorShown.current) {
+        toast.info("Please login to view your cart");
+        errorShown.current = true;
+      }
     } finally {
       setLoading(false);
     }
@@ -82,6 +103,16 @@ const Cart = () => {
 
   const tax = subtotal * taxRate;
   const total = subtotal + shipping + tax;
+
+  // Helper to ensure image URL is absolute
+  const getImageUrl = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("https")) {
+      return url;
+    }
+    // Prepend backend URL if it's a relative path
+    return `http://localhost:8000${url}`;
+  };
 
   if (loading) {
     return <div className="text-center mt-20">Loading cart...</div>;
@@ -138,7 +169,7 @@ const Cart = () => {
                     {/* Product */}
                     <div className="col-span-2 flex gap-4 items-center">
                       <img
-                        src={item.product_image}
+                        src={getImageUrl(item.product_image)}
                         alt={item.product_name}
                         className="w-20 h-20 object-cover rounded"
                       />
@@ -211,14 +242,26 @@ const Cart = () => {
                   <span>${total.toFixed(2)}</span>
                 </div>
 
-                <button className="mt-6 w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded font-semibold">
-                  Proceed to Checkout
+                <button
+                  onClick={() => setShowPayment(true)}
+                  className="mt-6 w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-semibold transition transform hover:scale-105 shadow-lg"
+                >
+                  Pay with PayHere
                 </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* PAYMENT MODAL */}
+      {showPayment && (
+        <PayHerePayment
+          cartItems={cartItems}
+          totalAmount={total}
+          onClose={() => setShowPayment(false)}
+        />
+      )}
     </div>
   );
 };

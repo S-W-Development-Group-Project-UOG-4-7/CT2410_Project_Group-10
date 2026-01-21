@@ -165,19 +165,27 @@ class AddToCartView(APIView):
 
 
 # ======================================================
-# CART – GET CART DETAILS
+# CART – GET CART DETAILS (FINAL & FIXED)
 # ======================================================
 class CartDetailView(APIView):
     """
-    Get current user's cart and items
+    Get current authenticated user's cart and items
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Ensure user has a cart
         cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        # Optimize DB query
         items = cart.items.select_related("product")
 
-        serializer = CartItemSerializer(items, many=True)
+        # 🔴 IMPORTANT: pass request into serializer context
+        serializer = CartItemSerializer(
+            items,
+            many=True,
+            context={"request": request},
+        )
 
         return Response(
             {
@@ -186,6 +194,7 @@ class CartDetailView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
 
 
 # ======================================================

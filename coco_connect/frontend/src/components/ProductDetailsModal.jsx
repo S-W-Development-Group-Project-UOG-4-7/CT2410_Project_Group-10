@@ -1,51 +1,16 @@
 import React from "react";
+import { useCart } from "../context/CartContext";
 
 const ProductDetailsModal = ({ isOpen, onClose, product }) => {
   if (!isOpen || !product) return null;
 
   // User from local storage
   const user = JSON.parse(localStorage.getItem("user"));
+  const { addToCart } = useCart();
 
   const handleAddToCart = async () => {
-    const token = localStorage.getItem("access");
-    if (!user || !token) {
-      alert("Please login to add items to cart");
-      return;
-    }
-
-    try {
-      const response = await fetch("http://127.0.0.1:8000/api/products/cart/add/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify({ product_id: product.id }),
-      });
-
-      if (response.ok) {
-        alert("Product added to cart!");
-        if (onClose) onClose();
-      } else {
-        const textStr = await response.text();
-        try {
-          const errorData = JSON.parse(textStr);
-          const errorMessage = errorData.detail || errorData.error || "Unknown error occurred";
-
-          if (response.status === 401) {
-            alert("Session expired. Please login again.");
-          } else {
-            alert(`Failed to add to cart: ${errorMessage}`);
-          }
-        } catch (e) {
-          console.error("Non-JSON error response:", textStr);
-          alert(`Server error (${response.status}): The server returned an invalid response. Check console for details.`);
-        }
-      }
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      alert(`Network error: ${error.message}. Ensure backend is running.`);
-    }
+    await addToCart(product.id);
+    if (onClose) onClose(); // Close modal after adding
   };
 
   return (
