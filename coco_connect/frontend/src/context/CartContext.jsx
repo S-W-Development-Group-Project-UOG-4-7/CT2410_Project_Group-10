@@ -110,6 +110,7 @@ export const CartProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       cartCount,
+      setCartCount,
       loading,
       addToCart,
       loadCart,
