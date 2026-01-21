@@ -1,0 +1,11 @@
+{
+  "navbar": {
+    "home": "Home",
+    "invest": "Invest",
+    "ideas": "Ideas",
+    "logout": "Logout"
+  },
+  "auth": {
+    "loginSuccess": "Logged out successfully"
+  }
+}
