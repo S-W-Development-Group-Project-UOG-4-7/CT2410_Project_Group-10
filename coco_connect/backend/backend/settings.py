@@ -20,6 +20,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "0.0.0.0",
 ]
 
 
@@ -27,7 +28,7 @@ ALLOWED_HOSTS = [
 # APPLICATIONS
 # -------------------------------------------------
 INSTALLED_APPS = [
-    # Django
+    # Django core
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -37,13 +38,14 @@ INSTALLED_APPS = [
 
     # Third-party
     "rest_framework",
-    "corsheaders",
+    "rest_framework.authtoken",
     "rest_framework_simplejwt",
+    "corsheaders",
     "django_filters",
 
     # Local apps
-    "connect.apps.ConnectConfig",
-    "blockchain_records",
+    "connect",
+    "products",
 ]
 
 
@@ -51,13 +53,11 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 # -------------------------------------------------
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # must be first
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-
     "django.middleware.csrf.CsrfViewMiddleware",
-
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -77,10 +77,11 @@ WSGI_APPLICATION = "backend.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
+                "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
@@ -129,6 +130,7 @@ USE_TZ = True
 # STATIC & MEDIA FILES
 # -------------------------------------------------
 STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -138,11 +140,12 @@ MEDIA_ROOT = BASE_DIR / "media"
 # CORS (React ↔ Django)
 # -------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = True  # DEV ONLY
+CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
@@ -156,17 +159,21 @@ CSRF_TRUSTED_ORIGINS = [
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        # Optional: for Django admin / browsable API sessions
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ),
-
-    # ✅ from admin-dashboard branch (safe to keep)
+    "DEFAULT_RENDERER_CLASSES": (
+        "rest_framework.renderers.JSONRenderer",
+    ),
+    "DEFAULT_PARSER_CLASSES": (
+        "rest_framework.parsers.JSONParser",
+    ),
     "DATE_INPUT_FORMATS": ["%Y-%m-%d", "%m/%d/%Y"],
     "DATE_FORMAT": "%Y-%m-%d",
 }
+
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),

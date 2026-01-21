@@ -56,9 +56,8 @@ export default function PayHerePayment({ idea, onSuccess, onClose }) {
       setLoading(false);
       alert("✅ Payment successful!");
 
-      // 🔐 BACKEND UNLOCK CALL (NEXT STEP)
+      // callback for backend unlock / confirmation
       onSuccess?.(orderId);
-
       onClose();
     };
 
@@ -83,6 +82,7 @@ export default function PayHerePayment({ idea, onSuccess, onClose }) {
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-2xl hover:text-gray-700"
+          aria-label="Close"
         >
           ✕
         </button>

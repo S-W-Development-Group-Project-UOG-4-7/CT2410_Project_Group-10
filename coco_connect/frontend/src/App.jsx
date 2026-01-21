@@ -1,5 +1,7 @@
 // src/App.jsx
 import { Routes, Route, useLocation } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -29,14 +31,28 @@ import EditProfile from "./customer/pages/EditProfile";
 import Orders from "./customer/pages/Orders";
 import ProtectedCustomerRoute from "./customer/ProtectedCustomerRoute";
 
+
+/* ----------------------------------
+   Layout Wrapper
+---------------------------------- */
 function LayoutWrapper({ children }) {
   const { pathname } = useLocation();
 
-  if (pathname.startsWith("/customer")) return <>{children}</>;
+  // Admin & Customer pages manage their own layout
   if (pathname.startsWith("/admin")) return <>{children}</>;
+  if (pathname.startsWith("/customer")) return <>{children}</>;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-gray-200">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="colored"
+      />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
@@ -44,8 +60,17 @@ function LayoutWrapper({ children }) {
   );
 }
 
-const W = (Page) => (<LayoutWrapper> <Page /></LayoutWrapper>);
+/* Helper to wrap public pages */
+const W = (Page) => (
+  <LayoutWrapper>
+    <Page />
+  </LayoutWrapper>
+);
 
+
+/* ----------------------------------
+   App
+---------------------------------- */
 export default function App() {
   return (
     <Routes>
@@ -60,10 +85,38 @@ export default function App() {
 
       {/* ADMIN (PROTECTED) */}
       <Route element={<ProtectedAdminRoute />}>
-        <Route  path="/admin"  element={  <AdminLayout>  <Dashboard />  </AdminLayout>  }  />
-        <Route  path="/admin/users" element={  <AdminLayout>  <Users />  </AdminLayout>  }  />
-        <Route  path="/admin/blockchain"  element={  <AdminLayout> <Blockchain />  </AdminLayout>  }  />
-        <Route  path="/admin/news"  element={ <AdminLayout> <AdminNews /> </AdminLayout> }/>
+        <Route
+          path="/admin"
+          element={
+            <AdminLayout>
+              <Dashboard />
+            </AdminLayout>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminLayout>
+              <Users />
+            </AdminLayout>
+          }
+        />
+        <Route
+          path="/admin/blockchain"
+          element={
+            <AdminLayout>
+              <Blockchain />
+            </AdminLayout>
+          }
+        />
+        <Route
+          path="/admin/news"
+          element={
+            <AdminLayout>
+              <AdminNews />
+            </AdminLayout>
+          }
+        />
       </Route>
 
       {/* CUSTOMER (PROTECTED) */}

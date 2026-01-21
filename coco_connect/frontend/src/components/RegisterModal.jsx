@@ -97,12 +97,14 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
       onClose?.();
       onOpenLogin?.();
     } catch (err) {
-      setErrors({
-        submit:
-          err?.response?.data?.error ||
-          err?.response?.data?.detail ||
-          "Registration failed. Please try again.",
-      });
+      console.error("Registration error:", err);
+      const serverMsg =
+        err?.response?.data?.error ||
+        err?.response?.data?.detail ||
+        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        err?.message ||
+        "Registration failed. Please try again.";
+      setErrors((p) => ({ ...p, submit: serverMsg }));
     } finally {
       setIsSubmitting(false);
     }

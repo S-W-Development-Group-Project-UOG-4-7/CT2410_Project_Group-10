@@ -24,6 +24,7 @@ export async function loginUser(email, password) {
 
 
 export const registerUser = async (data) => {
-  const response = await API.post("register/", data);
+  // register endpoint is under /api/auth/register/ on the backend
+  const response = await API.post("auth/register/", data);
   return response.data;
 };
