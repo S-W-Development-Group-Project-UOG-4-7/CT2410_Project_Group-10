@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { registerUser, loginUser } from "../services/authService";
+import { useNavigate } from "react-router-dom";
+import { registerUser } from "../services/authService";
 
-export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
+export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLogin }) {
+
   const modalRef = useRef();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -38,21 +41,30 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
     if (errors[e.target.id]) setErrors((p) => ({ ...p, [e.target.id]: "" }));
   };
 
+  // ✅ Regex patterns
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  // at least 6 chars, 1 uppercase, 1 number (edit if you want)
+  const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{6,}$/;
+
   const validate = () => {
     const newErrors = {};
 
     if (!formData.name.trim()) newErrors.name = "Name is required";
 
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Enter a valid email";
+    else if (!emailRegex.test(formData.email))
+      newErrors.email = "Enter a valid email";
 
     if (!formData.role) newErrors.role = "Please select a role";
 
     if (!formData.password.trim()) newErrors.password = "Password is required";
-    else if (formData.password.length < 6) newErrors.password = "At least 6 characters";
+    else if (!passwordRegex.test(formData.password))
+      newErrors.password = "Min 6 chars, 1 uppercase & 1 number";
 
-    if (!formData.confirmPassword.trim()) newErrors.confirmPassword = "Please confirm your password";
-    else if (formData.confirmPassword !== formData.password) newErrors.confirmPassword = "Passwords do not match";
+    if (!formData.confirmPassword.trim())
+      newErrors.confirmPassword = "Please confirm your password";
+    else if (formData.confirmPassword !== formData.password)
+      newErrors.confirmPassword = "Passwords do not match";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -74,25 +86,16 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
         role: formData.role,
       });
 
-      // 2) auto-login (get tokens)
-      const tokenData = await loginUser(formData.email, formData.password);
-
-      // 3) save tokens
-      localStorage.setItem("access", tokenData.access);
-      localStorage.setItem("refresh", tokenData.refresh);
-
-      // 4) save user
-      const userObj = {
+      // ✅ optional: tell parent something (you can remove this if not needed)
+      onAuthSuccess?.({
         name: formData.name,
         email: formData.email,
         role: formData.role,
-      };
-      localStorage.setItem("user", JSON.stringify(userObj));
+      });
 
-      // ✅ update navbar immediately
-      onAuthSuccess?.(userObj);
-
-      onClose();
+      // ✅ after register -> go to login page
+      onClose?.();
+      onOpenLogin?.();
     } catch (err) {
       console.error("Registration error:", err);
       const serverMsg =
@@ -132,23 +135,51 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
       >
         {/* floating dots */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-32 h-32 p1 rounded-full blur-xl"
-            style={{ background: "radial-gradient(circle, rgba(0,128,0,.28) 0%, transparent 70%)" }} />
-          <div className="absolute bottom-1/3 right-1/4 w-40 h-40 p2 rounded-full blur-2xl"
-            style={{ background: "radial-gradient(circle, rgba(34,139,34,.22) 0%, transparent 70%)" }} />
-          <div className="absolute top-1/3 right-1/3 w-28 h-28 p3 rounded-full blur-xl"
-            style={{ background: "radial-gradient(circle, rgba(0,86,63,.26) 0%, transparent 70%)" }} />
-          <div className="absolute bottom-1/4 left-1/2 w-24 h-24 p4 rounded-full blur-lg"
-            style={{ background: "radial-gradient(circle, rgba(152,251,152,.25) 0%, transparent 70%)" }} />
-          <div className="absolute top-1/6 left-2/3 w-12 h-12 p1 rounded-full blur-md"
-            style={{ background: "radial-gradient(circle, rgba(144,238,144,.35) 0%, transparent 70%)" }} />
+          <div
+            className="absolute top-1/4 left-1/4 w-32 h-32 p1 rounded-full blur-xl"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(0,128,0,.28) 0%, transparent 70%)",
+            }}
+          />
+          <div
+            className="absolute bottom-1/3 right-1/4 w-40 h-40 p2 rounded-full blur-2xl"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(34,139,34,.22) 0%, transparent 70%)",
+            }}
+          />
+          <div
+            className="absolute top-1/3 right-1/3 w-28 h-28 p3 rounded-full blur-xl"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(0,86,63,.26) 0%, transparent 70%)",
+            }}
+          />
+          <div
+            className="absolute bottom-1/4 left-1/2 w-24 h-24 p4 rounded-full blur-lg"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(152,251,152,.25) 0%, transparent 70%)",
+            }}
+          />
+          <div
+            className="absolute top-1/6 left-2/3 w-12 h-12 p1 rounded-full blur-md"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(144,238,144,.35) 0%, transparent 70%)",
+            }}
+          />
         </div>
 
         {/* modal */}
         <div
           ref={modalRef}
           className="bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8 relative max-h-[90vh] overflow-y-auto border border-white/40"
-          style={{ boxShadow: "0 20px 40px rgba(0, 100, 0, 0.15), 0 0 0 1px rgba(255,255,255,.8)" }}
+          style={{
+            boxShadow:
+              "0 20px 40px rgba(0, 100, 0, 0.15), 0 0 0 1px rgba(255,255,255,.8)",
+          }}
         >
           <button
             onClick={onClose}
@@ -158,7 +189,9 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
           </button>
 
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-mont text-gray-800 mb-2">CREATE ACCOUNT</h2>
+            <h2 className="text-3xl font-mont text-gray-800 mb-2">
+              CREATE ACCOUNT
+            </h2>
           </div>
 
           {errors.submit && (
@@ -170,7 +203,9 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name
+              </label>
               <input
                 id="name"
                 type="text"
@@ -178,15 +213,23 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
                   focus:ring-2 focus:outline-none transition-all
-                  ${errors.name ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                  ${
+                    errors.name
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
                 placeholder="e.g. Saman Perera"
               />
-              {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+              )}
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
               <input
                 id="email"
                 type="email"
@@ -194,34 +237,52 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
                   focus:ring-2 focus:outline-none transition-all
-                  ${errors.email ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                  ${
+                    errors.email
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
                 placeholder="you@example.com"
               />
-              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-red-600 text-sm mt-1">{errors.email}</p>
+              )}
             </div>
 
             {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">I am a</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                I am a
+              </label>
               <select
                 id="role"
                 value={formData.role}
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border bg-white focus:ring-2 focus:outline-none transition-all
                   ${formData.role === "" ? "text-gray-400" : "text-gray-800"}
-                  ${errors.role ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                  ${
+                    errors.role
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
               >
-                <option value="" disabled>Select your role</option>
+                <option value="" disabled>
+                  Select your role
+                </option>
                 <option value="farmer">Farmer / Producer</option>
                 <option value="investor">Investor</option>
                 <option value="buyer">Buyer / Customer</option>
               </select>
-              {errors.role && <p className="text-red-600 text-sm mt-1">{errors.role}</p>}
+              {errors.role && (
+                <p className="text-red-600 text-sm mt-1">{errors.role}</p>
+              )}
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
               <input
                 id="password"
                 type="password"
@@ -229,15 +290,23 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
                   focus:ring-2 focus:outline-none transition-all
-                  ${errors.password ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                  ${
+                    errors.password
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
                 placeholder="Create a strong password"
               />
-              {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password}</p>}
+              {errors.password && (
+                <p className="text-red-600 text-sm mt-1">{errors.password}</p>
+              )}
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
               <input
                 id="confirmPassword"
                 type="password"
@@ -245,17 +314,29 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess }) {
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
                   focus:ring-2 focus:outline-none transition-all
-                  ${errors.confirmPassword ? "border-red-500 focus:ring-red-200" : "border-gray-300 focus:ring-green-300 hover:border-green-400"}`}
+                  ${
+                    errors.confirmPassword
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
                 placeholder="Re-type your password"
               />
-              {errors.confirmPassword && <p className="text-red-600 text-sm mt-1">{errors.confirmPassword}</p>}
+              {errors.confirmPassword && (
+                <p className="text-red-600 text-sm mt-1">
+                  {errors.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
               className={`w-full py-3 rounded-lg font-semibold shadow-md flex items-center justify-center text-white transition-all mt-6
-                ${isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700 hover:shadow-lg"}`}
+                ${
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700 hover:shadow-lg"
+                }`}
             >
               {isSubmitting ? "Creating account..." : "Create Account"}
             </button>

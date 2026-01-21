@@ -1,11 +1,16 @@
-import React, { useEffect } from "react";
-import { toast } from "react-toastify";
+import { useEffect, useState } from "react";
 
-function PayHerePayment({ cartItems, totalAmount, onClose }) {
+const PAYHERE_SCRIPT = "https://www.payhere.lk/lib/payhere.js";
+
+export default function PayHerePayment({ idea, onSuccess, onClose }) {
+  const [loading, setLoading] = useState(false);
+
+  // Load PayHere script safely
   useEffect(() => {
-    // Load PayHere script
+    if (window.payhere) return;
+
     const script = document.createElement("script");
-    script.src = "https://www.payhere.lk/lib/payhere.js";
+    script.src = PAYHERE_SCRIPT;
     script.async = true;
     document.body.appendChild(script);
 
@@ -14,77 +19,111 @@ function PayHerePayment({ cartItems, totalAmount, onClose }) {
     };
   }, []);
 
-  const itemsText = cartItems
-    .map((item) => `${item.product_name} x${item.quantity}`)
-    .join(", ");
-
   const startPayment = () => {
+    if (!window.payhere) {
+      alert("PayHere not loaded yet. Please try again.");
+      return;
+    }
+
+    setLoading(true);
+
     const payment = {
-      sandbox: true, // change to false for LIVE mode
-      merchant_id: "YOUR_MERCHANT_ID", // <-- Replace when ready
+      sandbox: true, // 🔴 set false for LIVE
+      merchant_id: "YOUR_MERCHANT_ID", // 🔴 REPLACE WITH REAL ID
+
       return_url: undefined,
       cancel_url: undefined,
-      notify_url: "http://localhost:8000/api/orders/notify/", // Updated placeholder
+      notify_url: "http://127.0.0.1:8000/api/payhere/notify/",
 
-      order_id: `ORDER_${Date.now()}`,
-      items: itemsText,
-      amount: totalAmount,
+      order_id: `IDEA_${idea.id}_${Date.now()}`,
+      items: idea.title,
+      amount: idea.price,
       currency: "LKR",
 
-      first_name: "Demo",
+      first_name: "Buyer",
       last_name: "User",
-      email: "demo@example.com",
+      email: "buyer@example.com",
       phone: "0771234567",
-      address: "Colombo",
+      address: "Sri Lanka",
       city: "Colombo",
       country: "Sri Lanka",
     };
 
-    // PayHere Handlers
+    // -------------------------
+    // PayHere event handlers
+    // -------------------------
     window.payhere.onCompleted = function (orderId) {
-      toast.success("Payment successful 🎉");
+      setLoading(false);
+      alert("✅ Payment successful!");
+
+      // callback for backend unlock / confirmation
+      onSuccess?.(orderId);
       onClose();
     };
 
     window.payhere.onDismissed = function () {
-      toast.info("Payment cancelled");
+      setLoading(false);
+      alert("⚠️ Payment cancelled");
       onClose();
     };
 
     window.payhere.onError = function (error) {
-      toast.error("Payment failed: " + error);
+      setLoading(false);
+      alert("❌ Payment error: " + error);
     };
 
     window.payhere.startPayment(payment);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50 animate-fadeIn">
-      <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl border relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-3xl hover:text-red-500 transition">
-          ×
-        </button>
-
-        <h2 className="text-2xl font-bold mb-4 text-[#6b3f23]">
-          Pay with PayHere
-        </h2>
-
-        <div className="mb-4 text-sm text-gray-600 max-h-32 overflow-y-auto">
-          <strong>Items:</strong> {itemsText}
-        </div>
-
-        <p className="mb-6 text-xl font-bold">Total: Rs. {Number(totalAmount).toFixed(2)}</p>
-
-        <button
-          onClick={startPayment}
-          className="w-full bg-[#4caf50] text-white py-3 rounded-lg text-lg font-bold hover:bg-[#66bb6a] transition transform hover:scale-105"
-        >
-          Proceed to PayHere
-        </button>
-
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+      <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative border">
+        {/* CLOSE */}
         <button
           onClick={onClose}
-          className="w-full bg-gray-100 py-2 rounded-lg mt-4 text-lg hover:bg-gray-200 transition"
+          className="absolute top-4 right-4 text-2xl hover:text-gray-700"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+
+        {/* HEADER */}
+        <h2 className="text-2xl font-extrabold text-green-700 mb-2">
+          Secure Payment
+        </h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Complete your purchase via PayHere
+        </p>
+
+        {/* IDEA INFO */}
+        <div className="bg-gray-50 rounded-xl p-4 mb-6">
+          <p className="font-semibold text-gray-700 mb-1">Idea</p>
+          <p className="text-lg font-bold">{idea.title}</p>
+
+          <p className="mt-3 text-gray-600">Amount</p>
+          <p className="text-2xl font-extrabold text-green-700">
+            LKR {idea.price}
+          </p>
+        </div>
+
+        {/* PAY BUTTON */}
+        <button
+          onClick={startPayment}
+          disabled={loading}
+          className={`w-full py-3 rounded-xl text-lg font-bold transition
+            ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700 text-white"
+            }`}
+        >
+          {loading ? "Processing..." : "Pay with PayHere"}
+        </button>
+
+        {/* CANCEL */}
+        <button
+          onClick={onClose}
+          className="w-full mt-4 py-2 rounded-xl text-gray-600 hover:underline"
         >
           Cancel
         </button>
@@ -92,5 +131,3 @@ function PayHerePayment({ cartItems, totalAmount, onClose }) {
     </div>
   );
 }
-
-export default PayHerePayment;

@@ -6,8 +6,8 @@
    GLOBAL STYLES
 ---------------------------------------------- */
 :root {
-  font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 
   line-height: 1.5;
   font-weight: 400;
@@ -28,7 +28,6 @@ body {
 /* -------------------------------
            Logo Styles
 -------------------------------- */
-
 .logo-text {
   font-family: "Bangers", cursive;
   font-size: 2.5rem;
@@ -46,7 +45,6 @@ body {
 /* -------------------------------
        Footer Background
 -------------------------------- */
-
 .footer-bg {
   background-image: url("/palms-bg.png");
   background-size: cover;
@@ -77,13 +75,8 @@ body {
 /* ---------------------------------------------
    COMPONENT UTILITIES
 ---------------------------------------------- */
-
 .card-box {
   @apply bg-white rounded-xl shadow hover:shadow-lg transition duration-300;
-}
-
-.footer-bg {
-  font-family: "Nunito", sans-serif;
 }
 
 .glass-panel {
@@ -104,7 +97,6 @@ body {
 /* -------------------------------
         Rain Effect
 -------------------------------- */
-
 .rain-container {
   position: fixed;
   top: 0;
@@ -137,10 +129,19 @@ body {
   }
 }
 
+/* -------------------------------
+        Floating / Animations
+-------------------------------- */
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
 }
 
 @keyframes coconutDrop {
@@ -156,6 +157,7 @@ body {
     opacity: 0;
   }
 }
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -171,9 +173,59 @@ body {
   animation: fadeIn 0.25s ease-out;
 }
 
-
 .animate-coconut-drop {
   animation-name: coconutDrop;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
+}
+
+/* -------------------------------
+   Sidebar Scrollbar (Admin/Customer)
+-------------------------------- */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 20px;
+}
+
+/* Green scrollbar variant */
+.sidebar-scroll-green {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(163, 230, 53, 0.7) transparent;
+}
+
+.sidebar-scroll-green::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll-green::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll-green::-webkit-scrollbar-thumb {
+  background: rgba(163, 230, 53, 0.55);
+  border-radius: 999px;
+}
+
+.sidebar-scroll-green::-webkit-scrollbar-thumb:hover {
+  background: rgba(163, 230, 53, 0.75);
+}
+
+/* -------------------------------
+   Global Smooth Transitions
+-------------------------------- */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
