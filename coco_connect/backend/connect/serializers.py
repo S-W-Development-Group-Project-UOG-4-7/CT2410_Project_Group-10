@@ -2,22 +2,20 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Idea
+from .models import Idea, SimilarityAlert
 
 
 # ==================================================
-# IDEA SERIALIZER (FIXED)
+# IDEA SERIALIZER (FULL IDEA)
 # ==================================================
 class IdeaSerializer(serializers.ModelSerializer):
-    # ✅ Send owner info to frontend
+    # send owner info to frontend
     author_email = serializers.SerializerMethodField()
     author_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Idea
         fields = "__all__"
-
-        # backend-controlled fields
         read_only_fields = [
             "author",
             "created_at",
@@ -32,7 +30,55 @@ class IdeaSerializer(serializers.ModelSerializer):
 
 
 # ==================================================
-# JWT LOGIN WITH EMAIL (UNCHANGED & WORKING)
+# BASIC IDEA SERIALIZER (USED INSIDE ALERTS)
+# ==================================================
+class BasicIdeaSerializer(serializers.ModelSerializer):
+    author_email = serializers.CharField(
+        source="author.email",
+        read_only=True,
+    )
+    author_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Idea
+        fields = [
+            "id",
+            "title",
+            "short_description",
+            "author_email",
+            "author_name",
+            "created_at",
+        ]
+
+    def get_author_name(self, obj):
+        return obj.author.get_full_name() or obj.author.username
+
+
+# ==================================================
+# SIMILARITY ALERT SERIALIZER (FINAL)
+# ==================================================
+class SimilarityAlertSerializer(serializers.ModelSerializer):
+    # 🟢 ORIGINAL idea (owned by logged-in user)
+    idea = BasicIdeaSerializer(read_only=True)
+
+    # 🔴 NEW idea (created by another user)
+    similar_idea = BasicIdeaSerializer(read_only=True)
+
+    class Meta:
+        model = SimilarityAlert
+        fields = [
+            "id",
+            "idea",                 # original idea (my idea)
+            "similar_idea",         # new idea (other user)
+            "similarity_score",
+            "is_reported",
+            "is_dismissed",
+            "created_at",
+        ]
+
+
+# ==================================================
+# JWT LOGIN WITH EMAIL
 # ==================================================
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     """

@@ -43,12 +43,11 @@ export default function SimilarityAlerts({ onClose }) {
   }, []);
 
   // =========================
-  // OPEN SIMILAR IDEA
+  // OPEN SIMILAR IDEA - FIXED VERSION
   // =========================
   const openSimilarIdea = async (alert) => {
-    if (!alert?.similar_idea) {
-      console.error("Missing similar_idea", alert);
-      setError("Invalid similar idea reference");
+    if (!alert?.similar_idea?.id) {
+      setError("Invalid similar idea");
       return;
     }
 
@@ -58,18 +57,15 @@ export default function SimilarityAlerts({ onClose }) {
     setError(null);
 
     try {
-      const res = await fetch(`${API}/ideas/${alert.similar_idea}/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const res = await fetch(`${API}/ideas/${alert.similar_idea.id}/`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) throw new Error("Not authorized or not found");
+      if (!res.ok) throw new Error("Not found");
 
       const data = await res.json();
       setOpenIdea(data);
     } catch (err) {
-      console.error(err);
       setError("Failed to load idea details");
     } finally {
       setIdeaLoading(false);
@@ -83,22 +79,28 @@ export default function SimilarityAlerts({ onClose }) {
     if (!selectedAlert) return;
 
     try {
+      // 1) REPORT
       await fetch(`${API}/alerts/${selectedAlert.id}/report/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          report_reason: "Reported after reviewing similar idea",
-        }),
+      });
+
+      // 2) DISMISS (remove from list)
+      await fetch(`${API}/alerts/${selectedAlert.id}/dismiss/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       alert("✅ Idea reported successfully");
       setSelectedAlert(null);
       setOpenIdea(null);
       loadAlerts();
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("❌ Failed to report idea");
     }
   };
@@ -273,9 +275,13 @@ export default function SimilarityAlerts({ onClose }) {
                                 </span>
                               )}
                             </div>
+                            {/* FIXED: Show title instead of ID */}
                             <h4 className="font-semibold text-slate-900 line-clamp-2 text-sm leading-snug">
-                              {a.similar_idea_title}
+                              {a.similar_idea?.title}
                             </h4>
+                            <p className="text-xs text-slate-500">
+                              by {a.similar_idea?.author_email}
+                            </p>
                           </div>
                           <svg
                             className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${

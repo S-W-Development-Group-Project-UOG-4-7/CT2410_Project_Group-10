@@ -61,13 +61,16 @@ export default function IdeaSharing() {
 
   const [isPublishing, setIsPublishing] = useState(false);
 
-  // similarity responses
-  const [similarBlock, setSimilarBlock] = useState(null);
+  // similarity states
   const [similarWarning, setSimilarWarning] = useState(null);
+
+  // BLOCK modal states - ADDED
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockData, setBlockData] = useState(null);
 
   // alerts
   const [alertsCount, setAlertsCount] = useState(0);
-  const [alerts, setAlerts] = useState([]); // ✅ ADDED
+  const [alerts, setAlerts] = useState([]);
   const [showAlerts, setShowAlerts] = useState(false);
 
   /* =========================
@@ -92,19 +95,24 @@ export default function IdeaSharing() {
   }, []);
 
   /* =========================
-     LOAD ALERTS COUNT
-  ========================= */
+   LOAD ALERTS COUNT
+========================= */
   useEffect(() => {
     if (!token) return;
 
     fetch(`${API}/alerts/`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     })
-      .then((res) => res.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-        setAlerts(list); // ✅ save full alert list
-        setAlertsCount(list.length); // ✅ keep count
+      .then(async (res) => {
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      })
+      .then((list) => {
+        setAlerts(list);
+        setAlertsCount(list.length);
       })
       .catch(() => {
         setAlerts([]);
@@ -139,7 +147,7 @@ export default function IdeaSharing() {
       const isMine =
         myEmail &&
         (ideaEmail === myEmail ||
-          (ideaEmail === "" && ideaName && ideaName === user?.email)); // extra fallback
+          (ideaEmail === "" && ideaName && ideaName === user?.email));
 
       const ownerOk = filter === "mine" ? isMine : true;
 
@@ -215,9 +223,9 @@ export default function IdeaSharing() {
   };
 
   /* =========================
-     PUBLISH / UPDATE
+     PUBLISH / UPDATE - FIXED VERSION
   ========================= */
-  const handlePublish = async () => {
+  const handlePublish = async (force = false) => {
     if (!token) return alert("Please login");
 
     if (!title.trim()) return alert("Title is required");
@@ -229,8 +237,9 @@ export default function IdeaSharing() {
     }
 
     setIsPublishing(true);
-    setSimilarBlock(null);
     setSimilarWarning(null);
+    setShowBlockModal(false);
+    setBlockData(null);
 
     const formData = new FormData();
     formData.append("title", title);
@@ -239,6 +248,8 @@ export default function IdeaSharing() {
     formData.append("is_paid", String(isPaid));
     if (isPaid) formData.append("price", price);
     if (file) formData.append("document", file);
+
+    if (force) formData.append("force_publish", "1");
 
     const url = editing ? `${API}/ideas/${editing.id}/` : `${API}/ideas/`;
     const method = editing ? "PATCH" : "POST";
@@ -250,22 +261,17 @@ export default function IdeaSharing() {
         body: formData,
       });
 
-      const responseJson = await res.json().catch(() => null);
+      const data = await res.json().catch(() => null);
 
-      // BLOCK
-      if (res.status === 409 && responseJson?.type === "BLOCK") {
-        setSimilarBlock(responseJson);
+      // 🔴 BLOCK (>= 85%)
+      if (res.status === 409 && data?.type === "BLOCK") {
+        setBlockData(data);
+        setShowBlockModal(true);
         return;
       }
 
-      // ERROR
-      if (!res.ok) {
-        alert(responseJson?.error || "Failed to publish idea");
-        return;
-      }
-
-      // WARNING (do NOT publish yet)
-      if (responseJson?.type === "WARNING") {
+      // 🟡 WARNING (65–85%)
+      if (data?.type === "WARNING") {
         setPendingPublish({
           title,
           short_description: shortDesc,
@@ -274,14 +280,17 @@ export default function IdeaSharing() {
           price,
           file,
         });
-
-        setSimilarWarning(responseJson);
+        setSimilarWarning(data);
         return;
       }
 
-      // NORMAL SUCCESS
-      const data = responseJson;
+      // 🚨 SERVER ERROR
+      if (!res.ok) {
+        alert(data?.error || "Failed to publish idea");
+        return;
+      }
 
+      // ✅ SUCCESS
       setIdeas((prev) =>
         editing
           ? prev.map((i) => (i.id === data.id ? data : i))
@@ -295,8 +304,8 @@ export default function IdeaSharing() {
       setShowForm(false);
       resetForm();
     } catch (err) {
-      console.error(err);
-      alert("Something went wrong. Please try again.");
+      console.error("Publish error:", err);
+      alert("Network error. Please check your connection.");
     } finally {
       setIsPublishing(false);
     }
@@ -469,7 +478,7 @@ export default function IdeaSharing() {
                         </div>
                       </div>
 
-                      {/* Badges - vertical, using your gradient style but softer */}
+                      {/* Badges */}
                       <div className="flex flex-col items-end gap-2.5">
                         <span
                           className={`
@@ -582,7 +591,7 @@ export default function IdeaSharing() {
                     </div>
                   </div>
 
-                  {/* Subtle bottom hover line – keeps your original idea but refined */}
+                  {/* Subtle bottom hover line */}
                   <div
                     className="
               h-1 bg-gradient-to-r from-green-400 via-green-500 to-green-400
@@ -594,7 +603,7 @@ export default function IdeaSharing() {
             })}
           </div>
         ) : (
-          /* Empty State – clean & matching theme */
+          /* Empty State */
           <div
             className="
       text-center py-20 px-6 bg-white rounded-2xl border border-gray-200 shadow-sm
@@ -777,7 +786,6 @@ export default function IdeaSharing() {
       {/* =========================
          CREATE / EDIT MODAL
       ========================= */}
-
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl">
@@ -883,7 +891,7 @@ export default function IdeaSharing() {
                 />
               )}
 
-              {/* PERFECT FILE UPLOAD */}
+              {/* File Upload */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Attach Document (optional)
@@ -925,7 +933,7 @@ export default function IdeaSharing() {
 
               {/* Submit */}
               <button
-                onClick={handlePublish}
+                onClick={() => handlePublish(false)}
                 disabled={isPublishing}
                 className={`w-full py-4 rounded-xl font-bold text-lg transition ${
                   isPublishing
@@ -956,7 +964,7 @@ export default function IdeaSharing() {
       )}
 
       {/* =========================
-   SIMILARITY WARNING MODAL
+   SIMILARITY WARNING MODAL (65-85%)
 ========================= */}
       {similarWarning && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
@@ -1122,48 +1130,12 @@ export default function IdeaSharing() {
 
                 {/* Publish Anyway - Green */}
                 <button
-                  onClick={async () => {
-                    if (!pendingPublish) return;
-
-                    const fd = new FormData();
-                    fd.append("title", pendingPublish.title);
-                    fd.append(
-                      "short_description",
-                      pendingPublish.short_description
-                    );
-                    fd.append(
-                      "full_description",
-                      pendingPublish.full_description
-                    );
-                    fd.append("is_paid", String(pendingPublish.is_paid));
-                    if (pendingPublish.is_paid)
-                      fd.append("price", pendingPublish.price);
-                    if (pendingPublish.file)
-                      fd.append("document", pendingPublish.file);
-
-                    fd.append("force_publish", "1");
-
-                    const res = await fetch(`${API}/ideas/`, {
-                      method: "POST",
-                      headers: { Authorization: `Bearer ${token}` },
-                      body: fd,
-                    });
-
-                    const data = await res.json();
-
-                    if (!res.ok) {
-                      alert(data?.error || "Failed to publish idea");
-                      return;
-                    }
-
-                    setIdeas((prev) => [data, ...prev]);
-
-                    setPendingPublish(null);
-                    setSimilarWarning(null);
-                    setShowForm(false);
-                    resetForm();
-                  }}
-                  className="flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors shadow-sm hover:shadow"
+                  onClick={() => handlePublish(true)}
+                  className={`flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-lg shadow-sm hover:shadow transition-colors ${
+                    isPublishing
+                      ? "bg-green-300 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                  }`}
                 >
                   <svg
                     className="w-4 h-4"
@@ -1178,7 +1150,187 @@ export default function IdeaSharing() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Publish Anyway
+                  {isPublishing ? "Publishing..." : "Publish Anyway"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================
+         BLOCK MODAL (≥85% Similarity) - ADDED
+      ========================= */}
+      {showBlockModal && blockData && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            {/* Header - Red */}
+            <div className="bg-red-50 px-6 py-5 border-b border-red-100">
+              <div className="flex items-center gap-3">
+                <div className="bg-red-100 p-2.5 rounded-lg">
+                  <svg
+                    className="w-6 h-6 text-red-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-red-700">
+                    Too Similar to Publish
+                  </h2>
+                  <p className="text-sm text-red-600 mt-0.5">
+                    Your idea is {Math.round(blockData.similarity * 100)}%
+                    similar to existing ideas
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-6">
+                Please review the similar ideas below. You need to make your
+                idea more unique before publishing.
+              </p>
+
+              {/* Similar Ideas List */}
+              <div className="space-y-4 mb-6 max-h-80 overflow-y-auto pr-2">
+                {blockData.matches.map((match, index) => (
+                  <div
+                    key={match.id || index}
+                    className="group bg-white hover:bg-red-50 rounded-lg border border-red-200 p-4 transition-all duration-200 hover:shadow"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full">
+                            {index + 1}
+                          </span>
+                          <h3 className="font-semibold text-gray-900 truncate">
+                            {match.title}
+                          </h3>
+                        </div>
+
+                        {match.author && (
+                          <p className="text-xs text-gray-500 ml-8 mb-2">
+                            By:{" "}
+                            <span className="font-medium">{match.author}</span>
+                          </p>
+                        )}
+
+                        {match.short_description && (
+                          <p className="text-sm text-gray-600 ml-8 line-clamp-2">
+                            {match.short_description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5 bg-red-100 px-3 py-1.5 rounded-full">
+                          <span className="text-sm font-bold text-red-800">
+                            {Math.round((match.score || 0) * 100)}%
+                          </span>
+                          <span className="text-xs text-red-600">similar</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Edit Idea - Blue */}
+                <button
+                  onClick={() => {
+                    setShowBlockModal(false);
+                    setBlockData(null);
+                    setShowForm(true);
+                  }}
+                  className="flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit Idea
+                </button>
+
+                {/* View Similar Idea - Gray */}
+                <button
+                  onClick={() => {
+                    if (blockData.matches[0]?.id) {
+                      window.open(
+                        `/ideas/${blockData.matches[0].id}`,
+                        "_blank"
+                      );
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-black transition-colors shadow-sm hover:shadow"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                    />
+                  </svg>
+                  View Similar Idea
+                </button>
+
+                {/* Cancel - Red */}
+                <button
+                  onClick={() => {
+                    setShowBlockModal(false);
+                    setBlockData(null);
+                    setShowForm(false);
+                    resetForm();
+                  }}
+                  className="flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors shadow-sm hover:shadow col-span-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  Cancel & Close
                 </button>
               </div>
             </div>

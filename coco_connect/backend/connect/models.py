@@ -3,28 +3,6 @@ from django.contrib.auth.models import User
 from django.utils import timezone  # ✅ needed for Investment.save()
 
 
-class Idea(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ideas")
-
-    title = models.CharField(max_length=255)
-    short_description = models.TextField()
-    full_description = models.TextField()
-
-    is_paid = models.BooleanField(default=False)
-    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
-    document = models.FileField(upload_to="ideas/", null=True, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    # ✅ AI Embedding Vector (for similarity checking)
-    embedding = models.JSONField(null=True, blank=True)
-
-    class Meta:
-        ordering = ["-created_at"]  # ✅ newest first automatically
-
-    def __str__(self):
-        return f"{self.title}"
 # ----------------------------
 # PROFILE
 # ----------------------------
@@ -174,11 +152,19 @@ class InvestmentProject(models.Model):
     def funding_needed(self):
         return self.target_amount - self.current_amount
 
+from django.db import models
+from django.contrib.auth.models import User
+
+
 # ----------------------------
 # IDEA (AI Similarity Enabled)
 # ----------------------------
 class Idea(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ideas")
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="ideas"
+    )
 
     title = models.CharField(max_length=255)
     short_description = models.TextField()
@@ -205,15 +191,56 @@ class Idea(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Auto-generate embedding if missing or content changed.
-        Keeps similarity system stable and error-free.
+        Auto-generate embedding if missing.
+        Keeps similarity system stable.
         """
         if not self.embedding:
             from .services.embeddings import get_embedding
-            text = self.build_text_for_embedding()
-            self.embedding = get_embedding(text)
+            self.embedding = get_embedding(self.build_text_for_embedding())
 
         super().save(*args, **kwargs)
+# ----------------------------
+# SIMILARITY ALERT (FIXED)
+# ----------------------------
+class SimilarityAlert(models.Model):
+    # 🟢 ORIGINAL IDEA (owner receives alert)
+    idea = models.ForeignKey(
+        "Idea",
+        on_delete=models.CASCADE,
+        related_name="similarity_alerts",
+    )
+
+    # 🔴 NEW IDEA (created later by another user)
+    similar_idea = models.ForeignKey(
+        "Idea",
+        on_delete=models.CASCADE,
+        related_name="triggered_alerts",
+    )
+
+    similarity_score = models.FloatField()
+    is_reported = models.BooleanField(default=False)
+    is_dismissed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["idea", "similar_idea"],
+                name="unique_similarity_alert"
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"Alert → {self.idea.author.email} | "
+            f"{self.idea.title} ~ {self.similar_idea.title} | "
+            f"{round(self.similarity_score * 100)}%"
+        )
+
+
+
+
 
 # ----------------------------
 # INVESTMENT

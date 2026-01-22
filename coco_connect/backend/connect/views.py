@@ -1,21 +1,40 @@
-# connect/views.py
+# ============================
+# DJANGO
+# ============================
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db.models import Q, Sum
 from django.utils import timezone
+from django.db import transaction
+
+# ============================
+# PYTHON
+# ============================
 import json
 import decimal
-import random, string
+import random
+import string
 
+# ============================
+# DRF
+# ============================
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
+
+# ============================
+# JWT
+# ============================
 from rest_framework_simplejwt.tokens import AccessToken
 
+# ============================
+# LOCAL MODELS
+# ============================
 from .models import (
     Idea,
     Profile,
@@ -23,13 +42,36 @@ from .models import (
     InvestmentProject,
     Investment,
     Product,
+    SimilarityAlert,
 )
-from .serializers import IdeaSerializer
+
+# ============================
+# LOCAL SERIALIZERS
+# ============================
+from .serializers import (
+    IdeaSerializer,
+    SimilarityAlertSerializer,
+)
+
+# ============================
+# PERMISSIONS
+# ============================
 from .permissions import IsOwner
 
-# ✅ AI similarity imports (FREE)
+# ============================
+# AI SIMILARITY SERVICES
+# ============================
 from .services.embeddings import get_embedding
 from .services.similarity import cosine_similarity
+
+
+# ==================================================
+# BASIC TEST VIEW
+# ==================================================
+def hello_coco(request):
+    return JsonResponse({"message": "Hello from Coco Connect"})
+
+
 
 
 # ----------------------------
@@ -166,10 +208,13 @@ class IdeaViewSet(ModelViewSet):
     queryset = Idea.objects.all().order_by("-created_at")
     serializer_class = IdeaSerializer
 
-    # 🔥 Similarity thresholds
+    # thresholds
     BLOCK_THRESHOLD = 0.85
     WARNING_THRESHOLD = 0.65
 
+    # ----------------------------
+    # PERMISSIONS
+    # ----------------------------
     def get_permissions(self):
         if self.action in ["update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsOwner()]
@@ -177,70 +222,84 @@ class IdeaViewSet(ModelViewSet):
             return [IsAuthenticated()]
         return [IsAuthenticatedOrReadOnly()]
 
+    # ----------------------------
+    # BUILD TEXT FOR EMBEDDING
+    # ----------------------------
     def build_text(self, title, short_desc, full_desc):
         return f"{title}\n{short_desc}\n{full_desc}".strip()
 
+    # ----------------------------
+    # FIND SIMILAR IDEAS (top 5)
+    # ----------------------------
     def find_similar(self, embedding, exclude_id=None):
         matches = []
-
-        if not embedding:
-            return matches
-
         qs = Idea.objects.exclude(embedding=None)
+
         if exclude_id:
             qs = qs.exclude(id=exclude_id)
 
         for idea in qs:
-            if not idea.embedding:
+            score = cosine_similarity(embedding, idea.embedding)
+            if score is None:
                 continue
 
-            score = cosine_similarity(embedding, idea.embedding)
-
-            matches.append(
-                {
-                    "id": idea.id,
-                    "title": idea.title,
-                    "author": (
-                        idea.author.get_full_name()
-                        or idea.author.email
-                        or idea.author.username
-                    ),
-                    "score": round(score, 3),
-                }
-            )
+            matches.append({"idea": idea, "score": float(score)})
 
         matches.sort(key=lambda x: x["score"], reverse=True)
         return matches[:5]
 
-    # -------- CREATE --------
+    def serialize_matches(self, matches):
+        """Return frontend-friendly match objects"""
+        return [
+            {
+                "id": m["idea"].id,
+                "title": m["idea"].title,
+                "author": m["idea"].author.get_full_name()
+                or m["idea"].author.username,
+                "score": round(m["score"], 3),  # 0.000 -> 1.000
+            }
+            for m in matches
+        ]
+
+    # ----------------------------
+    # CREATE IDEA
+    # ----------------------------
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
-        title = request.data.get("title", "")
-        short_desc = request.data.get("short_description", "")
-        full_desc = request.data.get("full_description", "")
+        title = request.data.get("title", "") or ""
+        short_desc = request.data.get("short_description", "") or ""
+        full_desc = request.data.get("full_description", "") or ""
 
-        combined = self.build_text(title, short_desc, full_desc)
-        embedding = get_embedding(combined)
+        # frontend sends "1" when user clicks Publish Anyway
+        force_publish = str(request.data.get("force_publish", "")).lower() in [
+            "1",
+            "true",
+            "yes",
+        ]
 
-        # ✅ detect "Publish Anyway"
-        force_publish = str(
-            request.data.get("force_publish", "")
-        ).lower() in ["1", "true", "yes"]
+        # build embedding
+        embedding = get_embedding(self.build_text(title, short_desc, full_desc))
 
+        # find top matches
         matches = self.find_similar(embedding)
-        best_score = matches[0]["score"] if matches else 0
+        best_score = matches[0]["score"] if matches else 0.0
 
-        # 🔴 BLOCK (always)
+        # 🔴 BLOCK: >= 0.85 (NO publish)
         if best_score >= self.BLOCK_THRESHOLD:
             return Response(
                 {
                     "type": "BLOCK",
-                    "error": "This idea is too similar to an existing idea.",
-                    "matches": matches,
+                    "similarity": round(best_score, 3),
+                    "message": (
+                        "Cannot publish this idea because a very similar idea already exists. "
+                        "Please edit your idea."
+                    ),
+                    "matches": self.serialize_matches(matches),
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # 🟡 WARNING (only if NOT forced)
+        # 🟡 WARNING: 0.65 - 0.85 (publish ONLY if force_publish=1)
         if (
             self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD
             and not force_publish
@@ -248,101 +307,144 @@ class IdeaViewSet(ModelViewSet):
             return Response(
                 {
                     "type": "WARNING",
-                    "matches": matches,
+                    "similarity": round(best_score, 3),
+                    "message": (
+                        "Similar ideas found. You can view similar ideas, edit/cancel, "
+                        "or publish anyway."
+                    ),
+                    "matches": self.serialize_matches(matches),
                 },
-                status=status.HTTP_200_OK,
+                status=status.HTTP_200_OK,  # frontend uses this to open modal
             )
 
-        # 🟢 ALLOW or FORCED PUBLISH
+        # 🟢 PUBLISH: <0.65 OR force_publish in warning range
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        idea = serializer.save(
+
+        new_idea = serializer.save(
             author=request.user,
             embedding=embedding,
         )
 
+        # ✅ If published in WARNING range (force publish), create alerts for original owners
+        if self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD:
+            for m in matches:
+                old_idea = m["idea"]
+
+                # don't alert if same author
+                if old_idea.author_id == request.user.id:
+                    continue
+
+                SimilarityAlert.objects.get_or_create(
+                    idea=old_idea,          # ORIGINAL idea (owner receives alert)
+                    similar_idea=new_idea,  # NEW published idea
+                    defaults={"similarity_score": round(m["score"], 3)},
+                )
+
         return Response(
-            self.get_serializer(idea).data,
+            self.get_serializer(new_idea).data,
             status=status.HTTP_201_CREATED,
         )
 
-    # -------- UPDATE --------
+    # ----------------------------
+    # UPDATE IDEA (hard block only)
+    # ----------------------------
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
 
         title = request.data.get("title", instance.title)
-        short_desc = request.data.get(
-            "short_description", instance.short_description
-        )
-        full_desc = request.data.get(
-            "full_description", instance.full_description
-        )
+        short_desc = request.data.get("short_description", instance.short_description)
+        full_desc = request.data.get("full_description", instance.full_description)
 
-        combined = self.build_text(title, short_desc, full_desc)
-        embedding = get_embedding(combined)
+        embedding = get_embedding(self.build_text(title, short_desc, full_desc))
 
-        matches = self.find_similar(
-            embedding, exclude_id=instance.id
-        )
-        best_score = matches[0]["score"] if matches else 0
+        matches = self.find_similar(embedding, exclude_id=instance.id)
+        best_score = matches[0]["score"] if matches else 0.0
 
         if best_score >= self.BLOCK_THRESHOLD:
             return Response(
                 {
                     "type": "BLOCK",
-                    "error": "Updated idea is too similar to another idea.",
-                    "matches": matches,
+                    "similarity": round(best_score, 3),
+                    "message": "Updated idea is too similar to an existing idea.",
+                    "matches": self.serialize_matches(matches),
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        serializer = self.get_serializer(
-            instance, data=request.data
-        )
+        serializer = self.get_serializer(instance, data=request.data)
         serializer.is_valid(raise_exception=True)
         idea = serializer.save(embedding=embedding)
-
         return Response(self.get_serializer(idea).data)
 
-    # -------- PARTIAL UPDATE --------
+    # ----------------------------
+    # PARTIAL UPDATE (hard block only)
+    # ----------------------------
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
 
         title = request.data.get("title", instance.title)
-        short_desc = request.data.get(
-            "short_description", instance.short_description
-        )
-        full_desc = request.data.get(
-            "full_description", instance.full_description
-        )
+        short_desc = request.data.get("short_description", instance.short_description)
+        full_desc = request.data.get("full_description", instance.full_description)
 
-        combined = self.build_text(title, short_desc, full_desc)
-        embedding = get_embedding(combined)
+        embedding = get_embedding(self.build_text(title, short_desc, full_desc))
 
-        matches = self.find_similar(
-            embedding, exclude_id=instance.id
-        )
-        best_score = matches[0]["score"] if matches else 0
+        matches = self.find_similar(embedding, exclude_id=instance.id)
+        best_score = matches[0]["score"] if matches else 0.0
 
         if best_score >= self.BLOCK_THRESHOLD:
             return Response(
                 {
                     "type": "BLOCK",
-                    "error": "Updated idea is too similar to another idea.",
-                    "matches": matches,
+                    "similarity": round(best_score, 3),
+                    "message": "Updated idea is too similar to an existing idea.",
+                    "matches": self.serialize_matches(matches),
                 },
                 status=status.HTTP_409_CONFLICT,
             )
 
-        serializer = self.get_serializer(
-            instance,
-            data=request.data,
-            partial=True,
-        )
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         idea = serializer.save(embedding=embedding)
-
         return Response(self.get_serializer(idea).data)
+
+
+# ============================
+# 🔔 SIMILARITY ALERTS API
+# ============================
+class SimilarityAlertViewSet(ModelViewSet):
+    serializer_class = SimilarityAlertSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            SimilarityAlert.objects.filter(
+                idea__author=self.request.user,
+                is_dismissed=False,
+            )
+            .select_related("idea__author", "similar_idea__author")
+            .order_by("-created_at")
+        )
+
+    def get_object(self):
+        obj = super().get_object()
+        if obj.idea.author_id != self.request.user.id:
+            raise PermissionDenied("Not your alert")
+        return obj
+
+    @action(detail=True, methods=["post"])
+    def report(self, request, pk=None):
+        alert = self.get_object()
+        alert.is_reported = True
+        alert.save(update_fields=["is_reported"])
+        return Response({"ok": True})
+
+    @action(detail=True, methods=["post"])
+    def dismiss(self, request, pk=None):
+        alert = self.get_object()
+        alert.is_dismissed = True
+        alert.save(update_fields=["is_dismissed"])
+        return Response({"ok": True})
 
 
 
@@ -733,3 +835,39 @@ def change_password(request):
     user.save()
 
     return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)
+
+
+
+
+# ============================
+# 🔔 SIMILARITY ALERTS API
+# ============================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_similarity_alerts(request):
+    alerts = SimilarityAlert.objects.filter(
+        owner=request.user
+    ).order_by("-created_at")
+
+    serializer = SimilarityAlertSerializer(alerts, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def report_similarity_alert(request, alert_id):
+    try:
+        alert = SimilarityAlert.objects.get(
+            id=alert_id,
+            owner=request.user
+        )
+    except SimilarityAlert.DoesNotExist:
+        return Response(
+            {"error": "Alert not found"},
+            status=404
+        )
+
+    alert.is_reported = True
+    alert.save()
+
+    return Response({"success": True})

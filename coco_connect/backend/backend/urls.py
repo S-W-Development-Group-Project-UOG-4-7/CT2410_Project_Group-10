@@ -4,11 +4,17 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from connect.jwt_views import MyTokenObtainPairView
 
 urlpatterns = [
+    # ADMIN
     path("admin/", admin.site.urls),
+
+    # APP API (includes ideas, alerts, projects, etc.)
     path("api/", include("connect.urls")),
+
+    # JWT AUTH
     path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ]
+
 
 """
 URL configuration for backend project.
