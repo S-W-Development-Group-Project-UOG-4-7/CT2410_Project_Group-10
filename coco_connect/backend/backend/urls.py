@@ -25,20 +25,19 @@ urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
 
-    # API root
+    # API root (health check / index)
     path("api/", api_root),
 
-    # Authentication (login / register)
+    # Authentication (login / register + other connect endpoints under /api/auth/)
     path("api/auth/", include("connect.urls")),
 
     # Products + related routes
     path("api/products/", include("products.urls")),
 
-    # JWT
+    # JWT AUTH
     path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ]
-
 
 # Serve media files in development
 if settings.DEBUG:

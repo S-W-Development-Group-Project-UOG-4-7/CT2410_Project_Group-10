@@ -2,20 +2,82 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Idea, News
+# Keep everything from both branches
+from .models import Idea, SimilarityAlert, News
 
 
 # ==================================================
-# IDEA SERIALIZER
+# IDEA SERIALIZER (FULL IDEA)
 # ==================================================
 class IdeaSerializer(serializers.ModelSerializer):
-    author_name = serializers.CharField(source="author.email", read_only=True)
+    # send owner info to frontend
+    author_email = serializers.SerializerMethodField()
+    author_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Idea
         fields = "__all__"
         # embedding is read-only (backend handles it)
-        read_only_fields = ["author", "created_at", "embedding"]
+        read_only_fields = [
+            "author",
+            "created_at",
+            "embedding",
+        ]
+
+    def get_author_email(self, obj):
+        return obj.author.email if getattr(obj, "author", None) else ""
+
+    def get_author_name(self, obj):
+        if not getattr(obj, "author", None):
+            return ""
+        return obj.author.get_full_name() or obj.author.username
+
+
+# ==================================================
+# BASIC IDEA SERIALIZER (USED INSIDE ALERTS)
+# ==================================================
+class BasicIdeaSerializer(serializers.ModelSerializer):
+    author_email = serializers.CharField(source="author.email", read_only=True)
+    author_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Idea
+        fields = [
+            "id",
+            "title",
+            "short_description",
+            "author_email",
+            "author_name",
+            "created_at",
+        ]
+
+    def get_author_name(self, obj):
+        if not getattr(obj, "author", None):
+            return ""
+        return obj.author.get_full_name() or obj.author.username
+
+
+# ==================================================
+# SIMILARITY ALERT SERIALIZER (FINAL)
+# ==================================================
+class SimilarityAlertSerializer(serializers.ModelSerializer):
+    # 🟢 ORIGINAL idea (owned by logged-in user)
+    idea = BasicIdeaSerializer(read_only=True)
+
+    # 🔴 NEW idea (created by another user)
+    similar_idea = BasicIdeaSerializer(read_only=True)
+
+    class Meta:
+        model = SimilarityAlert
+        fields = [
+            "id",
+            "idea",                 # original idea (my idea)
+            "similar_idea",         # new idea (other user)
+            "similarity_score",
+            "is_reported",
+            "is_dismissed",
+            "created_at",
+        ]
 
 
 # ==================================================
@@ -24,7 +86,17 @@ class IdeaSerializer(serializers.ModelSerializer):
 class NewsSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
-        fields = ["id", "title", "content", "date", "status", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "title",
+            "content",
+            "date",
+            "status",
+            "image",
+            "likes",
+            "created_at",
+            "updated_at",
+        ]
 
 
 # ==================================================
@@ -50,6 +122,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "No active account found with the given credentials"
             )
 
-        # Map email -> username for JWT
+        # Map email -> username for JWT (SimpleJWT expects username)
         attrs["username"] = user.username
+        attrs["password"] = password
         return super().validate(attrs)

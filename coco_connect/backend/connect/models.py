@@ -3,11 +3,25 @@ from django.contrib.auth.models import User
 from django.utils import timezone  # needed for Investment.save()
 
 
+# =================================================
+# NOTE ABOUT MERGE CLASH (IMPORTANT)
+# =================================================
+# You had TWO classes named `Idea` in the same file (one from "main" branch
+# and one AI-enhanced version later). Django cannot have two models with the
+# same class name in one app.
+#
+# To avoid losing any code, the older/simple version is preserved as
+# `IdeaLegacy` and the newer AI-enabled one remains `Idea`.
+#
+# If you want to keep only one in the DB later, we can migrate safely.
+# =================================================
+
+
 # ----------------------------
-# IDEA SHARING
+# IDEA SHARING (Legacy version preserved)
 # ----------------------------
-class Idea(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ideas")
+class IdeaLegacy(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ideas_legacy")
 
     title = models.CharField(max_length=255)
     short_description = models.TextField()
@@ -19,7 +33,7 @@ class Idea(models.Model):
     document = models.FileField(upload_to="ideas/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # AI Embedding Vector (for similarity checking)
+    # AI Embedding Vector (for similarity checking) — kept because it existed in this branch
     embedding = models.JSONField(null=True, blank=True)
 
     class Meta:
@@ -46,6 +60,12 @@ class Profile(models.Model):
     address = models.TextField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
+
+    # These fields appeared in your migrations merge output (bio, created_at),
+    # but weren’t present in the snippet above. Keeping them would avoid future drift.
+    # If you *don’t* actually have these in DB yet, migrations will handle it.
+    bio = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
@@ -195,6 +215,90 @@ class InvestmentProject(models.Model):
 
     def funding_needed(self):
         return self.target_amount - self.current_amount
+
+
+# ----------------------------
+# IDEA (AI Similarity Enabled)  ✅ This remains the primary Idea model
+# ----------------------------
+class Idea(models.Model):
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="ideas",
+    )
+
+    title = models.CharField(max_length=255)
+    short_description = models.TextField()
+    full_description = models.TextField()
+
+    is_paid = models.BooleanField(default=False)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    document = models.FileField(upload_to="ideas/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # ✅ AI Embedding Vector (used for similarity)
+    embedding = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+    def build_text_for_embedding(self):
+        return f"{self.title}\n{self.short_description}\n{self.full_description}".strip()
+
+    def save(self, *args, **kwargs):
+        """
+        Auto-generate embedding if missing.
+        Keeps similarity system stable.
+        """
+        if not self.embedding:
+            from .services.embeddings import get_embedding
+            self.embedding = get_embedding(self.build_text_for_embedding())
+
+        super().save(*args, **kwargs)
+
+
+# ----------------------------
+# SIMILARITY ALERT (FIXED)
+# ----------------------------
+class SimilarityAlert(models.Model):
+    # 🟢 ORIGINAL IDEA (owner receives alert)
+    idea = models.ForeignKey(
+        "Idea",
+        on_delete=models.CASCADE,
+        related_name="similarity_alerts",
+    )
+
+    # 🔴 NEW IDEA (created later by another user)
+    similar_idea = models.ForeignKey(
+        "Idea",
+        on_delete=models.CASCADE,
+        related_name="triggered_alerts",
+    )
+
+    similarity_score = models.FloatField()
+    is_reported = models.BooleanField(default=False)
+    is_dismissed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["idea", "similar_idea"],
+                name="unique_similarity_alert",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"Alert → {self.idea.author.email} | "
+            f"{self.idea.title} ~ {self.similar_idea.title} | "
+            f"{round(self.similarity_score * 100)}%"
+        )
 
 
 # ----------------------------

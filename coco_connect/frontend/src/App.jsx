@@ -1,5 +1,6 @@
 // src/App.jsx
 import { Routes, Route, useLocation } from "react-router-dom";
+
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -31,7 +32,6 @@ import EditProfile from "./customer/pages/EditProfile";
 import Orders from "./customer/pages/Orders";
 import ProtectedCustomerRoute from "./customer/ProtectedCustomerRoute";
 
-
 /* ----------------------------------
    Layout Wrapper
 ---------------------------------- */
@@ -44,6 +44,7 @@ function LayoutWrapper({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-gray-200">
+      {/* Toasts for public pages */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -53,6 +54,7 @@ function LayoutWrapper({ children }) {
         draggable
         theme="colored"
       />
+
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
@@ -67,7 +69,6 @@ const W = (Page) => (
   </LayoutWrapper>
 );
 
-
 /* ----------------------------------
    App
 ---------------------------------- */
@@ -78,7 +79,13 @@ export default function App() {
       <Route path="/" element={W(Home)} />
       <Route path="/about" element={W(About)} />
       <Route path="/investment" element={W(Investment)} />
+
+      {/* ✅ Ideas list / create */}
       <Route path="/ideas" element={W(IdeaSharing)} />
+
+      {/* ✅ NEW: View single idea (used by BLOCK modal) */}
+      <Route path="/ideas/:id" element={W(IdeaSharing)} />
+
       <Route path="/shop" element={W(Product)} />
       <Route path="/cart" element={W(Cart)} />
       <Route path="/news" element={W(News)} />
