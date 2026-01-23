@@ -2,7 +2,8 @@ from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Idea, SimilarityAlert
+# Keep everything from both branches
+from .models import Idea, SimilarityAlert, News
 
 
 # ==================================================
@@ -16,6 +17,7 @@ class IdeaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Idea
         fields = "__all__"
+        # embedding is read-only (backend handles it)
         read_only_fields = [
             "author",
             "created_at",
@@ -23,9 +25,11 @@ class IdeaSerializer(serializers.ModelSerializer):
         ]
 
     def get_author_email(self, obj):
-        return obj.author.email if obj.author else ""
+        return obj.author.email if getattr(obj, "author", None) else ""
 
     def get_author_name(self, obj):
+        if not getattr(obj, "author", None):
+            return ""
         return obj.author.get_full_name() or obj.author.username
 
 
@@ -33,10 +37,7 @@ class IdeaSerializer(serializers.ModelSerializer):
 # BASIC IDEA SERIALIZER (USED INSIDE ALERTS)
 # ==================================================
 class BasicIdeaSerializer(serializers.ModelSerializer):
-    author_email = serializers.CharField(
-        source="author.email",
-        read_only=True,
-    )
+    author_email = serializers.CharField(source="author.email", read_only=True)
     author_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -51,6 +52,8 @@ class BasicIdeaSerializer(serializers.ModelSerializer):
         ]
 
     def get_author_name(self, obj):
+        if not getattr(obj, "author", None):
+            return ""
         return obj.author.get_full_name() or obj.author.username
 
 
@@ -78,11 +81,31 @@ class SimilarityAlertSerializer(serializers.ModelSerializer):
 
 
 # ==================================================
-# JWT LOGIN WITH EMAIL
+# NEWS SERIALIZER
+# ==================================================
+class NewsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = News
+        fields = [
+            "id",
+            "title",
+            "content",
+            "date",
+            "status",
+            "image",
+            "likes",
+            "created_at",
+            "updated_at",
+        ]
+
+
+# ==================================================
+# JWT LOGIN WITH EMAIL (IMPORTANT FIX)
 # ==================================================
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Allows JWT login using email instead of username
+    Allows JWT login using email instead of username.
+    Expects: { "email": "...", "password": "..." }
     """
 
     def validate(self, attrs):
@@ -90,9 +113,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         password = attrs.get("password")
 
         if not email or not password:
-            raise serializers.ValidationError(
-                "Email and password are required"
-            )
+            raise serializers.ValidationError("Email and password are required")
 
         try:
             user = User.objects.get(email=email)
@@ -101,7 +122,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "No active account found with the given credentials"
             )
 
-        # map email → username (SimpleJWT requirement)
+        # Map email -> username for JWT (SimpleJWT expects username)
         attrs["username"] = user.username
-
+        attrs["password"] = password
         return super().validate(attrs)

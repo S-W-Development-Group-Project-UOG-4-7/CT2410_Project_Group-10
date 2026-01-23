@@ -1,6 +1,46 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone  # ✅ needed for Investment.save()
+from django.utils import timezone  # needed for Investment.save()
+
+
+# =================================================
+# NOTE ABOUT MERGE CLASH (IMPORTANT)
+# =================================================
+# You had TWO classes named `Idea` in the same file (one from "main" branch
+# and one AI-enhanced version later). Django cannot have two models with the
+# same class name in one app.
+#
+# To avoid losing any code, the older/simple version is preserved as
+# `IdeaLegacy` and the newer AI-enabled one remains `Idea`.
+#
+# If you want to keep only one in the DB later, we can migrate safely.
+# =================================================
+
+
+# ----------------------------
+# IDEA SHARING (Legacy version preserved)
+# ----------------------------
+class IdeaLegacy(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ideas_legacy")
+
+    title = models.CharField(max_length=255)
+    short_description = models.TextField()
+    full_description = models.TextField()
+
+    is_paid = models.BooleanField(default=False)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    document = models.FileField(upload_to="ideas/", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # AI Embedding Vector (for similarity checking) — kept because it existed in this branch
+    embedding = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]  # newest first
+
+    def __str__(self):
+        return self.title
 
 
 # ----------------------------
@@ -17,13 +57,43 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="buyer")
 
-    # optional fields
     address = models.TextField(null=True, blank=True)
     phone = models.CharField(max_length=20, null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
 
+    # These fields appeared in your migrations merge output (bio, created_at),
+    # but weren’t present in the snippet above. Keeping them would avoid future drift.
+    # If you *don’t* actually have these in DB yet, migrations will handle it.
+    bio = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     def __str__(self):
         return f"{self.user.username} - {self.role}"
+
+
+# ----------------------------
+# NEWS CORNER
+# ----------------------------
+class News(models.Model):
+    STATUS_CHOICES = (
+        ("Draft", "Draft"),
+        ("Published", "Published"),
+    )
+
+    title = models.CharField(max_length=255)
+    content = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="Draft")
+
+    image = models.ImageField(upload_to="news/", null=True, blank=True)
+
+    date = models.DateField()
+    likes = models.IntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
 
 
 # ----------------------------
@@ -95,6 +165,7 @@ class InvestmentProject(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField()
+
     category = models.ForeignKey(
         InvestmentCategory,
         on_delete=models.SET_NULL,
@@ -104,32 +175,25 @@ class InvestmentProject(models.Model):
     )
     location = models.CharField(max_length=100, default="Colombo")
 
-    # Farmer
     farmer = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="investment_projects"
+        User,
+        on_delete=models.CASCADE,
+        related_name="investment_projects",
     )
 
-    # Investment details
     target_amount = models.DecimalField(max_digits=12, decimal_places=2, default=100000)
     current_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     expected_roi = models.DecimalField(max_digits=5, decimal_places=2, default=10.0)
     duration_months = models.PositiveIntegerField(default=12)
 
-    # Metadata
-    investment_type = models.CharField(
-        max_length=10, choices=TYPE_CHOICES, default="equity"
-    )
-    risk_level = models.CharField(
-        max_length=10, choices=RISK_CHOICES, default="medium"
-    )
+    investment_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="equity")
+    risk_level = models.CharField(max_length=10, choices=RISK_CHOICES, default="medium")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
 
-    # Additional
     tags = models.TextField(blank=True, default="", help_text="Comma-separated tags")
     days_left = models.IntegerField(default=30)
     investors_count = models.PositiveIntegerField(default=0)
 
-    # Dates
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -152,18 +216,15 @@ class InvestmentProject(models.Model):
     def funding_needed(self):
         return self.target_amount - self.current_amount
 
-from django.db import models
-from django.contrib.auth.models import User
-
 
 # ----------------------------
-# IDEA (AI Similarity Enabled)
+# IDEA (AI Similarity Enabled)  ✅ This remains the primary Idea model
 # ----------------------------
 class Idea(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="ideas"
+        related_name="ideas",
     )
 
     title = models.CharField(max_length=255)
@@ -174,7 +235,6 @@ class Idea(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     document = models.FileField(upload_to="ideas/", null=True, blank=True)
-
     created_at = models.DateTimeField(auto_now_add=True)
 
     # ✅ AI Embedding Vector (used for similarity)
@@ -199,6 +259,8 @@ class Idea(models.Model):
             self.embedding = get_embedding(self.build_text_for_embedding())
 
         super().save(*args, **kwargs)
+
+
 # ----------------------------
 # SIMILARITY ALERT (FIXED)
 # ----------------------------
@@ -227,7 +289,7 @@ class SimilarityAlert(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["idea", "similar_idea"],
-                name="unique_similarity_alert"
+                name="unique_similarity_alert",
             )
         ]
 
@@ -237,9 +299,6 @@ class SimilarityAlert(models.Model):
             f"{self.idea.title} ~ {self.similar_idea.title} | "
             f"{round(self.similarity_score * 100)}%"
         )
-
-
-
 
 
 # ----------------------------
@@ -259,17 +318,16 @@ class Investment(models.Model):
         ("bank", "Bank Transfer"),
     ]
 
-    investor = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="investments"
-    )
+    investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="investments")
     project = models.ForeignKey(
-        InvestmentProject, on_delete=models.CASCADE, related_name="project_investments"
+        InvestmentProject,
+        on_delete=models.CASCADE,
+        related_name="project_investments",
     )
+
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=100)
 
-    payment_method = models.CharField(
-        max_length=20, choices=PAYMENT_METHOD_CHOICES, default="payhere"
-    )
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="payhere")
     transaction_id = models.CharField(max_length=100, blank=True, default="")
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")

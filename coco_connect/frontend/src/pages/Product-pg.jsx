@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+
 
 // Product images
 import prod1 from "../assets/coconut_oil.png";
@@ -21,6 +23,10 @@ import news5 from "../assets/news5.png";
 // Background images
 import shopBg from "../assets/shopbg.png";
 import shopheroBg from "../assets/cocoshopherobg.png";
+import { useCart } from "../context/CartContext";
+
+import AddProductModal from "../components/AddProductModal";
+import ProductDetailsModal from "../components/ProductDetailsModal";
 
 const Product = () => {
   const [filters, setFilters] = useState({
@@ -32,56 +38,263 @@ const Product = () => {
 
   const [visibleCount, setVisibleCount] = useState(6);
 
-  const products = [
-    { id: 1, name: "Premium Virgin Coconut Oil", image: prod1, price: 24.99, stock: "In Stock", description: "Organic, Cold-Pressed", reviews: 127, category: "oil", type: "Processed Goods" },
-    { id: 2, name: "Fresh Coconut Water", image: prod2, price: 18.99, stock: "Low Stock", description: "100% Natural, 12-Pack", reviews: 156, category: "water", type: "Raw Materials" },
-    { id: 3, name: "Natural Coir Fiber Rope", image: prod3, price: 45.0, stock: "In Stock", description: "Industrial Grade, 50m", reviews: 89, category: "fiber", type: "Equipment" },
-    { id: 4, name: "Coconut Shell Bowl Set", image: prod4, price: 32.5, stock: "In Stock", description: "Handcrafted, Set of 4", reviews: 203, category: "fiber", type: "Processed Goods" },
-    { id: 5, name: "Desiccated Coconut Powder", image: prod5, price: 20.0, stock: "In Stock", description: "Finely Grated, Dried", reviews: 97, category: "oil", type: "Processed Goods" },
-    { id: 6, name: "Coconut Husk Mulch", image: prod6, price: 15.75, stock: "In Stock", description: "Perfect for gardening", reviews: 74, category: "fiber", type: "Raw Materials" },
-    { id: 7, name: "Activated Coconut Biochar", image: prod7, price: 19.99, stock: "In Stock", description: "Soil Amendment, 1kg", reviews: 215, category: "fiber", type: "Processed Goods" },
-    { id: 8, name: "Handcrafted Coconut Ladle Set", image: prod8, price: 19.99, stock: "In Stock", description: "Eco-Friendly, 3-Piece", reviews: 215, category: "fiber", type: "Equipment" },
-    { id: 9, name: "Natural Coconut Shell Cups", image: prod9, price: 22.0, stock: "In Stock", description: "Polished Finish, Set of 2 Eco-Friendly Cups", reviews: 142, category: "fiber", type: "Processed Goods" },
-  ];
+  const [products, setProducts] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState(null);
+  const [reloadProductsTick, setReloadProductsTick] = useState(0);
+  // Ensure price filter expands at first load if products contain more expensive items
+  const hasSetMaxPrice = useRef(false);
+  // Logged-in user (null if not logged in)
+  const user = JSON.parse(localStorage.getItem("user"));
 
-  const newsItems = [
-    { text: "Introducing our NEW Eco-Friendly Coconut Sunscreen!", image: news1 },
-    { text: "Buy 2 Coconut Oils and Get 1 Free - Limited Offer!", image: news2 },
-    { text: "Free shipping on orders over $75!", image: news3 },
-    { text: "Freshly harvested coir ropes just restocked!", image: news4 },
-    { text: "Coconut Water now available in sparkling version!", image: news5 },
-  ];
+  // Add Product modal control
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+
+  const [newsItems, setNewsItems] = useState([]);
+  const [isLoadingNews, setIsLoadingNews] = useState(true);
+
+  const navigate = useNavigate();
 
   const [newsIndex, setNewsIndex] = useState(0);
+  // Scroll to product
+  const productsSectionRef = useRef(null);
+
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   useEffect(() => {
+    if (!newsItems.length) return; // ✅ prevent crash when empty
+
     const interval = setInterval(() => {
       setNewsIndex((prev) => (prev + 1) % newsItems.length);
     }, 4000);
-    return () => clearInterval(interval);
-  }, []);
 
-  const filteredProducts = products
-    .filter(
-      (p) =>
-        (filters.category === "all" || p.category === filters.category) &&
-        p.price <= filters.price &&
-        (filters.type === "all" || p.type === filters.type)
-    )
-    .sort((a, b) => {
-      if (filters.sortBy === "price_low_high") return a.price - b.price;
-      if (filters.sortBy === "price_high_low") return b.price - a.price;
-      return 0;
+    return () => clearInterval(interval);
+  }, [newsItems.length]);
+
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoadingProducts(true);
+      setProductsError(null);
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      const attemptFetch = async () => {
+        try {
+          const response = await fetch("http://127.0.0.1:8000/api/products/", {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            // try to get server-provided detail
+            let errDetail = null;
+            try {
+              const body = await response.json();
+              errDetail = body.detail || JSON.stringify(body);
+            } catch (e) {
+              errDetail = await response.text();
+            }
+            const msg = `Server returned ${response.status}: ${errDetail}`;
+            throw new Error(msg);
+          }
+
+          const data = await response.json();
+          console.log("✅ API PRODUCTS:", data);
+          console.log("✅ Number of products:", Array.isArray(data) ? data.length : 0);
+
+          if (Array.isArray(data) && data.length > 0) {
+            console.log("✅ Sample product:", data[0]);
+            console.log("✅ Product structure:", {
+              id: data[0].id,
+              name: data[0].name,
+              category: data[0].category,
+              type: data[0].type,
+              price: data[0].price,
+              image: data[0].image
+            });
+          }
+
+          setProducts(Array.isArray(data) ? data : []);
+
+          // Expand price filter once if products contain items above current filter
+          if (Array.isArray(data) && data.length > 0) {
+            const maxPrice = Math.max(...data.map((p) => Number(p.price) || 0));
+            if (!hasSetMaxPrice.current && maxPrice > filters.price) {
+              setFilters((prev) => ({ ...prev, price: Math.ceil(maxPrice) }));
+              hasSetMaxPrice.current = true;
+            }
+          }
+
+          setIsLoadingProducts(false);
+        } catch (err) {
+          console.error(`❌ Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`, err);
+
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`🔄 Retrying in 1 second...`);
+            setTimeout(attemptFetch, 1000);
+          } else {
+            console.error("❌ Failed to fetch products after all retries");
+            setProducts([]);
+            setProductsError(err.message || 'Failed to fetch products');
+            setIsLoadingProducts(false);
+          }
+        }
+      };
+
+      attemptFetch();
+    };
+
+    fetchProducts();
+  }, [reloadProductsTick]);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      setIsLoadingNews(true);
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/products/news/", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("✅ API NEWS:", data);
+        setNewsItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("❌ Error fetching news:", err);
+        setNewsItems([]);
+      } finally {
+        setIsLoadingNews(false);
+      }
+    };
+
+    fetchNews();
+  }, [reloadProductsTick]);
+
+
+  // Get all unique categories from products dynamically
+  const availableCategories = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) {
+      return [];
+    }
+    const categories = new Set();
+    products.forEach(p => {
+      if (p?.category) {
+        categories.add(p.category);
+      }
+    });
+    return Array.from(categories).sort();
+  }, [products]);
+
+  // Calculate category counts based on current filters (price and type, but not category)
+  // This updates in real-time when price or type filters change
+  const categoryCounts = useMemo(() => {
+    // Safety check: ensure products is an array
+    if (!Array.isArray(products) || products.length === 0) {
+      return { all: 0 };
+    }
+
+    // Filter products by price and type (excluding category filter)
+    // Note: API returns 'type' field, not 'product_type'
+    // Backend: Product.category (ForeignKey) → Category.slug → serializer returns as 'category' (slug string)
+    // Backend: Product.product_type (ForeignKey) → ProductType.name → serializer returns as 'type' (name string)
+    const baseFiltered = products.filter((p) => {
+      if (!p || typeof p !== 'object') return false;
+      const price = Number(p.price);
+      if (isNaN(price)) return false;
+
+      return price <= filters.price &&
+        (
+          filters.type === "all" ||
+          p.type === filters.type
+        );
     });
 
-  const visibleProducts = filteredProducts.slice(0, visibleCount);
+    // Build dynamic category counts
+    const counts = { all: baseFiltered.length };
+    availableCategories.forEach(catSlug => {
+      counts[catSlug] = baseFiltered.filter(p => p?.category === catSlug).length;
+    });
+
+    return counts;
+  }, [products, filters.price, filters.type, availableCategories]);
+
+  // Build category data for the UI (was previously missing as `categoryData`)
+  const categoryData = useMemo(() => {
+    // availableCategories is an array of category slugs
+    return {
+      categories: availableCategories.map((slug, idx) => ({
+        id: idx,
+        slug,
+        // Display a nicer name by replacing dashes with spaces; fallback to slug
+        name: String(slug).replace(/-/g, " "),
+        count: categoryCounts[slug] ?? 0,
+      })),
+    };
+  }, [availableCategories, categoryCounts]);
+
+  const filteredProducts = useMemo(() => {
+    if (!Array.isArray(products) || products.length === 0) {
+      return [];
+    }
+
+    return products
+      .filter((p) => {
+        if (!p || typeof p !== 'object') return false;
+        const price = Number(p.price);
+        if (isNaN(price)) return false;
+
+        // Note: API returns 'type' field, not 'product_type'
+        return (
+          (filters.category === "all" || p.category === filters.category) &&
+          price <= filters.price &&
+          (
+            filters.type === "all" ||
+            p.type === filters.type
+          )
+        );
+      })
+      .sort((a, b) => {
+        if (filters.sortBy === "price_low_high") return Number(a.price) - Number(b.price);
+        if (filters.sortBy === "price_high_low") return Number(b.price) - Number(a.price);
+        return 0;
+      });
+  }, [products, filters.category, filters.price, filters.type, filters.sortBy]);
+
+
+  const visibleProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(6);
+  }, [filters.category, filters.price, filters.type, filters.sortBy]);
 
   const handleLoadMore = () => {
     setVisibleCount((prev) => Math.min(prev + 3, filteredProducts.length));
   };
 
+  const { addToCart } = useCart();
+
+  const handleAddToCart = async (productId) => {
+    // Logic moved to Context
+    await addToCart(productId);
+  };
+
   const handleReset = () => {
     setFilters({ category: "all", price: 500, type: "all", sortBy: "relevance" });
+    setVisibleCount(6);
   };
 
   return (
@@ -96,9 +309,9 @@ const Product = () => {
     >
       {/* Fade overlay */}
       <div
-  className="absolute inset-0 pointer-events-none"
-  style={{
-    background: `
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `
       linear-gradient(
         to bottom,
         rgba(249,246,241,0.95) 0%,
@@ -116,25 +329,25 @@ const Product = () => {
         rgba(249,246,241,0) 85%
       )
     `,
-  }}
-></div>
+        }}
+      ></div>
 
 
-{/* ================= HERO SECTION ================= */}
-<section
-  className="relative w-full h-[70vh] flex items-center"
-  style={{
-    backgroundImage: `url(${shopheroBg})`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-  }}
->
-  {/* Left-focused gradient */}
-  
-  <div
-    className="absolute inset-0"
-    style={{
-      background: `
+      {/* ================= HERO SECTION ================= */}
+      <section
+        className="relative w-full h-[70vh] flex items-center"
+        style={{
+          backgroundImage: `url(${shopheroBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Left-focused gradient */}
+
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
         linear-gradient(
           to right,
           rgba(0,0,0,0.75) 10%,
@@ -144,73 +357,100 @@ const Product = () => {
           rgba(0,0,0,0) 75%
         )
       `,
-      
-    }}
-  ></div>
-{/* Content */}
-<div className="relative z-10 w-full px-6">
-    <div className="max-w-xl ml-24 mt-20 text-white">
 
-      <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-6"><br />
-        Shop Sustainable Products.
-      </h1>
+          }}
+        ></div>
+        {/* Content */}
+        <div className="relative z-10 w-full px-6">
+          <div className="max-w-xl ml-24 mt-20 text-white">
 
-      <p className="text-lg md:text-xl mb-8 text-white/90">
-        Empowering farmers. Connecting investors. Delivering natural products.
-      </p>
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-6"><br />
+              Shop Sustainable Products.
+            </h1>
 
-      <div className="flex gap-4">
-        <button className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-md font-semibold transition">
-          Explore Products
-        </button>
-        <button className="bg-white/90 text-green-700 hover:bg-white px-6 py-3 rounded-md font-semibold transition">
-          Invest in Lands
-        </button>
-      </div>
+            <p className="text-lg md:text-xl mb-8 text-white/90">
+              Empowering farmers. Connecting investors. Delivering natural products.
+            </p>
 
-    </div>
-  </div>
-</section>
+            <div className="flex gap-4">
+              <button
+                onClick={() =>
+                  productsSectionRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+                }
+                className="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-md font-semibold transition"
+              >
+                Explore Products
+              </button>
+
+              <button
+                onClick={() => navigate("/investment")}
+                className="bg-white/90 text-green-700 hover:bg-white px-6 py-3 rounded-md font-semibold transition"
+              >
+                Invest in Lands
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+      </section>
 
       {/* ORIGINAL UI */}
-      
-      <div className="relative z-10 text-[#2f3e46] min-h-screen p-6">
-         {/* SECTION TITLE */}
-  <div className="relative z-10 text-center py-10">
-    <h2 className="text-3xl font-semibold text-[#4b3b2a]">
-      Sustainable Coconut Products
-    </h2>
-    <div className="w-24 h-[2px] bg-green-600 mx-auto mt-3"></div>
-  </div>
+
+      <div
+        ref={productsSectionRef}
+        className="relative z-10 text-[#2f3e46] min-h-screen p-6">
+        {/* SECTION TITLE */}
+        <div className="relative z-10 text-center py-10">
+          <div className="flex items-center justify-center gap-4">
+            <h2 className="text-3xl font-semibold text-[#4b3b2a]">
+              Sustainable Coconut Products
+            </h2>
+
+          </div>
+          <div className="w-24 h-[2px] bg-green-600 mx-auto mt-3"></div>
+        </div>
         <div className="flex flex-col lg:flex-row gap-6">
-          
+
 
           {/* SIDEBAR */}
-          <div className="bg-[#faf0e6] w-full lg:w-1/4 p-6 rounded-lg shadow space-y-5">
-            {/* Category */}
+          <div className="bg-[#faf0e6] w-full lg:w-1/4 p-6 rounded-lg shadow space-y-5
+                lg:sticky lg:top-24
+                max-h-[80vh] overflow-y-auto">
+
             <div>
-              <label className="font-semibold block mb-2">Category</label>
+              <label htmlFor="type-filter" className="font-semibold block mb-2"> Category </label>
               <select
                 value={filters.category}
-                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+                onChange={(e) =>
+                  setFilters({ ...filters, category: e.target.value })
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
-                <option value="all">All (248)</option>
-                <option value="oil">Coconut Oil (89)</option>
-                <option value="fiber">Coir Fiber (56)</option>
-                <option value="water">Coconut Water (34)</option>
+                <option value="all">All</option>
+
+                {categoryData.categories.map((cat) => (
+                  <option key={cat.id} value={cat.slug}>
+                    {cat.name} ({cat.count})
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Price */}
             <div>
-              <label className="font-semibold block mb-2">
+              <label htmlFor="price-filter" className="font-semibold block mb-2">
                 Price Range (Up to ${filters.price})
               </label>
               <input
+                id="price-filter"
+                name="price-filter"
                 type="range"
                 min="0"
-                max="500"
+                max="100000"
                 value={filters.price}
                 onChange={(e) => setFilters({ ...filters, price: Number(e.target.value) })}
                 className="w-full accent-green-400"
@@ -219,8 +459,10 @@ const Product = () => {
 
             {/* Product Type */}
             <div>
-              <label className="font-semibold block mb-2">Product Type</label>
+              <label htmlFor="type-filter" className="font-semibold block mb-2">Product Type</label>
               <select
+                id="type-filter"
+                name="type-filter"
                 value={filters.type}
                 onChange={(e) => setFilters({ ...filters, type: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
@@ -234,8 +476,10 @@ const Product = () => {
 
             {/* Sort */}
             <div>
-              <label className="font-semibold block mb-2">Sort By</label>
+              <label htmlFor="sort-filter" className="font-semibold block mb-2">Sort By</label>
               <select
+                id="sort-filter"
+                name="sort-filter"
                 value={filters.sortBy}
                 onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
@@ -256,33 +500,133 @@ const Product = () => {
                 {newsItems.map((item, index) => (
                   <img
                     key={index}
-                    src={item.image}
+                    src={item.image?.startsWith('http') ? item.image : `http://127.0.0.1:8000${item.image || ''}`}
                     alt="news"
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-                      newsIndex === index ? "opacity-100" : "opacity-0"
-                    }`}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${newsIndex === index ? "opacity-100" : "opacity-0"
+                      }`}
                   />
                 ))}
               </div>
-              <p className="mt-2 px-2 text-center">{newsItems[newsIndex].text}</p>
+              <p className="mt-2 px-2 text-center">
+                {newsItems.length ? newsItems[newsIndex]?.text : "Loading news..."}
+              </p>
+
             </div>
           </div>
 
           {/* PRODUCT GRID */}
-          <div className="w-full lg:w-3/4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {visibleProducts.map((product) => (
-                <div key={product.id} className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative">
-                  <img src={product.image} alt={product.name} className="w-full h-48 object-cover rounded" />
-                  <h3 className="font-semibold mt-3">{product.name}</h3>
-                  <p className="text-xs text-gray-500">{product.description}</p>
-                  <div className="flex justify-between items-center mt-2">
-                    <p className="font-semibold">${product.price.toFixed(2)}</p>
-                    <button className="bg-green-500 text-white px-3 py-1 rounded">Add</button>
+          <div className="w-full lg:w-3/4 pb-20">
+            {isLoadingProducts ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500">Loading products...</p>
+              </div>
+            ) : (
+              <>
+                {productsError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded mb-4">
+                    <p className="font-semibold">Error loading products</p>
+                    <p className="text-sm mt-1">{productsError}</p>
+                    <div className="mt-3">
+                      <button onClick={() => { setReloadProductsTick(t => t + 1); setIsLoadingProducts(true); setProductsError(null); }}
+                        className="px-3 py-1 bg-green-600 text-white rounded">
+                        Retry
+                      </button>
+                      <button onClick={() => window.location.reload()} className="ml-2 px-3 py-1 border rounded">Reload page</button>
+                    </div>
                   </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                  {visibleProducts.length > 0 ? (
+                    visibleProducts.map((product) => (
+                      <div key={product.id} className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative">
+                        {/* IMAGE (CLICKABLE) */}
+                        {product.image ? (
+                          <img
+                            src={
+                              product.image.startsWith("http")
+                                ? product.image
+                                : `http://127.0.0.1:8000${product.image}`
+                            }
+                            alt={product.name || "Product"}
+                            className="w-full h-48 object-cover rounded cursor-pointer"
+                            onClick={() => {
+                              setSelectedProduct(product);
+                              setIsProductModalOpen(true);
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-48 bg-gray-200 rounded flex items-center justify-center cursor-pointer"
+                            onClick={() => {
+                              setSelectedProduct(product);
+                              setIsProductModalOpen(true);
+                            }}
+                          >
+                            <span className="text-gray-400">No Image</span>
+                          </div>
+                        )}
+
+                        {/* PRODUCT NAME (CLICKABLE) */}
+                        <h3
+                          className="font-semibold mt-3 cursor-pointer hover:underline"
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setIsProductModalOpen(true);
+                          }}
+                        >
+                          {product.name || "Unnamed Product"}
+                        </h3>
+
+                        {/* AUTHOR */}
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-green-700">
+                            By {product.author || "Unknown"}
+                          </p>
+
+
+                          {user && (
+                            <button
+                              onClick={() => setIsAddProductOpen(true)}
+                              className="text-green-600 font-bold hover:scale-110 transition"
+                              title="Add your product"
+                            >
+                              +
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 line-clamp-2">{product.description || ''}</p>
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="font-semibold">${Number(product.price || 0).toFixed(2)}</p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent opening modal
+                              handleAddToCart(product.id);
+                            }}
+                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-12">
+                      <p className="text-gray-500">No products found. Try adjusting your filters.</p>
+                      {products.length > 0 && (
+                        <p className="text-sm text-gray-400 mt-2">
+                          {products.length} total products available, but none match your current filters.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
 
             {visibleCount < filteredProducts.length && (
               <div className="flex justify-center mt-8">
@@ -298,6 +642,36 @@ const Product = () => {
 
         </div>
       </div>
+
+      {/* Floating Add Product Button */}
+      {user && (
+        <button
+          onClick={() => setIsAddProductOpen(true)}
+          className="fixed bottom-6 right-6 w-14 h-14
+           rounded-full bg-green-600 text-white text-3xl
+           font-bold flex items-center justify-center
+           shadow-lg hover:bg-green-700 hover:scale-105
+           transition z-50"
+          title="Add your product"
+        >
+          +
+        </button>
+      )}
+
+      <AddProductModal
+        isOpen={isAddProductOpen}
+        onClose={() => setIsAddProductOpen(false)}
+        onSuccess={() => setReloadProductsTick(t => t + 1)}
+      />
+      <ProductDetailsModal
+        isOpen={isProductModalOpen}
+        product={selectedProduct}
+        onClose={() => {
+          setIsProductModalOpen(false);
+          setSelectedProduct(null);
+        }}
+      />
+
     </div>
   );
 };
