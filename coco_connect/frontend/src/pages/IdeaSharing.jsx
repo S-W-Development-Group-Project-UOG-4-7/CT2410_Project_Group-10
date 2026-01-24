@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import BackgroundRain from "../components/BackgroundRain";
 import PayHerePayment from "../components/PayHerePayment";
 import SimilarityAlerts from "../components/SimilarityAlerts";
@@ -30,6 +32,8 @@ function safeStr(v, fallback = "") {
 }
 
 export default function IdeaSharing() {
+  const navigate = useNavigate();
+
   const token = localStorage.getItem("access");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const myEmail = safeStr(user?.email, "").toLowerCase();
@@ -64,9 +68,13 @@ export default function IdeaSharing() {
   // similarity states
   const [similarWarning, setSimilarWarning] = useState(null);
 
-  // BLOCK modal states - ADDED
+  // BLOCK modal states
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockData, setBlockData] = useState(null);
+
+  // ✅ STEP 1: FULL IDEA VIEW state
+  const [viewIdea, setViewIdea] = useState(null);
+  const [viewIdeaLoading, setViewIdeaLoading] = useState(false);
 
   // alerts
   const [alertsCount, setAlertsCount] = useState(0);
@@ -206,24 +214,40 @@ export default function IdeaSharing() {
   };
 
   /* =========================
-     OPEN BEST MATCH
+     ✅ STEP 2: ONE shared function to open similar idea
   ========================= */
-  const openBestMatch = async (matches) => {
-    if (!matches || matches.length === 0) return;
-
-    const best = matches[0];
-    let found = ideas.find((i) => i.id === best.id);
-
-    if (!found) {
-      const refreshed = await reloadIdeas();
-      found = refreshed.find((i) => i.id === best.id);
+  const openSimilarIdeaById = async (ideaId) => {
+    if (!ideaId) {
+      alert("No similar idea found");
+      return;
     }
 
-    if (found) setSelectedId(found.id);
+    try {
+      setViewIdea(null);
+      setViewIdeaLoading(true);
+
+      const res = await fetch(`${API}/ideas/${ideaId}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Failed to load similar idea");
+
+      const data = await res.json();
+      setViewIdea(data);
+
+      // ✅ close both modals if they are open
+      setShowBlockModal(false); // block modal
+      setSimilarWarning(null); // warning modal
+    } catch (err) {
+      console.error(err);
+      alert("Could not open similar idea");
+    } finally {
+      setViewIdeaLoading(false);
+    }
   };
 
   /* =========================
-     PUBLISH / UPDATE - FIXED VERSION
+     PUBLISH / UPDATE
   ========================= */
   const handlePublish = async (force = false) => {
     if (!token) return alert("Please login");
@@ -1077,9 +1101,11 @@ export default function IdeaSharing() {
                   Edit Idea
                 </button>
 
-                {/* View Similar - Black */}
+                {/* ✅ STEP 3: Updated "View Similar Idea" button */}
                 <button
-                  onClick={() => openBestMatch(similarWarning.matches)}
+                  onClick={() =>
+                    openSimilarIdeaById(similarWarning?.matches?.[0]?.id)
+                  }
                   className="flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-black transition-colors shadow-sm hover:shadow"
                 >
                   <svg
@@ -1101,7 +1127,7 @@ export default function IdeaSharing() {
                       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                     />
                   </svg>
-                  View Similar
+                  View Similar Idea
                 </button>
 
                 {/* Cancel - Red */}
@@ -1159,7 +1185,7 @@ export default function IdeaSharing() {
       )}
 
       {/* =========================
-         BLOCK MODAL (≥85% Similarity) - ADDED
+         BLOCK MODAL (≥85% Similarity) - UPDATED
       ========================= */}
       {showBlockModal && blockData && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[9999] backdrop-blur-sm">
@@ -1247,7 +1273,7 @@ export default function IdeaSharing() {
               </div>
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 mt-6">
                 {/* Edit Idea - Blue */}
                 <button
                   onClick={() => {
@@ -1273,16 +1299,11 @@ export default function IdeaSharing() {
                   Edit Idea
                 </button>
 
-                {/* View Similar Idea - Gray */}
+                {/* ✅ STEP 3: Updated to use the shared function */}
                 <button
-                  onClick={() => {
-                    if (blockData.matches[0]?.id) {
-                      window.open(
-                        `/ideas/${blockData.matches[0].id}`,
-                        "_blank"
-                      );
-                    }
-                  }}
+                  onClick={() =>
+                    openSimilarIdeaById(blockData?.matches?.[0]?.id)
+                  }
                   className="flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-gray-800 rounded-lg hover:bg-black transition-colors shadow-sm hover:shadow"
                 >
                   <svg
@@ -1307,7 +1328,7 @@ export default function IdeaSharing() {
                   View Similar Idea
                 </button>
 
-                {/* Cancel - Red */}
+                {/* Cancel & Close - Red */}
                 <button
                   onClick={() => {
                     setShowBlockModal(false);
@@ -1333,6 +1354,66 @@ export default function IdeaSharing() {
                   Cancel & Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================
+         ✅ STEP 4: FULL IDEA VIEW MODAL
+      ========================= */}
+      {(viewIdea || viewIdeaLoading) && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-4xl rounded-2xl shadow-xl max-h-[90vh] flex flex-col overflow-hidden">
+            {/* HEADER */}
+            <div className="px-6 py-4 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-900">Similar Idea</h2>
+              <button
+                onClick={() => setViewIdea(null)}
+                className="text-slate-500 hover:text-black"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* BODY */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {viewIdeaLoading ? (
+                <div className="text-slate-700 font-semibold">Loading...</div>
+              ) : (
+                <>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-2">
+                    {viewIdea.title}
+                  </h3>
+
+                  <p className="text-sm text-slate-600 mb-4">
+                    By {viewIdea.author_email}
+                  </p>
+
+                  <div className="text-slate-700 whitespace-pre-line leading-relaxed">
+                    {viewIdea.full_description}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* FOOTER */}
+            <div className="border-t p-4 flex gap-3">
+              <button
+                onClick={() => {
+                  setViewIdea(null);
+                  setShowForm(true);
+                }}
+                className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700"
+              >
+                Edit My Idea
+              </button>
+              <button
+                onClick={() => setViewIdea(null)}
+                className="flex-1 bg-slate-200 text-slate-800 py-2 rounded-lg font-semibold hover:bg-slate-300"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

@@ -32,7 +32,9 @@ function LayoutWrapper({ children }) {
 }
 
 const W = (Page) => (
-  <LayoutWrapper> <Page /> </LayoutWrapper>
+  <LayoutWrapper>
+    <Page />
+  </LayoutWrapper>
 );
 
 function App() {
@@ -41,7 +43,13 @@ function App() {
       <Route path="/" element={W(Home)} />
       <Route path="/about" element={W(About)} />
       <Route path="/investment" element={W(Investment)} />
+
+      {/* ✅ Ideas list / create */}
       <Route path="/ideas" element={W(IdeaSharing)} />
+
+      {/* ✅ NEW: View single idea (used by BLOCK modal) */}
+      <Route path="/ideas/:id" element={W(IdeaSharing)} />
+
       <Route path="/shop" element={W(Product)} />
       <Route path="/cart" element={W(Cart)} />
       <Route path="/news" element={W(News)} />
@@ -55,7 +63,6 @@ function App() {
           <Route path="orders" element={<Orders />} />
         </Route>
       </Route>
-
     </Routes>
   );
 }
