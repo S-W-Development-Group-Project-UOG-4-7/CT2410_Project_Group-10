@@ -22,7 +22,9 @@ import Dashboard from "./admin/pages/Dashboard";
 import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
 import AdminNews from "./admin/pages/AdminNews";
+import AdminProducts from "./admin/pages/AdminProducts";
 import ProtectedAdminRoute from "./admin/ProtectedAdminRoute";
+
 
 // CUSTOMER PAGES
 import CustomerLayout from "./customer/layout/CustomerLayout";
@@ -92,38 +94,11 @@ export default function App() {
 
       {/* ADMIN (PROTECTED) */}
       <Route element={<ProtectedAdminRoute />}>
-        <Route
-          path="/admin"
-          element={
-            <AdminLayout>
-              <Dashboard />
-            </AdminLayout>
-          }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <AdminLayout>
-              <Users />
-            </AdminLayout>
-          }
-        />
-        <Route
-          path="/admin/blockchain"
-          element={
-            <AdminLayout>
-              <Blockchain />
-            </AdminLayout>
-          }
-        />
-        <Route
-          path="/admin/news"
-          element={
-            <AdminLayout>
-              <AdminNews />
-            </AdminLayout>
-          }
-        />
+        <Route  path="/admin"  element={  <AdminLayout>    <Dashboard />  </AdminLayout>  } />
+        <Route  path="/admin/users"  element={   <AdminLayout>    <Users />  </AdminLayout>  }  />
+        <Route  path="/admin/blockchain"  element={  <AdminLayout>    <Blockchain />  </AdminLayout>  }  />
+        <Route  path="/admin/news"  element={   <AdminLayout>   <AdminNews />    </AdminLayout>  }  />
+        <Route path="/admin/products" element={<AdminLayout><AdminProducts/></AdminLayout>} />
       </Route>
 
       {/* CUSTOMER (PROTECTED) */}
