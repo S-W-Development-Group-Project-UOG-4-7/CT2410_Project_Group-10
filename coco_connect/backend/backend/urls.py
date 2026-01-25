@@ -9,39 +9,44 @@ from connect.jwt_views import MyTokenObtainPairView
 
 
 def api_root(request):
-    """Simple API root to verify backend is running"""
-    return JsonResponse({
-        "status": "ok",
-        "routes": {
-            "auth": "/api/auth/",
-            "products": "/api/products/",
-            "token": "/api/token/",
-            "token_refresh": "/api/token/refresh/",
+    return JsonResponse(
+        {
+            "status": "ok",
+            "routes": {
+                "hello": "/api/hello/",
+                "register": "/api/register/",
+                "login": "/api/login/",
+                "me": "/api/me/",
+                "users": "/api/users/",
+                "products": "/api/products/",
+                "token": "/api/token/",
+                "token_refresh": "/api/token/refresh/",
+                "blockchain": "/api/blockchain/",
+            },
         }
-    })
+    )
 
 
 urlpatterns = [
     # Admin
     path("admin/", admin.site.urls),
 
-    # API root (health check / index)
-    path("api/", api_root),
+    # ✅ API root (must be ABOVE "api/" include if it was same path; we use "" here)
+    path("api/", api_root, name="api_root"),
 
-    # Authentication (login / register + other connect endpoints under /api/auth/)
-    path("api/auth/", include("connect.urls")),
+    # ✅ Main API (connect app endpoints)
+    path("api/", include("connect.urls")),
 
-    # Products + related routes
+    # Products app
     path("api/products/", include("products.urls")),
 
-    # JWT AUTH
+    # Blockchain app (if you want it directly here; optional if already inside connect.urls)
+    # path("api/blockchain/", include("blockchain_records.urls")),
+
+    # JWT AUTH (single source of truth)
     path("api/token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 ]
 
-# Serve media files in development
 if settings.DEBUG:
-    urlpatterns += static(
-        settings.MEDIA_URL,
-        document_root=settings.MEDIA_ROOT,
-    )
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

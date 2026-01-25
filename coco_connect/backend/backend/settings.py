@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     # Local apps
     "connect",
     "products",
+
+    "blockchain_records"
 ]
 
 
@@ -169,7 +171,10 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PARSER_CLASSES": (
         "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
     ),
+
     "DATE_INPUT_FORMATS": ["%Y-%m-%d", "%m/%d/%Y"],
     "DATE_FORMAT": "%Y-%m-%d",
 }

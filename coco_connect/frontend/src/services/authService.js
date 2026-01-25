@@ -9,7 +9,6 @@ const API = axios.create({
     username: email,   // JWT expects username
     password: password,
   });
-
   return response.data;
 };*/
 
@@ -22,9 +21,8 @@ export async function loginUser(email, password) {
   return res.data;
 }
 
-
 export const registerUser = async (data) => {
   // register endpoint is under /api/auth/register/ on the backend
-  const response = await API.post("auth/register/", data);
+  const response = await API.post("register/", data);
   return response.data;
 };

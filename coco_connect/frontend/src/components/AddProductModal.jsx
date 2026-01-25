@@ -1,13 +1,8 @@
+// frontend/src/components/AddProductModal.jsx
 import React, { useState, useEffect } from "react";
 import coconutImg from "../assets/FloatingCoco.png";
 
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/jpg",
-];
-
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
 const MAX_IMAGE_SIZE_MB = 5;
 
 const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
@@ -31,7 +26,6 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
       reader.onload = (e) => {
         img.src = e.target.result;
       };
-
       reader.onerror = reject;
 
       img.onload = () => {
@@ -67,7 +61,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             resolve(compressedFile);
           },
           "image/jpeg",
-          0.75 // compression quality (75%)
+          0.75
         );
       };
 
@@ -92,10 +86,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
       ]);
     };
 
-    // Spawn immediately
     spawnCoconut();
-
-    // Spawn continuously
     interval = setInterval(spawnCoconut, 1200);
 
     return () => {
@@ -122,38 +113,39 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
   const validateForm = () => {
-    const errors = {};
+    const next = {};
+
     if (form.name.trim().length < 3) {
-      errors.name = 'Product name must be at least 3 characters long.';
+      next.name = "Product name must be at least 3 characters long.";
     }
     if (form.description.trim().length < 10) {
-      errors.description = 'Description must be at least 10 characters long.';
+      next.description = "Description must be at least 10 characters long.";
     }
-    if (!form.price || parseFloat(form.price) <= 0) {
-      errors.price = 'Price is required and must be greater than 0.';
+    if (!form.price || Number(form.price) <= 0) {
+      next.price = "Price is required and must be greater than 0.";
     }
     if (!form.category) {
-      errors.category = 'Category is required.';
+      next.category = "Category is required.";
     }
     if (!form.type) {
-      errors.type = 'Product type is required.';
+      next.type = "Product type is required.";
     }
     if (!form.image) {
-      errors.image = 'Product image is required.';
+      next.image = "Product image is required.";
     }
-    setErrors(errors);
-    return errors;
+
+    setErrors(next);
+    return next;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      return;
-    }
+    const nextErrors = validateForm();
+    if (Object.keys(nextErrors).length > 0) return;
 
     const token = localStorage.getItem("access");
     if (!token) {
@@ -165,24 +157,24 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
     formData.append("name", form.name);
     formData.append("description", form.description);
     formData.append("price", form.price);
-    formData.append("category", form.category);
-    formData.append("product_type", form.type);
 
-    if (form.image) {
-      formData.append("image", form.image);
-    }
+    // ✅ backend expects: category = slug (e.g. "food-items")
+    formData.append("category", form.category);
+
+    // ✅ backend expects: type (mapped to product_type)
+    //    serializer uses: type = SlugRelatedField(source="product_type", slug_field="name")
+    formData.append("type", form.type);
+
+    if (form.image) formData.append("image", form.image);
 
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/products/create/",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
+      const response = await fetch("http://127.0.0.1:8000/api/products/create/", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
       if (!response.ok) {
         let errorMessage = "Failed to add product";
@@ -190,54 +182,32 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
         try {
           const errorData = await response.json();
 
-          if (errorData && typeof errorData === 'object') {
-            const errors = [];
+          if (errorData && typeof errorData === "object") {
+            const msgs = [];
 
-            if (errorData.name) {
-              errors.push(`Name: ${Array.isArray(errorData.name) ? errorData.name[0] : errorData.name}`);
-            }
-            if (errorData.description) {
-              errors.push(`Description: ${Array.isArray(errorData.description) ? errorData.description[0] : errorData.description}`);
-            }
-            if (errorData.price) {
-              errors.push(`Price: ${Array.isArray(errorData.price) ? errorData.price[0] : errorData.price}`);
-            }
-            if (errorData.category) {
-              errors.push(`Category: ${Array.isArray(errorData.category) ? errorData.category[0] : errorData.category}`);
-            }
-            if (errorData.type || errorData.product_type) {
-              const typeError = errorData.type || errorData.product_type;
-              errors.push(`Product Type: ${Array.isArray(typeError) ? typeError[0] : typeError}`);
-            }
-            if (errorData.image) {
-              errors.push(`Image: ${Array.isArray(errorData.image) ? errorData.image[0] : errorData.image}`);
-            }
+            if (errorData.name) msgs.push(`Name: ${Array.isArray(errorData.name) ? errorData.name[0] : errorData.name}`);
+            if (errorData.description) msgs.push(`Description: ${Array.isArray(errorData.description) ? errorData.description[0] : errorData.description}`);
+            if (errorData.price) msgs.push(`Price: ${Array.isArray(errorData.price) ? errorData.price[0] : errorData.price}`);
+            if (errorData.category) msgs.push(`Category: ${Array.isArray(errorData.category) ? errorData.category[0] : errorData.category}`);
+            if (errorData.type) msgs.push(`Product Type: ${Array.isArray(errorData.type) ? errorData.type[0] : errorData.type}`);
+            if (errorData.image) msgs.push(`Image: ${Array.isArray(errorData.image) ? errorData.image[0] : errorData.image}`);
+            if (errorData.non_field_errors) msgs.push(...errorData.non_field_errors);
 
-            if (errorData.non_field_errors) {
-              errors.push(...errorData.non_field_errors);
-            }
-
-            if (errors.length > 0) {
-              errorMessage = errors.join('\n');
-            } else if (errorData.detail) {
-              errorMessage = errorData.detail;
-            } else if (errorData.error) {
-              errorMessage = errorData.error;
-            }
+            if (msgs.length > 0) errorMessage = msgs.join("\n");
+            else if (errorData.detail) errorMessage = errorData.detail;
+            else if (errorData.error) errorMessage = errorData.error;
           }
-        } catch (parseError) {
+        } catch {
           const errorText = await response.text();
-          if (errorText) {
-            errorMessage = errorText;
-          }
+          if (errorText) errorMessage = errorText;
         }
 
         throw new Error(errorMessage);
       }
 
       alert("Product added successfully!");
-      onClose();
-      onSuccess(); // refresh shop products
+      onClose?.();
+      onSuccess?.();
     } catch (err) {
       console.error("Add product error:", err);
       alert(err.message || "Failed to add product");
@@ -247,10 +217,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Background overlay */}
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-md"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-md" onClick={onClose} />
 
       {/* POPUP CARD */}
       <div
@@ -273,28 +240,19 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
                 width: `${c.size}px`,
                 animationDuration: `${c.duration}s`,
               }}
-              onAnimationEnd={() =>
-                setFallingCoconuts((prev) =>
-                  prev.filter((item) => item.id !== c.id)
-                )
-              }
+              onAnimationEnd={() => setFallingCoconuts((prev) => prev.filter((item) => item.id !== c.id))}
             />
           ))}
         </div>
 
         {/* FORM CONTENT */}
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-          className="relative z-10 space-y-5"
-        >
-          <h2 className="text-2xl font-bold text-[#3a2a1a] text-center">
-            Add New Product
-          </h2>
+        <form onSubmit={handleSubmit} noValidate className="relative z-10 space-y-5">
+          <h2 className="text-2xl font-bold text-[#3a2a1a] text-center">Add New Product</h2>
 
           <input
             type="text"
             placeholder="Product name"
+            value={form.name}
             className="w-full rounded-lg px-4 py-3
                        bg-white/95 border border-[#d6c3a5]
                        text-[#2f2a24] placeholder-[#6b5e4b]
@@ -307,6 +265,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
           <textarea
             placeholder="Product description"
             rows={3}
+            value={form.description}
             className="w-full rounded-lg px-4 py-3
                        bg-white/95 border border-[#d6c3a5]
                        text-[#2f2a24] placeholder-[#6b5e4b]
@@ -316,52 +275,45 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
           />
           {errors.description && <p className="text-red-500 text-xs">{errors.description}</p>}
 
-<input
-  type="text"
-  inputMode="decimal"
-  placeholder="Price (e.g. 10.50)"
-  value={form.price}
-  className="w-full rounded-lg px-4 py-3
-             bg-white/95 border border-[#d6c3a5]
-             text-[#2f2a24]
-             focus:outline-none focus:ring-2 focus:ring-green-600"
-  onChange={(e) => {
-    const value = e.target.value;
-
-    // allow empty or decimals up to 2 places
-    if (/^\d*\.?\d{0,2}$/.test(value)) {
-      updateField("price", value);
-
-      if (errors.price) {
-        setErrors((prev) => ({ ...prev, price: "" }));
-      }
-    }
-  }}
-  required
-/>
-
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="Price (e.g. 10.50)"
+            value={form.price}
+            className="w-full rounded-lg px-4 py-3
+                       bg-white/95 border border-[#d6c3a5]
+                       text-[#2f2a24]
+                       focus:outline-none focus:ring-2 focus:ring-green-600"
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^\d*\.?\d{0,2}$/.test(value)) updateField("price", value);
+            }}
+            required
+          />
           {errors.price && <p className="text-red-500 text-xs">{errors.price}</p>}
 
+          {/* ✅ Category slug must match DB (currently you have: food-items) */}
           <select
             className="w-full rounded-lg px-4 py-3
                        bg-white/95 border border-[#d6c3a5]
                        text-[#2f2a24]
                        focus:outline-none focus:ring-2 focus:ring-green-600"
+            value={form.category}
             onChange={(e) => updateField("category", e.target.value)}
             required
           >
             <option value="">Select Category</option>
-            <option value="materials">Raw Materials</option>
-            <option value="food-items">Processed Goods</option>
-            <option value="cups">Equipment</option>
+            <option value="food-items">Food Items</option>
           </select>
           {errors.category && <p className="text-red-500 text-xs">{errors.category}</p>}
 
+          {/* ✅ ProductType.name values must match DB (Raw Materials / Processed Goods / Equipment) */}
           <select
             className="w-full rounded-lg px-4 py-3
                        bg-white/95 border border-[#d6c3a5]
                        text-[#2f2a24]
                        focus:outline-none focus:ring-2 focus:ring-green-600"
+            value={form.type}
             onChange={(e) => updateField("type", e.target.value)}
             required
           >
@@ -375,8 +327,9 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
           <input
             type="file"
             className="text-sm text-[#3a2a1a]"
+            accept="image/*"
             onChange={async (e) => {
-              const file = e.target.files[0];
+              const file = e.target.files?.[0];
               if (!file) return;
 
               if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
