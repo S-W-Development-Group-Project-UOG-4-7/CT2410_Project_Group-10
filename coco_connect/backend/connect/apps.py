@@ -1,3 +1,4 @@
+# connect/apps.py
 from django.apps import AppConfig
 
 class ConnectConfig(AppConfig):
@@ -5,6 +6,5 @@ class ConnectConfig(AppConfig):
     name = "connect"
 
     def ready(self):
-        # warm up the AI model when Django starts (faster publish later)
-        from .services.embeddings import get_embedding
-        get_embedding("warmup")
+        # 🔥 disable warmup - it blocks runserver
+        pass
