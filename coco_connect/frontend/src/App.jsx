@@ -32,6 +32,7 @@ import Overview from "./customer/pages/Overview";
 import Profile from "./customer/pages/Profile";
 import EditProfile from "./customer/pages/EditProfile";
 import Orders from "./customer/pages/Orders";
+import MyProducts from "./customer/pages/MyProducts";
 import ProtectedCustomerRoute from "./customer/ProtectedCustomerRoute";
 
 /* ----------------------------------
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="profile/edit" element={<EditProfile />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="products" element={<MyProducts />} />  
         </Route>
       </Route>
     </Routes>
