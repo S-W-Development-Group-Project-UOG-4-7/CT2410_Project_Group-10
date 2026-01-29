@@ -178,6 +178,7 @@ const Product = () => {
 
       const updated = await res.json();
 
+      // ✅ Keep hashes in state if backend returns them, but DON'T display them anywhere
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId
@@ -191,7 +192,6 @@ const Product = () => {
         )
       );
 
-      // keep modal in sync if it's open
       setSelectedProduct((prev) => {
         if (!prev || prev.id !== productId) return prev;
         return {
@@ -522,16 +522,14 @@ const Product = () => {
 
                 {verifyError && (
                   <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded mb-4">
-                    <p className="text-sm">Verify failed: {verifyError}</p>
+                    <p className="text-sm">Verification failed: {verifyError}</p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {visibleProducts.length > 0 ? (
                     visibleProducts.map((product) => {
-                      const isVerified = Boolean(
-                        product?.verified_at || product?.tx_hash || product?.product_hash
-                      );
+                      const isVerified = Boolean(product?.verified_at);
                       const isVerifying = verifyingId === product.id;
 
                       const authorId = product?.author?.id ?? null;
@@ -602,12 +600,10 @@ const Product = () => {
                               )}
                             </div>
 
-                            {/* Short description */}
                             <p className="text-xs text-gray-600 mt-2 line-clamp-2">
                               {product.description || ""}
                             </p>
 
-                            {/* Price + Add */}
                             <div className="flex justify-between items-center mt-3">
                               <p className="font-semibold text-[#2f3e46]">
                                 ${Number(product.price || 0).toFixed(2)}
@@ -638,18 +634,15 @@ const Product = () => {
                                     : "bg-black text-white hover:bg-gray-900"
                                 }`}
                               >
-                                {isVerifying ? "Verifying..." : "Verify on Blockchain"}
+                                {isVerifying ? "Confirming..." : "Confirm Authenticity"}
                               </button>
                             )}
 
-                            {/* Non-owner hint */}
                             {user && !isOwner && !isVerified && (
                               <p className="mt-3 text-[11px] text-gray-500 text-center">
-                                Only the owner can verify this product
+                                Only the owner can confirm authenticity
                               </p>
                             )}
-
-                            {/* ✅ Tx removed from card (requested) */}
                           </div>
                         </div>
                       );
@@ -659,12 +652,6 @@ const Product = () => {
                       <p className="text-gray-500">
                         No products found. Try adjusting your filters.
                       </p>
-                      {products.length > 0 && (
-                        <p className="text-sm text-gray-400 mt-2">
-                          {products.length} total products available, but none match your current
-                          filters.
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -689,10 +676,8 @@ const Product = () => {
       {user && (
         <button
           onClick={() => setIsAddProductOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14
-            rounded-full bg-green-600 text-white text-3xl
-            font-bold flex items-center justify-center
-            shadow-lg hover:bg-green-700 hover:scale-105
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-green-600 text-white text-3xl
+            font-bold flex items-center justify-center shadow-lg hover:bg-green-700 hover:scale-105
             transition z-50"
           title="Add your product"
         >
