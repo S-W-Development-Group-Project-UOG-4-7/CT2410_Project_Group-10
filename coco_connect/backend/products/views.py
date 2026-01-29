@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 
-from .models import Product, NewsItem, Cart, CartItem
+from .models import Product, NewsItem, Cart, CartItem, Category
 from .serializers import (
     ProductSerializer,
     ProductCreateSerializer,
@@ -28,6 +28,7 @@ class ProductListAPIView(ListAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
+        # Prefer select_related for performance, but fallback safely
         try:
             qs = Product.objects.select_related("category", "product_type", "author").all()
         except Exception:
@@ -113,6 +114,23 @@ class NewsListAPIView(ListAPIView):
 
 
 # ======================================================
+# CATEGORY LIST (PUBLIC)
+# ======================================================
+class CategoryListAPIView(APIView):
+    """Public list of product categories for dropdowns"""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            qs = Category.objects.all().order_by("name")
+        except Exception:
+            qs = Category.objects.none()
+
+        data = [{"id": c.id, "name": c.name, "slug": c.slug} for c in qs]
+        return Response(data, status=status.HTTP_200_OK)
+
+
+# ======================================================
 # CART – ADD ITEM
 # ======================================================
 class AddToCartView(APIView):
@@ -122,7 +140,10 @@ class AddToCartView(APIView):
         product_id = request.data.get("product_id")
 
         if not product_id:
-            return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "product_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             product = Product.objects.get(id=product_id)
@@ -182,14 +203,14 @@ def verify_product(request, pk):
     except Product.DoesNotExist:
         return Response({"detail": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # ✅ only author can verify
+    # Only author can verify
     if not product.author_id or product.author_id != request.user.id:
         return Response(
             {"detail": "Not allowed. You can verify only your own products."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    # ✅ prevent duplicate verify
+    # Prevent duplicate verify
     if product.verified_at and product.tx_hash:
         return Response(
             {
@@ -203,10 +224,10 @@ def verify_product(request, pk):
         )
 
     try:
-        product_hash = make_product_hash(product)  # "0x..."
-        tx_hash = record_proof(product.id, product_hash)  # expected "0x..."
+        product_hash = make_product_hash(product)     # should return "0x..."
+        tx_hash = record_proof(product.id, product_hash)  # should return "0x..."
 
-        # ✅ normalize tx hash
+        # Normalize tx hash for UI consistency
         if tx_hash and not str(tx_hash).startswith("0x"):
             tx_hash = "0x" + str(tx_hash)
 

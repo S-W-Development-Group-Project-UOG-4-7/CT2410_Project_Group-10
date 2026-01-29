@@ -7,6 +7,7 @@ from .views import (
     ProductListAPIView,
     ProductCreateAPIView,
     NewsListAPIView,
+    CategoryListAPIView,
     AddToCartView,
     CartDetailView,
     CartItemUpdateDeleteView,
@@ -50,6 +51,7 @@ urlpatterns = [
     path("", ProductListAPIView.as_view(), name="product-list"),
     path("create/", ProductCreateAPIView.as_view(), name="product-create"),
     path("news/", NewsListAPIView.as_view(), name="news-list"),
+    path("categories/", CategoryListAPIView.as_view(), name="category-list"),
 
     # ----- Cart (AUTH REQUIRED) -----
     path("cart/add/", AddToCartView.as_view(), name="cart-add"),
