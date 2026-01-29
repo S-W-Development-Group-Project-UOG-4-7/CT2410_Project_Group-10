@@ -1,9 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import axios from "axios";
 import { loginUser } from "../services/authService";
 
-export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSuccess }) {
-  const modalRef = useRef();
+const API_BASE = "http://localhost:8000/api";
+
+export default function LoginModal({
+  isOpen,
+  onClose,
+  onOpenRegister,
+  onAuthSuccess,
+}) {
+  const modalRef = useRef(null);
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
@@ -15,20 +25,75 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
     if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
   };
 
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  const passwordRegex = /^.{6,}$/;
+
   const validateForm = useCallback(() => {
     const newErrors = {};
 
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
+    else if (!emailRegex.test(formData.email))
       newErrors.email = "Enter a valid email";
 
     if (!formData.password.trim()) newErrors.password = "Password is required";
-    else if (formData.password.length < 6)
+    else if (!passwordRegex.test(formData.password))
       newErrors.password = "At least 6 characters";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
+
+  const getLoginErrorMessage = (err) => {
+    const status = err?.response?.status;
+
+    const detail =
+      err?.response?.data?.detail ||
+      err?.response?.data?.error ||
+      err?.message ||
+      "";
+
+    const d = String(detail).toLowerCase();
+
+    if (
+      status === 400 &&
+      (d.includes("username") || d.includes("field is required"))
+    ) {
+      return "Login payload mismatch (backend expects username). Fix token endpoint or send username.";
+    }
+
+    if (d.includes("no active account")) {
+      return "No active account found. Contact admin to activate the account.";
+    }
+
+    if (
+      status === 401 ||
+      status === 404 ||
+      d.includes("unable to log in") ||
+      d.includes("invalid") ||
+      d.includes("not found") ||
+      d.includes("does not exist")
+    ) {
+      return "Account not found. Register to create a new account.";
+    }
+
+    return "Login failed. Check email/password and make sure Django is running.";
+  };
+
+  async function loginFallbackUsername(email, password) {
+    const res = await axios.post(`${API_BASE}/token/`, {
+      username: email,
+      password,
+    });
+    return res.data;
+  }
+
+  const redirectAfterLogin = (role) => {
+    const isAdmin = String(role || "").toLowerCase().trim() === "admin";
+    const target = isAdmin ? "/admin" : "/";
+
+    onClose?.();
+    setTimeout(() => navigate(target), 0);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,36 +103,44 @@ export default function LoginModal({ isOpen, onClose, onOpenRegister, onAuthSucc
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
-      // ✅ Call backend JWT token endpoint via authService
-      const data = await loginUser(formData.email, formData.password);
+      let data;
 
-      // ✅ Save tokens
-      localStorage.setItem("access", data.access);
-      localStorage.setItem("refresh", data.refresh);
+      try {
+        data = await loginUser(formData.email, formData.password);
+      } catch (err1) {
+        if (err1?.response?.status === 400) {
+          data = await loginFallbackUsername(formData.email, formData.password);
+        } else {
+          throw err1;
+        }
+      }
+
+      const apiUser = data?.user ?? data ?? {};
+      const access = data?.access;
+      const refresh = data?.refresh;
+
+      if (!access) throw new Error("Missing access token from backend response");
+
+      localStorage.setItem("access", access);
+      if (refresh) localStorage.setItem("refresh", refresh);
 
       const userObj = {
-  name: formData.email,   // later you can replace with real name from backend
-  email: formData.email,
-  rememberMe,
-};
+        id: apiUser?.id ?? null,
+        name: apiUser?.name || apiUser?.first_name || formData.email,
+        email: apiUser?.email || formData.email,
+        role: apiUser?.role || (apiUser?.is_staff ? "admin" : "user"),
+        rememberMe,
+      };
 
-localStorage.setItem("user", JSON.stringify(userObj));
+      localStorage.setItem("user", JSON.stringify(userObj));
+      localStorage.setItem("role", userObj.role || "");
+      localStorage.setItem("name", userObj.name || "");
+      localStorage.setItem("email", userObj.email || "");
 
-// ✅ tell Navbar immediately
-onAuthSuccess?.(userObj);
-
-console.log("Logged in with token:", data);
-
-// ✅ Close modal
-onClose();
-
+      onAuthSuccess?.(userObj);
+      redirectAfterLogin(userObj.role);
     } catch (err) {
-      // show a nicer error if backend is down vs wrong password
-      setErrors({
-        submit:
-          err?.response?.data?.detail ||
-          "Login failed. Check email/password and make sure Django is running.",
-      });
+      setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
       setIsSubmitting(false);
     }
@@ -76,6 +149,7 @@ onClose();
   const handleChange = (e) => {
     setFormData((p) => ({ ...p, [e.target.id]: e.target.value }));
     if (errors[e.target.id]) setErrors((p) => ({ ...p, [e.target.id]: "" }));
+    if (errors.submit) setErrors((p) => ({ ...p, submit: "" }));
   };
 
   useEffect(() => {
@@ -123,10 +197,8 @@ onClose();
         aria-modal="true"
         role="dialog"
       >
-        {/* overlay */}
-        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" />
 
-        {/* floating dots */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
           <div
             className="absolute top-1/4 left-1/4 w-40 h-40 p1 rounded-full blur-2xl opacity-80"
@@ -158,7 +230,6 @@ onClose();
           />
         </div>
 
-        {/* modal */}
         <div
           ref={modalRef}
           className="relative z-20 bg-white/95 backdrop-blur-lg w-full max-w-md mx-4 rounded-2xl shadow-2xl p-8
@@ -171,6 +242,7 @@ onClose();
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100/70"
+            aria-label="Close"
           >
             ✕
           </button>
@@ -182,11 +254,25 @@ onClose();
           {errors.submit && (
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
               <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
+
+              {String(errors.submit)
+                .toLowerCase()
+                .includes("account not found") && (
+                <button
+                  type="button"
+                  className="mt-3 text-sm text-green-700 font-semibold hover:underline"
+                  onClick={() => {
+                    onClose();
+                    onOpenRegister?.();
+                  }}
+                >
+                  Create a new account
+                </button>
+              )}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
@@ -204,13 +290,13 @@ onClose();
                       : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                   }`}
                 placeholder="you@example.com"
+                autoComplete="email"
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email}</p>
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
@@ -230,6 +316,7 @@ onClose();
                         : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                     }`}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
 
                 <button
@@ -261,6 +348,7 @@ onClose();
               <button
                 type="button"
                 className="text-sm text-green-700 hover:underline"
+                onClick={() => alert("Forgot password not implemented yet")}
               >
                 Forgot Password?
               </button>
@@ -287,7 +375,7 @@ onClose();
               className="text-green-700 font-semibold hover:underline"
               onClick={() => {
                 onClose();
-                onOpenRegister();
+                onOpenRegister?.();
               }}
             >
               Create one

@@ -11,7 +11,14 @@
   },
   "dependencies": {
     "axios": "^1.13.2",
+<<<<<<< HEAD
     "framer-motion": "^12.23.25",
+=======
+    "chart.js": "^4.5.1",
+    "framer-motion": "^12.23.25",
+    "jspdf": "^4.0.0",
+    "jspdf-autotable": "^5.0.7",
+>>>>>>> 45b3043379462f7f9d97cc4240df94bff04de370
     "lodash": "^4.17.21",
     "lucide-react": "^0.556.0",
     "react": "^19.2.0",
