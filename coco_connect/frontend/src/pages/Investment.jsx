@@ -26,123 +26,31 @@ const InvestmentPage = () => {
     investmentType: "all",
   });
 
+  // New states for project creation
+  const [showCreatePanel, setShowCreatePanel] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProject, setNewProject] = useState({
+    title: "",
+    description: "",
+    category: "Coconut Farming",
+    location: "Colombo",
+    farmer_name: "",
+    farmer_experience: "",
+    farmer_rating: 4.5,
+    roi: 15,
+    duration: 12,
+    target_amount: "",
+    investment_type: "equity",
+    risk_level: "medium",
+    tags: "",
+    image: null,
+    business_plan: null,
+    additional_docs: null,
+  });
+
   // Mock data - Fallback if API fails
   const mockProjects = [
-    {
-      id: 1,
-      title: "Organic Coconut Farm Expansion",
-      description:
-        "Expanding organic coconut farm with sustainable practices and modern irrigation in Kurunegala.",
-      category: "Coconut Farming",
-      location: "Kurunegala",
-      farmerName: "Ravi Perera",
-      farmerExperience: 12,
-      farmerRating: 4.8,
-      imageUrl: "",
-      roi: 18.5,
-      duration: 24,
-      targetAmount: 5000000,
-      currentAmount: 3250000,
-      investorsCount: 24,
-      status: "active",
-      daysLeft: 45,
-      investmentType: "equity",
-      riskLevel: "medium",
-      createdAt: "2024-01-15",
-      tags: ["Organic", "Sustainable", "Modern Irrigation"],
-    },
-    {
-      id: 2,
-      title: "Cold-Press Coconut Oil Production",
-      description:
-        "Establishing cold-press coconut oil production facility with organic certification in Gampaha.",
-      category: "Coconut Oil Production",
-      location: "Gampaha",
-      farmerName: "Samantha Silva",
-      farmerExperience: 8,
-      farmerRating: 4.6,
-      imageUrl: "",
-      roi: 22.0,
-      duration: 18,
-      targetAmount: 7500000,
-      currentAmount: 7500000,
-      investorsCount: 42,
-      status: "funded",
-      daysLeft: 0,
-      investmentType: "loan",
-      riskLevel: "low",
-      createdAt: "2024-01-10",
-      tags: ["Cold-Press", "Organic Certified", "Export Quality"],
-    },
-    {
-      id: 3,
-      title: "Eco-Friendly Coir Products",
-      description:
-        "Developing innovative coir-based products with eco-friendly packaging for export markets.",
-      category: "Coir Products",
-      location: "Puttalam",
-      farmerName: "Kumar Rajapaksa",
-      farmerExperience: 15,
-      farmerRating: 4.9,
-      imageUrl: "",
-      roi: 25.5,
-      duration: 12,
-      targetAmount: 3000000,
-      currentAmount: 1200000,
-      investorsCount: 8,
-      status: "active",
-      daysLeft: 60,
-      investmentType: "equity",
-      riskLevel: "high",
-      createdAt: "2024-01-20",
-      tags: ["Eco-Friendly", "Export Market", "Innovation"],
-    },
-    {
-      id: 4,
-      title: "Coconut Shell Activated Charcoal",
-      description:
-        "Producing activated charcoal from coconut shells for water purification systems.",
-      category: "Coconut Shell Products",
-      location: "Matara",
-      farmerName: "Nimal Fernando",
-      farmerExperience: 10,
-      farmerRating: 4.7,
-      imageUrl: "",
-      roi: 15.0,
-      duration: 36,
-      targetAmount: 10000000,
-      currentAmount: 4500000,
-      investorsCount: 35,
-      status: "active",
-      daysLeft: 90,
-      investmentType: "equity",
-      riskLevel: "medium",
-      createdAt: "2024-01-05",
-      tags: ["Activated Charcoal", "Water Purification", "Sustainable"],
-    },
-    {
-      id: 5,
-      title: "Coconut Husk Organic Fertilizer",
-      description:
-        "Producing organic fertilizer from coconut husk for sustainable agriculture.",
-      category: "Organic Fertilizer",
-      location: "Kandy",
-      farmerName: "Lakshan Perera",
-      farmerExperience: 6,
-      farmerRating: 4.5,
-      imageUrl: "",
-      roi: 20.0,
-      duration: 15,
-      targetAmount: 4000000,
-      currentAmount: 2800000,
-      investorsCount: 18,
-      status: "active",
-      daysLeft: 30,
-      investmentType: "equity",
-      riskLevel: "low",
-      createdAt: "2024-01-25",
-      tags: ["Organic Fertilizer", "Sustainable", "Agriculture"],
-    },
+    // ... (keep your existing mockProjects array as is)
   ];
 
   const categories = [
@@ -436,17 +344,119 @@ const InvestmentPage = () => {
     }
   };
 
+  // Handle project creation
+  const handleCreateProject = async () => {
+    try {
+      setCreatingProject(true);
+      const token = localStorage.getItem("access");
+
+      if (!token) {
+        alert("Please login to create a project");
+        return;
+      }
+
+      const formData = new FormData();
+      
+      // Append all project data
+      Object.keys(newProject).forEach(key => {
+        if (newProject[key] !== null && newProject[key] !== undefined) {
+          if (key === 'image' || key === 'business_plan' || key === 'additional_docs') {
+            if (newProject[key]) {
+              formData.append(key, newProject[key]);
+            }
+          } else {
+            formData.append(key, newProject[key]);
+          }
+        }
+      });
+
+      const response = await fetch("http://127.0.0.1:8000/api/create-project/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || "Failed to create project");
+        return;
+      }
+
+      alert("Project created successfully! It will be reviewed by admin.");
+      setShowCreatePanel(false);
+      
+      // Reset form
+      setNewProject({
+        title: "",
+        description: "",
+        category: "Coconut Farming",
+        location: "Colombo",
+        farmer_name: "",
+        farmer_experience: "",
+        farmer_rating: 4.5,
+        roi: 15,
+        duration: 12,
+        target_amount: "",
+        investment_type: "equity",
+        risk_level: "medium",
+        tags: "",
+        image: null,
+        business_plan: null,
+        additional_docs: null,
+      });
+
+      // Refresh projects list
+      setFilters(prev => ({ ...prev }));
+
+    } catch (error) {
+      console.error("Error creating project:", error);
+      alert("Failed to create project");
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
+  // Reset form when panel closes
+  const handleCloseCreatePanel = () => {
+    setShowCreatePanel(false);
+    setNewProject({
+      title: "",
+      description: "",
+      category: "Coconut Farming",
+      location: "Colombo",
+      farmer_name: "",
+      farmer_experience: "",
+      farmer_rating: 4.5,
+      roi: 15,
+      duration: 12,
+      target_amount: "",
+      investment_type: "equity",
+      risk_level: "medium",
+      tags: "",
+      image: null,
+      business_plan: null,
+      additional_docs: null,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-accent4 to-accent5 font-nunito">
       {/* Header */}
       <div className="bg-primary text-white py-8 shadow-lg">
         <div className="container mx-auto px-4">
-          <h1 className="text-4xl font-bold font-mont mb-2">
-            Investment Opportunities
-          </h1>
-          <p className="text-lg opacity-90">
-            Invest in Sri Lanka's coconut industry. Support local farmers, earn transparent returns.
-          </p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-4xl font-bold font-mont mb-2">
+                Investment Opportunities
+              </h1>
+              <p className="text-lg opacity-90">
+                Invest in Sri Lanka's coconut industry. Support local farmers, earn transparent returns.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1004,7 +1014,7 @@ const InvestmentPage = () => {
                 {loadingMine && <p className="text-gray-600">Loading your investments...</p>}
 
                 {!loadingMine && myInvestments.length === 0 && (
-                  <p className="text-gray-600">You haven’t invested in any projects yet.</p>
+                  <p className="text-gray-600">You haven't invested in any projects yet.</p>
                 )}
 
                 {!loadingMine && myInvestments.length > 0 && (
@@ -1078,6 +1088,389 @@ const InvestmentPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Create Project Button */}
+      <button
+        onClick={() => setShowCreatePanel(true)}
+        className="fixed bottom-8 right-8 z-40 w-16 h-16 bg-gradient-to-r from-secondary to-accent1 text-white rounded-full shadow-2xl flex items-center justify-center hover:shadow-3xl hover:scale-110 transition-all duration-300 group"
+        aria-label="Create new project"
+      >
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+        </svg>
+        
+        {/* Tooltip */}
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+          Create New Project
+        </div>
+      </button>
+
+      {/* Create Project Panel (Centered) */}
+      {showCreatePanel && (
+        <>
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={handleCloseCreatePanel}
+          ></div>
+          
+          {/* Centered Panel */}
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up">
+              <div className="p-6">
+                {/* Panel Header */}
+                <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                  <h3 className="text-2xl font-bold text-accent6">Create New Project</h3>
+                  <button 
+                    onClick={handleCloseCreatePanel}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column - Basic Information */}
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="font-bold text-accent6 mb-4 text-lg">Basic Information</h4>
+                      
+                      {/* Project Title */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Project Title *
+                        </label>
+                        <input
+                          type="text"
+                          value={newProject.title}
+                          onChange={(e) => setNewProject({...newProject, title: e.target.value})}
+                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          placeholder="e.g., Organic Coconut Oil Production Unit"
+                          required
+                        />
+                      </div>
+
+                      {/* Project Description */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Project Description *
+                        </label>
+                        <textarea
+                          value={newProject.description}
+                          onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          rows="4"
+                          placeholder="Describe your project in detail..."
+                          required
+                        />
+                      </div>
+
+                      {/* Category and Location */}
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Category *
+                          </label>
+                          <select
+                            value={newProject.category}
+                            onChange={(e) => setNewProject({...newProject, category: e.target.value})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          >
+                            {categories.filter(cat => cat !== "All Categories").map(category => (
+                              <option key={category} value={category}>{category}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Location *
+                          </label>
+                          <select
+                            value={newProject.location}
+                            onChange={(e) => setNewProject({...newProject, location: e.target.value})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          >
+                            {locations.filter(loc => loc !== "All Locations").map(location => (
+                              <option key={location} value={location}>{location}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Tags */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Tags (comma separated)
+                        </label>
+                        <input
+                          type="text"
+                          value={newProject.tags}
+                          onChange={(e) => setNewProject({...newProject, tags: e.target.value})}
+                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          placeholder="e.g., Organic, Sustainable, Export"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Farmer Information */}
+                    <div>
+                      <h4 className="font-bold text-accent6 mb-4 text-lg">Farmer/Entrepreneur Information</h4>
+                      <div className="bg-accent4 p-4 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={newProject.farmer_name}
+                              onChange={(e) => setNewProject({...newProject, farmer_name: e.target.value})}
+                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                              placeholder="Your name"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Years of Experience *
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={newProject.farmer_experience}
+                              onChange={(e) => setNewProject({...newProject, farmer_experience: e.target.value})}
+                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                              placeholder="e.g., 5"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Investment Details */}
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="font-bold text-accent6 mb-4 text-lg">Investment Details</h4>
+                      
+                      {/* ROI, Duration, Target Amount */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Expected ROI (%) *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            step="0.5"
+                            value={newProject.roi}
+                            onChange={(e) => setNewProject({...newProject, roi: e.target.value})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Duration (Months) *
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="60"
+                            value={newProject.duration}
+                            onChange={(e) => setNewProject({...newProject, duration: e.target.value})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Target Amount (LKR) *
+                          </label>
+                          <input
+                            type="number"
+                            min="100000"
+                            step="10000"
+                            value={newProject.target_amount}
+                            onChange={(e) => setNewProject({...newProject, target_amount: e.target.value})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            placeholder="e.g., 5000000"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* Investment Type and Risk Level */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Investment Type *
+                          </label>
+                          <div className="space-y-2">
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="newInvestmentType"
+                                value="equity"
+                                checked={newProject.investment_type === "equity"}
+                                onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
+                                className="mr-2 text-secondary"
+                              />
+                              <span>Equity Investment</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="newInvestmentType"
+                                value="loan"
+                                checked={newProject.investment_type === "loan"}
+                                onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
+                                className="mr-2 text-secondary"
+                              />
+                              <span>Loan</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Risk Level *
+                          </label>
+                          <div className="flex gap-2">
+                            {["low", "medium", "high"].map((risk) => (
+                              <button
+                                key={risk}
+                                type="button"
+                                className={`flex-1 py-3 px-3 rounded-lg text-sm font-medium ${
+                                  newProject.risk_level === risk
+                                    ? risk === "low"
+                                      ? "bg-green-100 text-green-800 border border-green-300"
+                                      : risk === "medium"
+                                      ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                                      : "bg-red-100 text-red-800 border border-red-300"
+                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                }`}
+                                onClick={() => setNewProject({...newProject, risk_level: risk})}
+                              >
+                                {risk.charAt(0).toUpperCase() + risk.slice(1)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* File Uploads */}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Project Image (Optional)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setNewProject({...newProject, image: e.target.files[0]})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Business Plan (PDF/DOC) (Optional)
+                          </label>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx"
+                            onChange={(e) => setNewProject({...newProject, business_plan: e.target.files[0]})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Additional Documents (Optional)
+                          </label>
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.png"
+                            onChange={(e) => setNewProject({...newProject, additional_docs: e.target.files[0]})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Terms and Information */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-bold text-yellow-800 mb-2">Important Information</h4>
+                      <ul className="text-sm text-yellow-700 space-y-1">
+                        <li>• Your project will be reviewed by our team before being published</li>
+                        <li>• Ensure all information provided is accurate and truthful</li>
+                        <li>• You must have legal rights to the land/business</li>
+                        <li>• Returns to investors must be paid as promised</li>
+                        <li>• Project updates must be provided quarterly</li>
+                      </ul>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={handleCloseCreatePanel}
+                        className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                        disabled={creatingProject}
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        onClick={handleCreateProject}
+                        disabled={creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount}
+                        className={`flex-1 py-3 px-4 bg-primary text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
+                          creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount
+                            ? "opacity-50 cursor-not-allowed"
+                            : "hover:bg-accent2"
+                        }`}
+                      >
+                        {creatingProject ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Submit for Review
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mobile Create Project Button */}
+      <button
+        onClick={() => setShowCreatePanel(true)}
+        className="md:hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-gradient-to-r from-secondary to-accent1 text-white px-6 py-3 rounded-full shadow-2xl flex items-center justify-center gap-2 hover:shadow-3xl transition-all duration-300"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+        <span className="font-semibold">Create Project</span>
+      </button>
 
       {/* Investment Modal */}
       {isModalOpen && selectedProject && (
@@ -1260,6 +1653,24 @@ const InvestmentPage = () => {
           </div>
         </div>
       )}
+      
+      {/* Add CSS for animation */}
+      <style jsx>{`
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

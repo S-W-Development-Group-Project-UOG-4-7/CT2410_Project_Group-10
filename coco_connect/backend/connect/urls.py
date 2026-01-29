@@ -22,6 +22,11 @@ urlpatterns = [
     path("projects/<int:project_id>/", views.get_project_detail, name="get_project_detail"),
     path("make-investment/", views.create_investment, name="create_investment"),
     path("my-investments/", views.my_investments, name="my_investments"),
+    
+    # ------------------ PROJECT MANAGEMENT ------------------
+    path("create-project/", views.create_project, name="create_project"),
+    path("my-projects/", views.my_projects, name="my_projects"),
+    path("update-project-status/<int:project_id>/", views.update_project_status, name="update_project_status"),
 
     # ------------------ OPTIONAL DATA ------------------
     path("categories/", views.get_categories, name="get_categories"),

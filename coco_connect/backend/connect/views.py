@@ -1,4 +1,3 @@
-# connect/views.py
 from django.contrib.auth.models import User
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,10 +10,14 @@ import json
 import decimal
 from django.utils import timezone
 import random, string
+import os
+import uuid
+from decimal import Decimal
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import AccessToken
 
@@ -164,6 +167,152 @@ def login(request):
 
 
 # ----------------------------
+# CREATE PROJECT
+# ----------------------------
+@csrf_exempt
+def create_project(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        # Check authentication
+        user = check_auth(request)
+        if not user:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        # Get data from form
+        title = request.POST.get("title", "").strip()
+        description = request.POST.get("description", "").strip()
+        category_name = request.POST.get("category", "").strip()
+        location = request.POST.get("location", "Colombo").strip()
+        farmer_name = request.POST.get("farmer_name", "").strip()
+        farmer_experience = request.POST.get("farmer_experience", "0").strip()
+        farmer_rating = request.POST.get("farmer_rating", "4.5").strip()
+        roi = request.POST.get("roi", "15").strip()
+        duration = request.POST.get("duration", "12").strip()
+        target_amount = request.POST.get("target_amount", "0").strip()
+        investment_type = request.POST.get("investment_type", "equity").strip()
+        risk_level = request.POST.get("risk_level", "medium").strip()
+        tags = request.POST.get("tags", "").strip()
+
+        # Validate required fields
+        required_fields = {
+            "title": title,
+            "description": description,
+            "category": category_name,
+            "location": location,
+            "farmer_name": farmer_name,
+            "target_amount": target_amount,
+        }
+
+        for field_name, value in required_fields.items():
+            if not value:
+                return JsonResponse(
+                    {"error": f"{field_name.replace('_', ' ').title()} is required"},
+                    status=400
+                )
+
+        # Get or create category
+        try:
+            category = InvestmentCategory.objects.get(name=category_name)
+        except InvestmentCategory.DoesNotExist:
+            # Create new category if doesn't exist
+            category = InvestmentCategory.objects.create(
+                name=category_name,
+                description=f"{category_name} projects"
+            )
+
+        # Convert numeric fields
+        try:
+            farmer_exp_int = int(farmer_experience) if farmer_experience else 0
+            farmer_rating_dec = Decimal(farmer_rating) if farmer_rating else Decimal("4.5")
+            roi_dec = Decimal(roi) if roi else Decimal("15.0")
+            duration_int = int(duration) if duration else 12
+            target_amount_dec = Decimal(target_amount) if target_amount else Decimal("100000")
+        except (ValueError, TypeError) as e:
+            return JsonResponse({"error": f"Invalid numeric value: {str(e)}"}, status=400)
+
+        # Validate ROI
+        if roi_dec < Decimal("1") or roi_dec > Decimal("50"):
+            return JsonResponse({"error": "ROI must be between 1% and 50%"}, status=400)
+
+        # Validate duration
+        if duration_int < 1 or duration_int > 60:
+            return JsonResponse({"error": "Duration must be between 1 and 60 months"}, status=400)
+
+        # Validate target amount
+        if target_amount_dec < Decimal("100000"):
+            return JsonResponse({"error": "Target amount must be at least 100,000 LKR"}, status=400)
+
+        # Handle file uploads
+        image_file = request.FILES.get("image")
+        business_plan_file = request.FILES.get("business_plan")
+        additional_docs_file = request.FILES.get("additional_docs")
+
+        # Generate unique filenames
+        def generate_filename(original_name, folder):
+            ext = os.path.splitext(original_name)[1]
+            filename = f"{folder}/{uuid.uuid4()}{ext}"
+            return filename
+
+        # Save files
+        image_path = None
+        business_plan_path = None
+        additional_docs_path = None
+
+        if image_file:
+            image_filename = generate_filename(image_file.name, "project_images")
+            image_path = default_storage.save(image_filename, ContentFile(image_file.read()))
+        
+        if business_plan_file:
+            bp_filename = generate_filename(business_plan_file.name, "business_plans")
+            business_plan_path = default_storage.save(bp_filename, ContentFile(business_plan_file.read()))
+        
+        if additional_docs_file:
+            ad_filename = generate_filename(additional_docs_file.name, "project_docs")
+            additional_docs_path = default_storage.save(ad_filename, ContentFile(additional_docs_file.read()))
+
+        # Create project
+        project = InvestmentProject.objects.create(
+            title=title,
+            description=description,
+            category=category,
+            location=location,
+            farmer=user,
+            farmer_name=farmer_name,
+            farmer_experience=farmer_exp_int,
+            farmer_rating=farmer_rating_dec,
+            target_amount=target_amount_dec,
+            expected_roi=roi_dec,
+            duration_months=duration_int,
+            investment_type=investment_type,
+            risk_level=risk_level,
+            tags=tags,
+            status="pending",  # Projects need admin approval
+            days_left=30,
+            investors_count=0,
+            current_amount=Decimal("0"),
+            
+            # File paths
+            image=image_path,
+            business_plan=business_plan_path,
+            additional_docs=additional_docs_path,
+        )
+
+        return JsonResponse({
+            "success": True,
+            "message": "Project created successfully and submitted for admin review",
+            "project_id": project.id,
+            "project_title": project.title
+        }, status=201)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ----------------------------
 # GET PROJECTS
 # ----------------------------
 @csrf_exempt
@@ -202,11 +351,15 @@ def get_projects(request):
                 | Q(description__icontains=search)
                 | Q(farmer__first_name__icontains=search)
                 | Q(farmer__last_name__icontains=search)
+                | Q(farmer_name__icontains=search)
             )
 
-        status = request.GET.get("status", "")
-        if status:
-            projects_qs = projects_qs.filter(status=status)
+        status_filter = request.GET.get("status", "")
+        if status_filter:
+            projects_qs = projects_qs.filter(status=status_filter)
+        else:
+            # Default to showing active and pending projects
+            projects_qs = projects_qs.filter(status__in=["active", "pending"])
 
         sort_by = request.GET.get("sortBy", "roi_desc")
         if sort_by == "roi_desc":
@@ -234,9 +387,9 @@ def get_projects(request):
                     "category": project.category.name if project.category else "",
                     "location": project.location,
                     "farmer": project.farmer.id,
-                    "farmer_name": f"{project.farmer.first_name} {project.farmer.last_name}".strip(),
-                    "farmer_experience": 0,
-                    "farmer_rating": 4.5,
+                    "farmer_name": project.farmer_name,
+                    "farmer_experience": project.farmer_experience,
+                    "farmer_rating": float(project.farmer_rating),
                     "roi": float(project.expected_roi),
                     "duration": project.duration_months,
                     "target_amount": float(project.target_amount),
@@ -250,12 +403,15 @@ def get_projects(request):
                     "days_left": project.days_left,
                     "progress_percentage": float(project.progress_percentage()),
                     "funding_needed": float(project.funding_needed()),
+                    "image_url": request.build_absolute_uri(project.image.url) if project.image else None,
                 }
             )
 
         return JsonResponse({"success": True, "projects": projects_data, "total": len(projects_data)})
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
@@ -276,7 +432,9 @@ def get_project_detail(request, project_id):
                     "description": project.description,
                     "category": project.category.name if project.category else "",
                     "location": project.location,
-                    "farmer_name": f"{project.farmer.first_name} {project.farmer.last_name}".strip(),
+                    "farmer_name": project.farmer_name,
+                    "farmer_experience": project.farmer_experience,
+                    "farmer_rating": float(project.farmer_rating),
                     "roi": float(project.expected_roi),
                     "duration": project.duration_months,
                     "target_amount": float(project.target_amount),
@@ -290,6 +448,9 @@ def get_project_detail(request, project_id):
                     "days_left": project.days_left,
                     "progress_percentage": float(project.progress_percentage()),
                     "funding_needed": float(project.funding_needed()),
+                    "image_url": request.build_absolute_uri(project.image.url) if project.image else None,
+                    "business_plan_url": request.build_absolute_uri(project.business_plan.url) if project.business_plan else None,
+                    "additional_docs_url": request.build_absolute_uri(project.additional_docs.url) if project.additional_docs else None,
                 },
             }
         )
@@ -388,6 +549,100 @@ def create_investment(request):
 
 
 # ----------------------------
+# MY PROJECTS
+# ----------------------------
+@csrf_exempt
+def my_projects(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        user = check_auth(request)
+        if not user:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        projects = InvestmentProject.objects.filter(farmer=user).order_by("-created_at")
+        
+        projects_data = []
+        for project in projects:
+            projects_data.append({
+                "id": project.id,
+                "title": project.title,
+                "description": project.description,
+                "category": project.category.name if project.category else "",
+                "location": project.location,
+                "farmer_name": project.farmer_name,
+                "farmer_experience": project.farmer_experience,
+                "farmer_rating": float(project.farmer_rating),
+                "roi": float(project.expected_roi),
+                "duration": project.duration_months,
+                "target_amount": float(project.target_amount),
+                "current_amount": float(project.current_amount),
+                "investment_type": project.investment_type,
+                "risk_level": project.risk_level,
+                "status": project.status,
+                "tags": project.get_tags_list(),
+                "created_at": project.created_at.strftime("%Y-%m-%d"),
+                "investors_count": project.investors_count,
+                "days_left": project.days_left,
+                "progress_percentage": float(project.progress_percentage()),
+                "funding_needed": float(project.funding_needed()),
+                "image_url": request.build_absolute_uri(project.image.url) if project.image else None,
+            })
+
+        return JsonResponse({
+            "success": True,
+            "projects": projects_data,
+            "count": len(projects_data)
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ----------------------------
+# UPDATE PROJECT STATUS
+# ----------------------------
+@csrf_exempt
+def update_project_status(request, project_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+
+    try:
+        user = check_auth(request)
+        if not user:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        # Check if user is admin
+        if not user.is_staff:
+            return JsonResponse({"error": "Admin access required"}, status=403)
+
+        data = json.loads(request.body or "{}")
+        new_status = data.get("status")
+        
+        if new_status not in ["pending", "active", "rejected", "funded", "completed"]:
+            return JsonResponse({"error": "Invalid status"}, status=400)
+
+        try:
+            project = InvestmentProject.objects.get(id=project_id)
+        except InvestmentProject.DoesNotExist:
+            return JsonResponse({"error": "Project not found"}, status=404)
+
+        project.status = new_status
+        project.save()
+
+        return JsonResponse({
+            "success": True,
+            "message": f"Project status updated to {new_status}",
+            "project_id": project.id,
+            "status": project.status
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# ----------------------------
 # CATEGORIES
 # ----------------------------
 @csrf_exempt
@@ -440,6 +695,7 @@ def get_platform_stats(request):
                     "total_investors": unique_investors,
                     "average_roi": round(avg_roi, 1),
                     "active_projects": InvestmentProject.objects.filter(status="active").count(),
+                    "pending_projects": InvestmentProject.objects.filter(status="pending").count(),
                     "funded_projects": InvestmentProject.objects.filter(status="funded").count(),
                 },
             }
@@ -477,6 +733,9 @@ def create_demo_projects(request):
                 "category": coconut_farming,
                 "location": "Kurunegala",
                 "farmer": farmer,
+                "farmer_name": "Ravi Perera",
+                "farmer_experience": 8,
+                "farmer_rating": 4.7,
                 "target_amount": 5000000,
                 "current_amount": 3250000,
                 "expected_roi": 18.5,
@@ -487,6 +746,26 @@ def create_demo_projects(request):
                 "tags": "Organic,Sustainable,Modern Irrigation",
                 "days_left": 45,
                 "investors_count": 24,
+            },
+            {
+                "title": "Coconut Oil Processing Unit",
+                "description": "Establishing a cold-press coconut oil production facility in Gampaha.",
+                "category": coconut_oil,
+                "location": "Gampaha",
+                "farmer": farmer,
+                "farmer_name": "Ravi Perera",
+                "farmer_experience": 5,
+                "farmer_rating": 4.3,
+                "target_amount": 3500000,
+                "current_amount": 1800000,
+                "expected_roi": 22.0,
+                "duration_months": 18,
+                "investment_type": "equity",
+                "risk_level": "medium",
+                "status": "active",
+                "tags": "Cold Press,Organic,Export Quality",
+                "days_left": 60,
+                "investors_count": 18,
             }
         ]
 
@@ -515,13 +794,13 @@ def hello_coco(request):
                 "categories": "/api/categories/",
                 "locations": "/api/locations/",
                 "make_investment": "/api/make-investment/",
+                "create_project": "/api/create-project/",
+                "my_projects": "/api/my-projects/",
                 "demo_projects": "/api/create-demo-projects/",
             },
         }
     )
 
-from django.utils import timezone  # (only if you already use it elsewhere)
-# add Sum import already exists
 
 @csrf_exempt
 def my_investments(request):
@@ -558,8 +837,6 @@ def my_investments(request):
         })
 
     return JsonResponse({"success": True, "investments": investments_data})
-    return JsonResponse({"error": "Invalid request"}, status=405)
-
 
 
 @api_view(["GET", "PUT"])

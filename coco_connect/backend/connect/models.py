@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone  # ✅ needed for Investment.save()
+from django.utils import timezone
 
 # ----------------------------
 # PROFILE
@@ -87,9 +87,11 @@ class InvestmentProject(models.Model):
     ]
 
     STATUS_CHOICES = [
+        ("pending", "Pending Review"),
         ("active", "Active"),
         ("funded", "Funded"),
         ("completed", "Completed"),
+        ("rejected", "Rejected"),
     ]
 
     title = models.CharField(max_length=255)
@@ -107,6 +109,9 @@ class InvestmentProject(models.Model):
     farmer = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="investment_projects"
     )
+    farmer_name = models.CharField(max_length=100, default="")
+    farmer_experience = models.IntegerField(default=0)
+    farmer_rating = models.DecimalField(max_digits=3, decimal_places=2, default=4.5)
 
     # Investment details
     target_amount = models.DecimalField(max_digits=12, decimal_places=2, default=100000)
@@ -121,12 +126,17 @@ class InvestmentProject(models.Model):
     risk_level = models.CharField(
         max_length=10, choices=RISK_CHOICES, default="medium"
     )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
 
     # Additional
     tags = models.TextField(blank=True, default="", help_text="Comma-separated tags")
     days_left = models.IntegerField(default=30)
     investors_count = models.PositiveIntegerField(default=0)
+
+    # Files
+    image = models.ImageField(upload_to='project_images/', null=True, blank=True)
+    business_plan = models.FileField(upload_to='business_plans/', null=True, blank=True)
+    additional_docs = models.FileField(upload_to='project_docs/', null=True, blank=True)
 
     # Dates
     created_at = models.DateTimeField(auto_now_add=True)
