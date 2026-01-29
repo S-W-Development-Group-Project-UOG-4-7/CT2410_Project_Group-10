@@ -98,6 +98,11 @@ class Product(models.Model):
             models.Index(fields=["created_at"]),
         ]
 
+    tx_hash = models.CharField(max_length=66, blank=True, null=True)
+    product_hash = models.CharField(max_length=66, blank=True, null=True)
+    verified_at = models.DateTimeField(blank=True, null=True)
+
+
     def __str__(self):
         return self.name
 

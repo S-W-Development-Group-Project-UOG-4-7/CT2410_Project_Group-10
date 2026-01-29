@@ -1,8 +1,8 @@
+// src/pages/Product-pg.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-
-// Product images
+// Product images (unused but kept since you already import them)
 import prod1 from "../assets/coconut_oil.png";
 import prod2 from "../assets/coconut_water.png";
 import prod3 from "../assets/coir_rope.png";
@@ -13,7 +13,7 @@ import prod7 from "../assets/Activated Coconut Biochar.png";
 import prod8 from "../assets/Handcrafted Coconut Ladle Set.png";
 import prod9 from "../assets/Natural Coconut Shell Cups.png";
 
-// News images
+// News images (unused but kept since you already import them)
 import news1 from "../assets/news1.png";
 import news2 from "../assets/news2.png";
 import news3 from "../assets/news3.png";
@@ -27,6 +27,8 @@ import { useCart } from "../context/CartContext";
 
 import AddProductModal from "../components/AddProductModal";
 import ProductDetailsModal from "../components/ProductDetailsModal";
+
+const API = "http://127.0.0.1:8000";
 
 const Product = () => {
   const [filters, setFilters] = useState({
@@ -42,10 +44,23 @@ const Product = () => {
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState(null);
   const [reloadProductsTick, setReloadProductsTick] = useState(0);
+
+  // ✅ verify state
+  const [verifyingId, setVerifyingId] = useState(null);
+  const [verifyError, setVerifyError] = useState(null);
+
   // Ensure price filter expands at first load if products contain more expensive items
   const hasSetMaxPrice = useRef(false);
-  // Logged-in user (null if not logged in)
-  const user = JSON.parse(localStorage.getItem("user"));
+
+  // ✅ Logged-in user (null if not logged in) — safe parse
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      return null;
+    }
+  }, []);
+  const access = localStorage.getItem("access");
 
   // Add Product modal control
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -56,71 +71,48 @@ const Product = () => {
   const navigate = useNavigate();
 
   const [newsIndex, setNewsIndex] = useState(0);
-  // Scroll to product
   const productsSectionRef = useRef(null);
 
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!newsItems.length) return; // ✅ prevent crash when empty
-
+    if (!newsItems.length) return;
     const interval = setInterval(() => {
       setNewsIndex((prev) => (prev + 1) % newsItems.length);
     }, 4000);
-
     return () => clearInterval(interval);
   }, [newsItems.length]);
-
 
   useEffect(() => {
     const fetchProducts = async () => {
       setIsLoadingProducts(true);
       setProductsError(null);
+
       let retryCount = 0;
       const maxRetries = 3;
 
       const attemptFetch = async () => {
         try {
-          const response = await fetch("http://127.0.0.1:8000/api/products/", {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+          const response = await fetch(`${API}/api/products/`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
           });
 
           if (!response.ok) {
-            // try to get server-provided detail
             let errDetail = null;
             try {
               const body = await response.json();
               errDetail = body.detail || JSON.stringify(body);
-            } catch (e) {
+            } catch {
               errDetail = await response.text();
             }
-            const msg = `Server returned ${response.status}: ${errDetail}`;
-            throw new Error(msg);
+            throw new Error(`Server returned ${response.status}: ${errDetail}`);
           }
 
           const data = await response.json();
-          console.log("✅ API PRODUCTS:", data);
-          console.log("✅ Number of products:", Array.isArray(data) ? data.length : 0);
-
-          if (Array.isArray(data) && data.length > 0) {
-            console.log("✅ Sample product:", data[0]);
-            console.log("✅ Product structure:", {
-              id: data[0].id,
-              name: data[0].name,
-              category: data[0].category,
-              type: data[0].type,
-              price: data[0].price,
-              image: data[0].image
-            });
-          }
-
           setProducts(Array.isArray(data) ? data : []);
 
-          // Expand price filter once if products contain items above current filter
           if (Array.isArray(data) && data.length > 0) {
             const maxPrice = Math.max(...data.map((p) => Number(p.price) || 0));
             if (!hasSetMaxPrice.current && maxPrice > filters.price) {
@@ -131,16 +123,17 @@ const Product = () => {
 
           setIsLoadingProducts(false);
         } catch (err) {
-          console.error(`❌ Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`, err);
+          console.error(
+            `❌ Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`,
+            err
+          );
 
           if (retryCount < maxRetries) {
             retryCount++;
-            console.log(`🔄 Retrying in 1 second...`);
             setTimeout(attemptFetch, 1000);
           } else {
-            console.error("❌ Failed to fetch products after all retries");
             setProducts([]);
-            setProductsError(err.message || 'Failed to fetch products');
+            setProductsError(err.message || "Failed to fetch products");
             setIsLoadingProducts(false);
           }
         }
@@ -150,25 +143,21 @@ const Product = () => {
     };
 
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadProductsTick]);
 
   useEffect(() => {
     const fetchNews = async () => {
       setIsLoadingNews(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/products/news/", {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        const response = await fetch(`${API}/api/products/news/`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        console.log("✅ API NEWS:", data);
         setNewsItems(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("❌ Error fetching news:", err);
@@ -181,62 +170,84 @@ const Product = () => {
     fetchNews();
   }, [reloadProductsTick]);
 
+  // ✅ VERIFY handler
+  const handleVerify = async (productId) => {
+    setVerifyError(null);
+    setVerifyingId(productId);
+
+    try {
+      const res = await fetch(`${API}/api/products/${productId}/verify/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(access ? { Authorization: `Bearer ${access}` } : {}),
+        },
+      });
+
+      if (!res.ok) {
+        let errDetail = null;
+        try {
+          const body = await res.json();
+          errDetail = body.detail || body.error || JSON.stringify(body);
+        } catch {
+          errDetail = await res.text();
+        }
+        throw new Error(errDetail || `Verify failed (${res.status})`);
+      }
+
+      const updated = await res.json();
+      // ✅ Update only real fields (no fake is_verified)
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === productId
+            ? {
+                ...p,
+                tx_hash: updated.tx_hash ?? p.tx_hash,
+                product_hash: updated.product_hash ?? p.product_hash,
+                verified_at: updated.verified_at ?? p.verified_at,
+              }
+            : p
+        )
+      );
+    } catch (e) {
+      console.error("❌ verify error:", e);
+      setVerifyError(String(e.message || e));
+    } finally {
+      setVerifyingId(null);
+    }
+  };
 
   // Get all unique categories from products dynamically
   const availableCategories = useMemo(() => {
-    if (!Array.isArray(products) || products.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(products) || products.length === 0) return [];
     const categories = new Set();
-    products.forEach(p => {
-      if (p?.category) {
-        categories.add(p.category);
-      }
-    });
+    products.forEach((p) => p?.category && categories.add(p.category));
     return Array.from(categories).sort();
   }, [products]);
 
   // Calculate category counts based on current filters (price and type, but not category)
-  // This updates in real-time when price or type filters change
   const categoryCounts = useMemo(() => {
-    // Safety check: ensure products is an array
-    if (!Array.isArray(products) || products.length === 0) {
-      return { all: 0 };
-    }
+    if (!Array.isArray(products) || products.length === 0) return { all: 0 };
 
-    // Filter products by price and type (excluding category filter)
-    // Note: API returns 'type' field, not 'product_type'
-    // Backend: Product.category (ForeignKey) → Category.slug → serializer returns as 'category' (slug string)
-    // Backend: Product.product_type (ForeignKey) → ProductType.name → serializer returns as 'type' (name string)
     const baseFiltered = products.filter((p) => {
-      if (!p || typeof p !== 'object') return false;
-      const price = Number(p.price);
-      if (isNaN(price)) return false;
-
-      return price <= filters.price &&
-        (
-          filters.type === "all" ||
-          p.type === filters.type
-        );
+      const price = Number(p?.price);
+      if (Number.isNaN(price)) return false;
+      return price <= filters.price && (filters.type === "all" || p.type === filters.type);
     });
 
-    // Build dynamic category counts
     const counts = { all: baseFiltered.length };
-    availableCategories.forEach(catSlug => {
-      counts[catSlug] = baseFiltered.filter(p => p?.category === catSlug).length;
+    availableCategories.forEach((catSlug) => {
+      counts[catSlug] = baseFiltered.filter((p) => p?.category === catSlug).length;
     });
 
     return counts;
   }, [products, filters.price, filters.type, availableCategories]);
 
-  // Build category data for the UI (was previously missing as `categoryData`)
   const categoryData = useMemo(() => {
-    // availableCategories is an array of category slugs
     return {
       categories: availableCategories.map((slug, idx) => ({
         id: idx,
         slug,
-        // Display a nicer name by replacing dashes with spaces; fallback to slug
         name: String(slug).replace(/-/g, " "),
         count: categoryCounts[slug] ?? 0,
       })),
@@ -244,24 +255,17 @@ const Product = () => {
   }, [availableCategories, categoryCounts]);
 
   const filteredProducts = useMemo(() => {
-    if (!Array.isArray(products) || products.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(products) || products.length === 0) return [];
 
     return products
       .filter((p) => {
-        if (!p || typeof p !== 'object') return false;
-        const price = Number(p.price);
-        if (isNaN(price)) return false;
+        const price = Number(p?.price);
+        if (Number.isNaN(price)) return false;
 
-        // Note: API returns 'type' field, not 'product_type'
         return (
           (filters.category === "all" || p.category === filters.category) &&
           price <= filters.price &&
-          (
-            filters.type === "all" ||
-            p.type === filters.type
-          )
+          (filters.type === "all" || p.type === filters.type)
         );
       })
       .sort((a, b) => {
@@ -271,12 +275,11 @@ const Product = () => {
       });
   }, [products, filters.category, filters.price, filters.type, filters.sortBy]);
 
+  const visibleProducts = useMemo(() => filteredProducts.slice(0, visibleCount), [
+    filteredProducts,
+    visibleCount,
+  ]);
 
-  const visibleProducts = useMemo(() => {
-    return filteredProducts.slice(0, visibleCount);
-  }, [filteredProducts, visibleCount]);
-
-  // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(6);
   }, [filters.category, filters.price, filters.type, filters.sortBy]);
@@ -286,11 +289,7 @@ const Product = () => {
   };
 
   const { addToCart } = useCart();
-
-  const handleAddToCart = async (productId) => {
-    // Logic moved to Context
-    await addToCart(productId);
-  };
+  const handleAddToCart = async (productId) => addToCart(productId);
 
   const handleReset = () => {
     setFilters({ category: "all", price: 500, type: "all", sortBy: "relevance" });
@@ -312,28 +311,27 @@ const Product = () => {
         className="absolute inset-0 pointer-events-none"
         style={{
           background: `
-      linear-gradient(
-        to bottom,
-        rgba(249,246,241,0.95) 0%,
-        rgba(249,246,241,0.85) 20%,
-        rgba(249,246,241,0.6) 45%,
-        rgba(249,246,241,0.35) 65%,
-        rgba(249,246,241,0.15) 80%,
-        rgba(249,246,241,0) 100%
-      ),
-      radial-gradient(
-        ellipse at center,
-        rgba(249,246,241,0.75) 0%,
-        rgba(249,246,241,0.55) 35%,
-        rgba(249,246,241,0.25) 60%,
-        rgba(249,246,241,0) 85%
-      )
-    `,
+            linear-gradient(
+              to bottom,
+              rgba(249,246,241,0.95) 0%,
+              rgba(249,246,241,0.85) 20%,
+              rgba(249,246,241,0.6) 45%,
+              rgba(249,246,241,0.35) 65%,
+              rgba(249,246,241,0.15) 80%,
+              rgba(249,246,241,0) 100%
+            ),
+            radial-gradient(
+              ellipse at center,
+              rgba(249,246,241,0.75) 0%,
+              rgba(249,246,241,0.55) 35%,
+              rgba(249,246,241,0.25) 60%,
+              rgba(249,246,241,0) 85%
+            )
+          `,
         }}
-      ></div>
+      />
 
-
-      {/* ================= HERO SECTION ================= */}
+      {/* HERO */}
       <section
         className="relative w-full h-[70vh] flex items-center"
         style={{
@@ -342,36 +340,30 @@ const Product = () => {
           backgroundPosition: "center",
         }}
       >
-        {/* Left-focused gradient */}
-
         <div
           className="absolute inset-0"
           style={{
             background: `
-        linear-gradient(
-          to right,
-          rgba(0,0,0,0.75) 10%,
-          rgba(0,0,0,0.65) 30%,
-          rgba(0,0,0,0.45) 45%,
-          rgba(0,0,0,0.2) 60%,
-          rgba(0,0,0,0) 75%
-        )
-      `,
-
+              linear-gradient(
+                to right,
+                rgba(0,0,0,0.75) 10%,
+                rgba(0,0,0,0.65) 30%,
+                rgba(0,0,0,0.45) 45%,
+                rgba(0,0,0,0.2) 60%,
+                rgba(0,0,0,0) 75%
+              )
+            `,
           }}
-        ></div>
-        {/* Content */}
+        />
         <div className="relative z-10 w-full px-6">
           <div className="max-w-xl ml-24 mt-20 text-white">
-
-            <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-6"><br />
+            <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-6">
+              <br />
               Shop Sustainable Products.
             </h1>
-
             <p className="text-lg md:text-xl mb-8 text-white/90">
               Empowering farmers. Connecting investors. Delivering natural products.
             </p>
-
             <div className="flex gap-4">
               <button
                 onClick={() =>
@@ -384,54 +376,47 @@ const Product = () => {
               >
                 Explore Products
               </button>
-
               <button
                 onClick={() => navigate("/investment")}
                 className="bg-white/90 text-green-700 hover:bg-white px-6 py-3 rounded-md font-semibold transition"
               >
                 Invest in Lands
               </button>
-
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* ORIGINAL UI */}
-
+      {/* MAIN */}
       <div
         ref={productsSectionRef}
-        className="relative z-10 text-[#2f3e46] min-h-screen p-6">
-        {/* SECTION TITLE */}
+        className="relative z-10 text-[#2f3e46] min-h-screen p-6"
+      >
+        {/* TITLE */}
         <div className="relative z-10 text-center py-10">
           <div className="flex items-center justify-center gap-4">
             <h2 className="text-3xl font-semibold text-[#4b3b2a]">
               Sustainable Coconut Products
             </h2>
-
           </div>
           <div className="w-24 h-[2px] bg-green-600 mx-auto mt-3"></div>
         </div>
+
         <div className="flex flex-col lg:flex-row gap-6">
-
-
           {/* SIDEBAR */}
-          <div className="bg-[#faf0e6] w-full lg:w-1/4 p-6 rounded-lg shadow space-y-5
-                lg:sticky lg:top-24
-                max-h-[80vh] overflow-y-auto">
-
+          <div
+            className="bg-[#faf0e6] w-full lg:w-1/4 p-6 rounded-lg shadow space-y-5
+              lg:sticky lg:top-24
+              max-h-[80vh] overflow-y-auto"
+          >
             <div>
-              <label htmlFor="type-filter" className="font-semibold block mb-2"> Category </label>
+              <label className="font-semibold block mb-2">Category</label>
               <select
                 value={filters.category}
-                onChange={(e) =>
-                  setFilters({ ...filters, category: e.target.value })
-                }
+                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
                 <option value="all">All</option>
-
                 {categoryData.categories.map((cat) => (
                   <option key={cat.id} value={cat.slug}>
                     {cat.name} ({cat.count})
@@ -440,14 +425,11 @@ const Product = () => {
               </select>
             </div>
 
-            {/* Price */}
             <div>
-              <label htmlFor="price-filter" className="font-semibold block mb-2">
+              <label className="font-semibold block mb-2">
                 Price Range (Up to ${filters.price})
               </label>
               <input
-                id="price-filter"
-                name="price-filter"
                 type="range"
                 min="0"
                 max="100000"
@@ -457,12 +439,9 @@ const Product = () => {
               />
             </div>
 
-            {/* Product Type */}
             <div>
-              <label htmlFor="type-filter" className="font-semibold block mb-2">Product Type</label>
+              <label className="font-semibold block mb-2">Product Type</label>
               <select
-                id="type-filter"
-                name="type-filter"
                 value={filters.type}
                 onChange={(e) => setFilters({ ...filters, type: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
@@ -474,12 +453,9 @@ const Product = () => {
               </select>
             </div>
 
-            {/* Sort */}
             <div>
-              <label htmlFor="sort-filter" className="font-semibold block mb-2">Sort By</label>
+              <label className="font-semibold block mb-2">Sort By</label>
               <select
-                id="sort-filter"
-                name="sort-filter"
                 value={filters.sortBy}
                 onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
@@ -500,21 +476,25 @@ const Product = () => {
                 {newsItems.map((item, index) => (
                   <img
                     key={index}
-                    src={item.image?.startsWith('http') ? item.image : `http://127.0.0.1:8000${item.image || ''}`}
+                    src={
+                      item.image?.startsWith("http")
+                        ? item.image
+                        : `${API}${item.image || ""}`
+                    }
                     alt="news"
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${newsIndex === index ? "opacity-100" : "opacity-0"
-                      }`}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                      newsIndex === index ? "opacity-100" : "opacity-0"
+                    }`}
                   />
                 ))}
               </div>
               <p className="mt-2 px-2 text-center">
                 {newsItems.length ? newsItems[newsIndex]?.text : "Loading news..."}
               </p>
-
             </div>
           </div>
 
-          {/* PRODUCT GRID */}
+          {/* GRID */}
           <div className="w-full lg:w-3/4 pb-20">
             {isLoadingProducts ? (
               <div className="text-center py-12">
@@ -527,99 +507,179 @@ const Product = () => {
                     <p className="font-semibold">Error loading products</p>
                     <p className="text-sm mt-1">{productsError}</p>
                     <div className="mt-3">
-                      <button onClick={() => { setReloadProductsTick(t => t + 1); setIsLoadingProducts(true); setProductsError(null); }}
-                        className="px-3 py-1 bg-green-600 text-white rounded">
+                      <button
+                        onClick={() => {
+                          setReloadProductsTick((t) => t + 1);
+                          setIsLoadingProducts(true);
+                          setProductsError(null);
+                        }}
+                        className="px-3 py-1 bg-green-600 text-white rounded"
+                      >
                         Retry
                       </button>
-                      <button onClick={() => window.location.reload()} className="ml-2 px-3 py-1 border rounded">Reload page</button>
+                      <button
+                        onClick={() => window.location.reload()}
+                        className="ml-2 px-3 py-1 border rounded"
+                      >
+                        Reload page
+                      </button>
                     </div>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {verifyError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded mb-4">
+                    <p className="text-sm">Verify failed: {verifyError}</p>
+                  </div>
+                )}
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {visibleProducts.length > 0 ? (
-                    visibleProducts.map((product) => (
-                      <div key={product.id} className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative">
-                        {/* IMAGE (CLICKABLE) */}
-                        {product.image ? (
-                          <img
-                            src={
-                              product.image.startsWith("http")
-                                ? product.image
-                                : `http://127.0.0.1:8000${product.image}`
-                            }
-                            alt={product.name || "Product"}
-                            className="w-full h-48 object-cover rounded cursor-pointer"
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setIsProductModalOpen(true);
-                            }}
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div
-                            className="w-full h-48 bg-gray-200 rounded flex items-center justify-center cursor-pointer"
+                    visibleProducts.map((product) => {
+                      // ✅ Verified derived from real backend fields
+                      const isVerified = Boolean(
+                        product?.verified_at || product?.tx_hash || product?.product_hash
+                      );
+                      const isVerifying = verifyingId === product.id;
+
+                      // ✅ ownership check (serializer returns author {id, name})
+                      const authorId = product?.author?.id ?? null;
+                      const authorName = product?.author?.name ?? "Unknown";
+                      const isOwner =
+                        Boolean(user?.id && authorId) &&
+                        Number(user.id) === Number(authorId);
+
+                      // ✅ Only owner + logged-in + not verified can see verify button
+                      const canVerify = Boolean(access && isOwner && !isVerified);
+
+                      return (
+                        <div
+                          key={product.id}
+                          className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative"
+                        >
+                          {isVerified && (
+                            <div className="absolute top-3 left-3 z-10">
+                              <span className="text-[11px] bg-green-600 text-white px-2 py-1 rounded-full shadow">
+                                ✔ Verified
+                              </span>
+                            </div>
+                          )}
+
+                          {product.image ? (
+                            <img
+                              src={
+                                String(product.image).startsWith("http")
+                                  ? product.image
+                                  : `${API}${product.image}`
+                              }
+                              alt={product.name || "Product"}
+                              className="w-full h-48 object-cover rounded cursor-pointer"
+                              onClick={() => {
+                                setSelectedProduct(product);
+                                setIsProductModalOpen(true);
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <div
+                              className="w-full h-48 bg-gray-200 rounded flex items-center justify-center cursor-pointer"
+                              onClick={() => {
+                                setSelectedProduct(product);
+                                setIsProductModalOpen(true);
+                              }}
+                            >
+                              <span className="text-gray-400">No Image</span>
+                            </div>
+                          )}
+
+                          <h3
+                            className="font-semibold mt-3 cursor-pointer hover:underline"
                             onClick={() => {
                               setSelectedProduct(product);
                               setIsProductModalOpen(true);
                             }}
                           >
-                            <span className="text-gray-400">No Image</span>
+                            {product.name || "Unnamed Product"}
+                          </h3>
+
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-green-700">By {authorName}</p>
+
+                            {user && (
+                              <button
+                                onClick={() => setIsAddProductOpen(true)}
+                                className="text-green-600 font-bold hover:scale-110 transition"
+                                title="Add your product"
+                              >
+                                +
+                              </button>
+                            )}
                           </div>
-                        )}
 
-                        {/* PRODUCT NAME (CLICKABLE) */}
-                        <h3
-                          className="font-semibold mt-3 cursor-pointer hover:underline"
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setIsProductModalOpen(true);
-                          }}
-                        >
-                          {product.name || "Unnamed Product"}
-                        </h3>
-
-                        {/* AUTHOR */}
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-green-700">
-                            By {product.author || "Unknown"}
+                          <p className="text-xs text-gray-500 line-clamp-2">
+                            {product.description || ""}
                           </p>
 
+                          <div className="flex justify-between items-center mt-2">
+                            <p className="font-semibold">
+                              ${Number(product.price || 0).toFixed(2)}
+                            </p>
 
-                          {user && (
                             <button
-                              onClick={() => setIsAddProductOpen(true)}
-                              className="text-green-600 font-bold hover:scale-110 transition"
-                              title="Add your product"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToCart(product.id);
+                              }}
+                              className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition"
                             >
-                              +
+                              Add
+                            </button>
+                          </div>
+
+                          {/* ✅ VERIFY BUTTON only for OWNER */}
+                          {canVerify && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleVerify(product.id);
+                              }}
+                              disabled={isVerifying}
+                              className={`mt-3 w-full px-3 py-2 rounded font-semibold transition ${
+                                isVerifying
+                                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                  : "bg-black text-white hover:bg-gray-900"
+                              }`}
+                            >
+                              {isVerifying ? "Verifying..." : "Verify on Blockchain"}
                             </button>
                           )}
+
+                          {/* Optional hint for non-owner logged-in users */}
+                          {user && !isOwner && !isVerified && (
+                            <p className="mt-3 text-[11px] text-gray-500 text-center">
+                              Only the owner can verify this product
+                            </p>
+                          )}
+
+                          {isVerified && product?.tx_hash && (
+                            <p className="mt-2 text-[11px] text-gray-600 break-all">
+                              Tx: {String(product.tx_hash).slice(0, 12)}...
+                            </p>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-500 line-clamp-2">{product.description || ''}</p>
-                        <div className="flex justify-between items-center mt-2">
-                          <p className="font-semibold">${Number(product.price || 0).toFixed(2)}</p>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent opening modal
-                              handleAddToCart(product.id);
-                            }}
-                            className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="col-span-full text-center py-12">
-                      <p className="text-gray-500">No products found. Try adjusting your filters.</p>
+                      <p className="text-gray-500">
+                        No products found. Try adjusting your filters.
+                      </p>
                       {products.length > 0 && (
                         <p className="text-sm text-gray-400 mt-2">
-                          {products.length} total products available, but none match your current filters.
+                          {products.length} total products available, but none match your current
+                          filters.
                         </p>
                       )}
                     </div>
@@ -639,7 +699,6 @@ const Product = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
 
@@ -648,10 +707,10 @@ const Product = () => {
         <button
           onClick={() => setIsAddProductOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14
-           rounded-full bg-green-600 text-white text-3xl
-           font-bold flex items-center justify-center
-           shadow-lg hover:bg-green-700 hover:scale-105
-           transition z-50"
+            rounded-full bg-green-600 text-white text-3xl
+            font-bold flex items-center justify-center
+            shadow-lg hover:bg-green-700 hover:scale-105
+            transition z-50"
           title="Add your product"
         >
           +
@@ -661,8 +720,9 @@ const Product = () => {
       <AddProductModal
         isOpen={isAddProductOpen}
         onClose={() => setIsAddProductOpen(false)}
-        onSuccess={() => setReloadProductsTick(t => t + 1)}
+        onSuccess={() => setReloadProductsTick((t) => t + 1)}
       />
+
       <ProductDetailsModal
         isOpen={isProductModalOpen}
         product={selectedProduct}
@@ -671,7 +731,6 @@ const Product = () => {
           setSelectedProduct(null);
         }}
       />
-
     </div>
   );
 };

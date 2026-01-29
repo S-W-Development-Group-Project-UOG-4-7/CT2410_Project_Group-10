@@ -1,5 +1,7 @@
 from django.urls import path
 from django.http import JsonResponse
+from .views import verify_product
+
 
 from .views import (
     ProductListAPIView,
@@ -60,4 +62,8 @@ urlpatterns = [
 
     # ----- Health -----
     path("health/", health_check, name="health-check"),
+
+    #Blockchain - verify
+    path("<int:pk>/verify/", verify_product, name="verify-product")
+
 ]

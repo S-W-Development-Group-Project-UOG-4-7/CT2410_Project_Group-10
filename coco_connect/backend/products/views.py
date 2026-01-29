@@ -12,6 +12,14 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+
+from .models import Product
+from blockchain_records.web3_client import record_proof, make_product_hash, now_utc
+
 from .models import Product, NewsItem, Cart, CartItem
 from .serializers import (
     ProductSerializer,
@@ -210,3 +218,102 @@ class CartItemUpdateDeleteView(UpdateAPIView, DestroyAPIView):
     def get_queryset(self):
         # Security: user can only access their own cart items
         return CartItem.objects.filter(cart__user=self.request.user)
+    
+
+
+
+# Blockchain Verifying a product
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])  # remove if you want public verify
+def verify_product(request, pk):
+    try:
+        product = Product.objects.get(pk=pk)
+    except Product.DoesNotExist:
+        return Response({"detail": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # OPTIONAL: only author can verify
+    # if product.author_id != request.user.id:
+    #     return Response({"detail": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        product_hash = make_product_hash(product)     # "0x...."
+        tx_hash = record_proof(product.id, product_hash)  # "0x...."
+    except Exception as e:
+        return Response(
+            {"detail": "Blockchain verify failed", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    product.product_hash = product_hash
+    product.tx_hash = tx_hash
+    product.verified_at = now_utc()
+    product.save(update_fields=["product_hash", "tx_hash", "verified_at"])
+
+    return Response(
+        {
+            "id": product.id,
+            "product_hash": product.product_hash,
+            "tx_hash": product.tx_hash,
+            "verified_at": product.verified_at,
+        },
+        status=status.HTTP_200_OK
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def verify_product(request, pk):
+    try:
+        product = Product.objects.select_related("author").get(pk=pk)
+    except Product.DoesNotExist:
+        return Response({"detail": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ only author can verify
+    if not product.author_id or product.author_id != request.user.id:
+        return Response(
+            {"detail": "Not allowed. You can verify only your own products."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # ✅ prevent duplicate verify (optional but good)
+    if product.verified_at and product.tx_hash:
+        return Response(
+            {
+                "detail": "Already verified",
+                "id": product.id,
+                "product_hash": product.product_hash,
+                "tx_hash": product.tx_hash,
+                "verified_at": product.verified_at,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    try:
+        product_hash = make_product_hash(product)  # "0x..."
+        tx_hash = record_proof(product.id, product_hash)  # should be "0x..."
+
+        # ✅ normalize tx hash
+        if tx_hash and not tx_hash.startswith("0x"):
+            tx_hash = "0x" + tx_hash
+
+    except Exception as e:
+        return Response(
+            {"detail": "Blockchain verify failed", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    product.product_hash = product_hash
+    product.tx_hash = tx_hash
+    product.verified_at = now_utc()
+    product.save(update_fields=["product_hash", "tx_hash", "verified_at"])
+
+    return Response(
+        {
+            "id": product.id,
+            "product_hash": product.product_hash,
+            "tx_hash": product.tx_hash,
+            "verified_at": product.verified_at,
+        },
+        status=status.HTTP_200_OK,
+    )

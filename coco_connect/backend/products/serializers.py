@@ -7,9 +7,11 @@ from .models import Product, NewsItem, Category, ProductType, CartItem
 # PRODUCT LIST SERIALIZER
 # =========================
 class ProductSerializer(serializers.ModelSerializer):
-    # ✅ list should be read_only (no queryset needed)
     category = serializers.SlugRelatedField(read_only=True, slug_field="slug")
+
+    # ✅ return author {id, name} so frontend can check ownership
     author = serializers.SerializerMethodField()
+
     type = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
@@ -26,11 +28,19 @@ class ProductSerializer(serializers.ModelSerializer):
             "type",
             "image",
             "author",
+            # ✅ BLOCKCHAIN FIELDS
+            "tx_hash",
+            "product_hash",
+            "verified_at",
         ]
 
     def get_author(self, obj):
         try:
-            return obj.author.username if obj.author else None
+            if not obj.author:
+                return None
+            # ✅ return id + display name
+            name = getattr(obj.author, "username", None) or getattr(obj.author, "email", None)
+            return {"id": obj.author.id, "name": name}
         except Exception:
             return None
 
@@ -56,19 +66,12 @@ class ProductSerializer(serializers.ModelSerializer):
 # PRODUCT CREATE SERIALIZER
 # =========================
 class ProductCreateSerializer(serializers.ModelSerializer):
-    """
-    ✅ Frontend sends:
-      category = "food-items" (slug)
-      type     = "Processed Goods" (ProductType.name)
-    """
-
     category = serializers.SlugRelatedField(
         slug_field="slug",
         queryset=Category.objects.all(),
         required=True,
     )
 
-    # ✅ accept "type" from frontend, map it to product_type FK
     type = serializers.SlugRelatedField(
         source="product_type",
         slug_field="name",
