@@ -10,15 +10,38 @@ function authHeaders(token) {
   };
 }
 
-function getInitials(value = "") {
-  if (!value) return "U";
-  return value
-    .split("@")[0]
-    .split(/[._-]/)
-    .map((v) => v[0])
-    .join("")
+// ✅ convert author/category (string or object) into a display string
+function asText(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+
+  // object cases (serializer nested objects)
+  if (typeof v === "object") {
+    return (
+      v.name ||
+      v.title ||
+      v.slug ||
+      v.email ||
+      v.username ||
+      ""
+    );
+  }
+  return String(v);
+}
+
+function getInitials(value) {
+  const s = asText(value).trim();
+  if (!s) return "U";
+
+  // if email
+  const base = s.includes("@") ? s.split("@")[0] : s;
+
+  // split words / separators
+  const parts = base.split(/[\s._-]+/).filter(Boolean);
+  return parts
     .slice(0, 2)
-    .toUpperCase();
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
 }
 
 export default function AdminProducts() {
@@ -57,12 +80,13 @@ export default function AdminProducts() {
   const filteredItems = useMemo(() => {
     if (!search) return items;
     const q = search.toLowerCase();
-    return items.filter(
-      (p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.category?.toLowerCase().includes(q) ||
-        p.author?.toLowerCase().includes(q)
-    );
+
+    return items.filter((p) => {
+      const name = asText(p.name).toLowerCase();
+      const category = asText(p.category).toLowerCase();
+      const author = asText(p.author).toLowerCase();
+      return name.includes(q) || category.includes(q) || author.includes(q);
+    });
   }, [items, search]);
 
   const handleDelete = async (id) => {
@@ -139,66 +163,73 @@ export default function AdminProducts() {
                 </td>
               </tr>
             ) : (
-              filteredItems.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-b hover:bg-slate-50 transition"
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      {p.image ? (
-                        <img
-                          src={p.image}
-                          alt={p.name}
-                          className="w-10 h-10 rounded-lg object-cover"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center font-bold text-emerald-800">
-                          {getInitials(p.name)}
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-bold text-slate-900">{p.name}</div>
-                        <div className="text-xs text-slate-500 line-clamp-1">
-                          {p.description}
+              filteredItems.map((p) => {
+                const categoryLabel = asText(p.category) || "—";
+                const authorLabel = asText(p.author) || "—";
+
+                return (
+                  <tr
+                    key={p.id}
+                    className="border-b hover:bg-slate-50 transition"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        {p.image ? (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="w-10 h-10 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center font-bold text-emerald-800">
+                            {getInitials(p.name)}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-bold text-slate-900">
+                            {asText(p.name)}
+                          </div>
+                          <div className="text-xs text-slate-500 line-clamp-1">
+                            {asText(p.description)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4">{p.category}</td>
+                    <td className="px-5 py-4">{categoryLabel}</td>
 
-                  <td className="px-5 py-4 font-semibold">
-                    LKR {Number(p.price).toLocaleString()}
-                  </td>
+                    <td className="px-5 py-4 font-semibold">
+                      LKR {Number(p.price).toLocaleString()}
+                    </td>
 
-                  <td className="px-5 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-800">
-                        {getInitials(p.author)}
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-800">
+                          {getInitials(p.author)}
+                        </div>
+                        <span className="text-sm font-semibold text-slate-800">
+                          {authorLabel}
+                        </span>
                       </div>
-                      <span className="text-sm font-semibold text-slate-800">
-                        {p.author || "—"}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-5 py-4 text-right">
-                    <button
-                      onClick={() => toast.info("Edit coming soon")}
-                      className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 mr-2"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      className="px-3 py-1.5 rounded-lg border border-red-300 text-sm text-red-700 hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        onClick={() => toast.info("Edit coming soon")}
+                        className="px-3 py-1.5 rounded-lg border text-sm hover:bg-slate-100 mr-2"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className="px-3 py-1.5 rounded-lg border border-red-300 text-sm text-red-700 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
