@@ -183,16 +183,43 @@ def login(request):
 # =================================================
 # USER PROFILE
 # =================================================
-@api_view(["GET"])
+@api_view(["GET", "PUT", "PATCH"])
 @permission_classes([IsAuthenticated])
 def me(request):
     user = request.user
+    profile = getattr(user, "profile", None)
+
+    if request.method in ["PUT", "PATCH"]:
+        # Allow updating first/last name safely.
+        first_name = (request.data.get("first_name") or "").strip()
+        last_name = (request.data.get("last_name") or "").strip()
+
+        # Optional: if you REALLY want username update (NOT recommended if you login with email)
+        # username = (request.data.get("username") or "").strip()
+        # if username and username != user.username:
+        #     if User.objects.filter(username=username).exclude(id=user.id).exists():
+        #         return Response({"error": "Username already taken"}, status=400)
+        #     user.username = username
+
+        if first_name != "":
+            user.first_name = first_name
+        # last name can be empty intentionally
+        user.last_name = last_name
+
+        user.save()
+
+    full_name = f"{user.first_name} {user.last_name}".strip()
+
     return Response(
         {
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "name": user.get_full_name() or user.username,
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
+            "full_name": full_name,
+            "role": getattr(profile, "role", "buyer"),
+            "name": full_name or user.username,  # keep old frontend compatibility
         }
     )
 
@@ -202,27 +229,31 @@ def me(request):
 def change_password(request):
     current_password = request.data.get("current_password")
     new_password = request.data.get("new_password")
+    confirm_password = request.data.get("confirm_password")  # ✅ accept confirm too
 
     if not current_password or not new_password:
         return Response(
-            {"detail": "current_password and new_password are required"},
+            {"error": "current_password and new_password are required"},
             status=400,
         )
+
+    if confirm_password is not None and new_password != confirm_password:
+        return Response({"error": "Passwords do not match"}, status=400)
 
     user = request.user
 
     if not user.check_password(current_password):
-        return Response({"detail": "Current password is incorrect"}, status=400)
+        return Response({"error": "Current password is incorrect"}, status=400)
 
     try:
         validate_password(new_password, user=user)
     except ValidationError as e:
-        return Response({"detail": e.messages}, status=400)
+        return Response({"error": e.messages}, status=400)
 
     user.set_password(new_password)
     user.save()
 
-    return Response({"detail": "Password changed successfully"})
+    return Response({"message": "Password changed successfully"})
 
 
 # =================================================

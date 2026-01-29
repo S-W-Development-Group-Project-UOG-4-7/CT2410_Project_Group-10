@@ -13,34 +13,139 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 
+const API = "http://127.0.0.1:8000/api";
+
+function safeParse(json, fallback = null) {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
+}
+
+function buildDisplayName(u) {
+  // ✅ Never allow "undefined undefined"
+  const name = (u?.name || "").trim();
+  if (name && name.toLowerCase() !== "undefined undefined") return name;
+
+  const fn = (u?.first_name || "").trim();
+  const ln = (u?.last_name || "").trim();
+  const full = `${fn} ${ln}`.trim();
+  if (full && full.toLowerCase() !== "undefined undefined") return full;
+
+  const username = (u?.username || "").trim();
+  if (username) return username;
+
+  const email = (u?.email || "").trim();
+  if (email) return email.split("@")[0];
+
+  return "User";
+}
+
+function getInitials(displayName = "User") {
+  const s = (displayName || "").trim();
+  if (!s) return "U";
+
+  // if email-like, just first char
+  if (s.includes("@")) return s[0].toUpperCase();
+
+  const parts = s.split(" ").filter(Boolean);
+  const a = (parts[0]?.[0] || "U").toUpperCase();
+  const b = (parts[1]?.[0] || "").toUpperCase();
+  return (a + b) || "U";
+}
+
 export default function CustomerLayout() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const mobileMenuRef = useRef(null);
 
-  const user = useMemo(() => {
-    try {
-      const u = localStorage.getItem("user");
-      return u ? JSON.parse(u) : null;
-    } catch {
-      return null;
-    }
+  // ✅ Read localStorage user at runtime (not frozen)
+  const [userState, setUserState] = useState(() => {
+    const u = localStorage.getItem("user");
+    return u ? safeParse(u, {}) : {};
+  });
+
+  const token = useMemo(() => localStorage.getItem("access"), []);
+
+  // ✅ Keep localStorage.user consistent with backend and avoid "undefined undefined"
+  const syncUserFromMe = (me) => {
+    const stored = safeParse(localStorage.getItem("user") || "{}", {});
+    const displayName = buildDisplayName(me);
+
+    const updated = {
+      ...stored,
+      id: me?.id ?? stored?.id,
+      email: me?.email ?? stored?.email,
+      username: me?.username ?? stored?.username,
+      first_name: me?.first_name ?? stored?.first_name,
+      last_name: me?.last_name ?? stored?.last_name,
+      role: me?.role ?? stored?.role,
+      name: displayName, // ✅ Navbar/Topbar should always use this
+    };
+
+    localStorage.setItem("user", JSON.stringify(updated));
+    setUserState(updated);
+  };
+
+  // ✅ On refresh: fetch /me and repair local user
+  useEffect(() => {
+    const loadMe = async () => {
+      try {
+        if (!token) return;
+
+        const res = await fetch(`${API}/me/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("access");
+          localStorage.removeItem("refresh");
+          localStorage.removeItem("user");
+          navigate("/login");
+          return;
+        }
+
+        if (!res.ok) return;
+
+        const data = await res.json().catch(() => ({}));
+        if (data) syncUserFromMe(data);
+      } catch {
+        // If backend is down, fallback to stored local user safely
+        const stored = safeParse(localStorage.getItem("user") || "{}", {});
+        setUserState(stored || {});
+      }
+    };
+
+    loadMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate, token]);
+
+  // ✅ If Profile updates localStorage.user, reflect it here too
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "user") {
+        const next = e.newValue ? safeParse(e.newValue, {}) : {};
+        setUserState(next || {});
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const displayName = user?.name || user?.email?.split("@")[0] || "User";
-  const initials =
-    displayName
-      .split(" ")
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase() || "U";
+  // ✅ Also update userState when route changes (some pages update localStorage)
+  useEffect(() => {
+    const u = localStorage.getItem("user");
+    if (u) setUserState(safeParse(u, {}) || {});
+  }, [location.pathname]);
+
+  const displayName = buildDisplayName(userState);
+  const initials = getInitials(displayName);
 
   const navItems = [
     { path: "/customer", label: "Overview", icon: <Home size={20} /> },
@@ -60,8 +165,7 @@ export default function CustomerLayout() {
   ];
 
   const isActivePath = (itemPath) =>
-    location.pathname === itemPath ||
-    location.pathname.startsWith(itemPath + "/");
+    location.pathname === itemPath || location.pathname.startsWith(itemPath + "/");
 
   useEffect(() => setIsMobileMenuOpen(false), [location.pathname]);
 
@@ -91,6 +195,7 @@ export default function CustomerLayout() {
     localStorage.removeItem("name");
     localStorage.removeItem("email");
 
+    setUserState({}); // ✅ immediately reset UI
     navigate("/");
   };
 
