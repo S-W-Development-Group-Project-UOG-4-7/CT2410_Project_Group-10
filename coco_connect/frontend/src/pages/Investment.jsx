@@ -15,6 +15,13 @@ const InvestmentPage = () => {
   const [loading, setLoading] = useState(true);
   const [investmentAmount, setInvestmentAmount] = useState(100);
 
+  // Group investment states
+  const [groupInvestmentMode, setGroupInvestmentMode] = useState(false);
+  const [availableUnits, setAvailableUnits] = useState(0);
+  const [unitPrice, setUnitPrice] = useState(0);
+  const [unitsToPurchase, setUnitsToPurchase] = useState(1);
+  const [totalUnits, setTotalUnits] = useState(0);
+
   const [filters, setFilters] = useState({
     category: "",
     location: "",
@@ -46,11 +53,39 @@ const InvestmentPage = () => {
     image: null,
     business_plan: null,
     additional_docs: null,
+    total_units: 1000, // New field for total units/shares
   });
 
   // Mock data - Fallback if API fails
   const mockProjects = [
     // ... (keep your existing mockProjects array as is)
+    {
+      id: 1,
+      title: "Organic Coconut Oil Production",
+      description: "Small-scale organic coconut oil production unit in Kurunegala",
+      category: "Coconut Oil Production",
+      location: "Kurunegala",
+      farmerName: "R.M. Perera",
+      farmerExperience: 8,
+      farmerRating: 4.7,
+      imageUrl: "",
+      roi: 18.5,
+      duration: 18,
+      targetAmount: 5000000,
+      currentAmount: 2500000,
+      investorsCount: 12,
+      status: "active",
+      daysLeft: 45,
+      investmentType: "equity",
+      riskLevel: "medium",
+      createdAt: "2024-01-15",
+      tags: ["Organic", "Export", "Sustainable"],
+      totalUnits: 5000, // 5000 shares available
+      availableUnits: 2500, // 2500 shares remaining
+      unitPrice: 1000, // Price per share (targetAmount / totalUnits)
+      investmentStructure: "units",
+    },
+    // ... other projects
   ];
 
   const categories = [
@@ -92,6 +127,18 @@ const InvestmentPage = () => {
     const totalMonths = duration;
     const futureValue = amount * Math.pow(1 + monthlyROI, totalMonths);
     return futureValue.toFixed(2);
+  };
+
+  // Calculate unit price from target amount and total units
+  const calculateUnitPrice = (targetAmount, totalUnits) => {
+    if (!targetAmount || !totalUnits || totalUnits === 0) return 1000; // default
+    return Math.round(targetAmount / totalUnits);
+  };
+
+  // Calculate per-share ROI (if needed)
+  const calculatePerShareROI = (totalROI, totalUnits, unitsOwned) => {
+    if (!unitsOwned || unitsOwned === 0) return 0;
+    return (totalROI * unitsOwned) / totalUnits;
   };
 
   // Fetch projects
@@ -138,32 +185,42 @@ const InvestmentPage = () => {
         const data = await response.json();
 
         if (data.success && data.projects) {
-          const apiProjects = data.projects.map((project) => ({
-            id: project.id,
-            title: project.title,
-            description: project.description,
-            category: project.category,
-            location: project.location,
-            farmerName: project.farmer_name || "Farmer",
-            farmerExperience: project.farmer_experience || 0,
-            farmerRating: project.farmer_rating || 4.5,
-            imageUrl: "",
-            roi: parseFloat(project.roi) || 0,
-            duration: project.duration || 12,
-            targetAmount: parseFloat(project.target_amount) || 0,
-            currentAmount: parseFloat(project.current_amount) || 0,
-            investorsCount: project.investors_count || 0,
-            status: project.status || "active",
-            daysLeft: project.days_left || 0,
-            investmentType: project.investment_type || "equity",
-            riskLevel: project.risk_level || "medium",
-            createdAt: project.created_at || "2024-01-01",
-            tags: Array.isArray(project.tags)
-              ? project.tags
-              : project.tags
-              ? project.tags.split(",")
-              : [],
-          }));
+          const apiProjects = data.projects.map((project) => {
+            const targetAmount = parseFloat(project.target_amount) || 0;
+            const totalUnits = project.total_units || 1000;
+            const unitPrice = project.unit_price || calculateUnitPrice(targetAmount, totalUnits);
+            
+            return {
+              id: project.id,
+              title: project.title,
+              description: project.description,
+              category: project.category,
+              location: project.location,
+              farmerName: project.farmer_name || "Farmer",
+              farmerExperience: project.farmer_experience || 0,
+              farmerRating: project.farmer_rating || 4.5,
+              imageUrl: "",
+              roi: parseFloat(project.roi) || 0,
+              duration: project.duration || 12,
+              targetAmount: targetAmount,
+              currentAmount: parseFloat(project.current_amount) || 0,
+              investorsCount: project.investors_count || 0,
+              status: project.status || "active",
+              daysLeft: project.days_left || 0,
+              investmentType: project.investment_type || "equity",
+              riskLevel: project.risk_level || "medium",
+              createdAt: project.created_at || "2024-01-01",
+              tags: Array.isArray(project.tags)
+                ? project.tags
+                : project.tags
+                ? project.tags.split(",")
+                : [],
+              totalUnits: totalUnits,
+              availableUnits: project.available_units || Math.floor((targetAmount - parseFloat(project.current_amount || 0)) / unitPrice),
+              unitPrice: unitPrice,
+              investmentStructure: project.investment_structure || (project.investment_type === "equity" ? "units" : "fixed"),
+            };
+          });
 
           setProjects(apiProjects);
           setFilteredProjects(apiProjects);
@@ -297,6 +354,24 @@ const InvestmentPage = () => {
         ? 100
         : project.targetAmount - project.currentAmount
     );
+    
+    // Set group investment data if project supports it
+    if (project.investmentType === "equity" && project.investmentStructure === "units") {
+      setGroupInvestmentMode(true);
+      
+      // Calculate unit price and available units
+      const calculatedUnitPrice = project.unitPrice || calculateUnitPrice(project.targetAmount, project.totalUnits);
+      const calculatedAvailableUnits = project.availableUnits || 
+        Math.floor((project.targetAmount - project.currentAmount) / calculatedUnitPrice);
+      
+      setUnitPrice(calculatedUnitPrice);
+      setAvailableUnits(calculatedAvailableUnits);
+      setTotalUnits(project.totalUnits);
+      setUnitsToPurchase(1);
+    } else {
+      setGroupInvestmentMode(false);
+    }
+    
     setIsModalOpen(true);
   };
 
@@ -309,17 +384,36 @@ const InvestmentPage = () => {
         return;
       }
 
+      const investmentData = {
+        project_id: selectedProject.id,
+        payment_method: "payhere",
+      };
+
+      // Add data based on investment mode
+      if (groupInvestmentMode) {
+        const totalInvestmentAmount = unitsToPurchase * unitPrice;
+        investmentData.amount = totalInvestmentAmount;
+        investmentData.units = unitsToPurchase;
+        investmentData.unit_price = unitPrice;
+        investmentData.total_units = totalUnits;
+        investmentData.investment_type = "unit_purchase";
+        investmentData.investment_structure = "units";
+        
+        // Calculate percentage ownership
+        investmentData.ownership_percentage = ((unitsToPurchase / totalUnits) * 100).toFixed(2);
+      } else {
+        investmentData.amount = investmentAmount;
+        investmentData.investment_type = "fixed_amount";
+        investmentData.investment_structure = "fixed";
+      }
+
       const res = await fetch("http://127.0.0.1:8000/api/make-investment/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          project_id: selectedProject.id,
-          amount: investmentAmount,
-          payment_method: "payhere",
-        }),
+        body: JSON.stringify(investmentData),
       });
 
       const data = await res.json();
@@ -329,8 +423,12 @@ const InvestmentPage = () => {
         return;
       }
 
-      alert("Investment successful!");
+      alert(`Investment successful! ${groupInvestmentMode ? `Purchased ${unitsToPurchase} shares (${((unitsToPurchase / totalUnits) * 100).toFixed(2)}% ownership)` : ''}`);
       setIsModalOpen(false);
+
+      // Reset group investment mode
+      setGroupInvestmentMode(false);
+      setUnitsToPurchase(1);
 
       // Refresh lists
       if (tab === "all") {
@@ -370,6 +468,12 @@ const InvestmentPage = () => {
         }
       });
 
+      // Calculate unit price for equity projects
+      if (newProject.investment_type === "equity" && newProject.target_amount && newProject.total_units) {
+        const calculatedUnitPrice = Math.round(newProject.target_amount / newProject.total_units);
+        formData.append("unit_price", calculatedUnitPrice);
+      }
+
       const response = await fetch("http://127.0.0.1:8000/api/create-project/", {
         method: "POST",
         headers: {
@@ -406,6 +510,7 @@ const InvestmentPage = () => {
         image: null,
         business_plan: null,
         additional_docs: null,
+        total_units: 1000,
       });
 
       // Refresh projects list
@@ -439,7 +544,21 @@ const InvestmentPage = () => {
       image: null,
       business_plan: null,
       additional_docs: null,
+      total_units: 1000,
     });
+  };
+
+  // Update units to purchase based on amount or vice versa
+  const updateUnitsFromAmount = (amount) => {
+    if (unitPrice > 0) {
+      const calculatedUnits = Math.floor(amount / unitPrice);
+      setUnitsToPurchase(Math.max(1, Math.min(calculatedUnits, availableUnits)));
+    }
+  };
+
+  const updateAmountFromUnits = (units) => {
+    const calculatedAmount = units * unitPrice;
+    setInvestmentAmount(calculatedAmount);
   };
 
   return (
@@ -608,7 +727,7 @@ const InvestmentPage = () => {
                         className="mr-2 text-secondary"
                         disabled={tab === "mine"}
                       />
-                      <span>Equity Investment</span>
+                      <span>Equity (Shares)</span>
                     </label>
 
                     <label className="flex items-center">
@@ -676,9 +795,9 @@ const InvestmentPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-600">Active Investors</span>
+                  <span className="text-gray-600">Total Shares</span>
                   <span className="font-bold text-coco text-lg">
-                    {projects.reduce((sum, p) => sum + p.investorsCount, 0)}
+                    {projects.reduce((sum, p) => sum + (p.totalUnits || 0), 0).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -753,6 +872,7 @@ const InvestmentPage = () => {
                       <option value="date_newest">Newest First</option>
                       <option value="funding_needed">Most Funding Needed</option>
                       <option value="popularity">Most Popular</option>
+                      <option value="price_per_share">Lowest Price Per Share</option>
                     </select>
                   </div>
                 </div>
@@ -825,6 +945,8 @@ const InvestmentPage = () => {
                       {filteredProjects.map((project) => {
                         const progress = (project.currentAmount / project.targetAmount) * 100;
                         const fundingNeeded = project.targetAmount - project.currentAmount;
+                        const isEquityProject = project.investmentType === "equity" && project.investmentStructure === "units";
+                        const ownershipPerShare = project.totalUnits ? (100 / project.totalUnits).toFixed(4) : 0;
 
                         return (
                           <div
@@ -899,6 +1021,11 @@ const InvestmentPage = () => {
                                       {tag}
                                     </span>
                                   ))}
+                                {isEquityProject && (
+                                  <span className="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-semibold">
+                                    Share Investment
+                                  </span>
+                                )}
                               </div>
 
                               {/* Farmer Info */}
@@ -930,7 +1057,7 @@ const InvestmentPage = () => {
                                     Raised: <span className="font-bold text-primary">{formatCurrency(project.currentAmount)}</span>
                                   </span>
                                   <span className="text-gray-600">
-                                    Goal: <span className="font-bold">{formatCurrency(project.targetAmount)}</span>
+                                    Target: <span className="font-bold">{formatCurrency(project.targetAmount)}</span>
                                   </span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-3">
@@ -941,9 +1068,35 @@ const InvestmentPage = () => {
                                 </div>
                                 <div className="flex justify-between text-xs text-gray-500 mt-2">
                                   <span>{Math.round(progress)}% funded</span>
-                                  <span>{project.daysLeft} days remaining</span>
+                                  <span className="font-semibold text-accent1">
+                                    Remaining: {formatCurrency(fundingNeeded)}
+                                  </span>
                                 </div>
                               </div>
+
+                              {/* Show units info for equity investments */}
+                              {isEquityProject && (
+                                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                      <div className="text-sm text-gray-600 mb-1">Total Shares:</div>
+                                      <div className="font-bold text-gray-800">{project.totalUnits.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-sm text-gray-600 mb-1">Price Per Share:</div>
+                                      <div className="font-bold text-green-600">{formatCurrency(project.unitPrice)}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-sm text-gray-600 mb-1">Available Shares:</div>
+                                      <div className="font-bold text-blue-600">{project.availableUnits.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-sm text-gray-600 mb-1">Ownership per Share:</div>
+                                      <div className="font-bold text-accent1">{ownershipPerShare}%</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
 
                               {/* ROI and Duration */}
                               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -977,9 +1130,12 @@ const InvestmentPage = () => {
                                         d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                                       />
                                     </svg>
-                                    Invest Now
+                                    {isEquityProject ? "Buy Shares" : "Invest Now"}
                                     <span className="ml-auto text-sm font-normal">
-                                      Min: {fundingNeeded > 100 ? formatCurrency(100) : formatCurrency(fundingNeeded)}
+                                      {isEquityProject ? 
+                                        `From ${formatCurrency(project.unitPrice)}/share` : 
+                                        `Min: ${fundingNeeded > 100 ? formatCurrency(100) : formatCurrency(fundingNeeded)}`
+                                      }
                                     </span>
                                   </>
                                 ) : (
@@ -1028,6 +1184,19 @@ const InvestmentPage = () => {
                           <p className="text-sm text-gray-600">
                             Tx: <span className="font-mono">{inv.transaction_id || "N/A"}</span>
                           </p>
+                          {inv.units && inv.total_units && (
+                            <div className="mt-2">
+                              <p className="text-sm text-gray-600">
+                                Shares: <span className="font-semibold">{inv.units.toLocaleString()}</span> 
+                                {inv.unit_price && <span className="text-xs text-gray-500"> @ {formatCurrency(inv.unit_price)}/share</span>}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Ownership: <span className="font-semibold text-accent1">
+                                  {((inv.units / inv.total_units) * 100).toFixed(2)}%
+                                </span>
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="md:text-right">
@@ -1038,6 +1207,9 @@ const InvestmentPage = () => {
                           <p className="text-sm">
                             Payment: <span className="font-semibold">{inv.payment_status || "-"}</span>
                           </p>
+                          {inv.investment_type === "unit_purchase" && (
+                            <p className="text-sm text-green-600 font-semibold">Share Investment</p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -1072,7 +1244,7 @@ const InvestmentPage = () => {
               </div>
               <h4 className="text-xl font-semibold text-accent6 mb-3">Invest Securely</h4>
               <p className="text-gray-600">
-                Choose your investment amount. Pay securely via PayHere or Stripe. Get instant confirmation.
+                Choose your investment amount or buy shares. Pay securely via PayHere or Stripe. Get instant confirmation.
               </p>
             </div>
 
@@ -1308,6 +1480,29 @@ const InvestmentPage = () => {
                         </div>
                       </div>
 
+                      {/* Total Shares for Equity Projects */}
+                      {newProject.investment_type === "equity" && (
+                        <div className="mb-6">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Total Number of Shares *
+                          </label>
+                          <input
+                            type="number"
+                            min="100"
+                            step="100"
+                            value={newProject.total_units}
+                            onChange={(e) => setNewProject({...newProject, total_units: e.target.value})}
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            placeholder="e.g., 1000 shares"
+                            required
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Price per share will be calculated automatically: {newProject.target_amount && newProject.total_units ? 
+                              formatCurrency(Math.round(newProject.target_amount / newProject.total_units)) : '0'} per share
+                          </p>
+                        </div>
+                      )}
+
                       {/* Investment Type and Risk Level */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div>
@@ -1324,7 +1519,7 @@ const InvestmentPage = () => {
                                 onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
                                 className="mr-2 text-secondary"
                               />
-                              <span>Equity Investment</span>
+                              <span>Equity (Share Investment)</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -1416,6 +1611,9 @@ const InvestmentPage = () => {
                         <li>• You must have legal rights to the land/business</li>
                         <li>• Returns to investors must be paid as promised</li>
                         <li>• Project updates must be provided quarterly</li>
+                        {newProject.investment_type === "equity" && (
+                          <li>• For equity projects, profits will be distributed based on share ownership</li>
+                        )}
                       </ul>
                     </div>
 
@@ -1431,9 +1629,9 @@ const InvestmentPage = () => {
 
                       <button
                         onClick={handleCreateProject}
-                        disabled={creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount}
+                        disabled={creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount || (newProject.investment_type === "equity" && !newProject.total_units)}
                         className={`flex-1 py-3 px-4 bg-primary text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-                          creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount
+                          creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount || (newProject.investment_type === "equity" && !newProject.total_units)
                             ? "opacity-50 cursor-not-allowed"
                             : "hover:bg-accent2"
                         }`}
@@ -1507,51 +1705,203 @@ const InvestmentPage = () => {
 
               {/* Investment Details */}
               <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Investment Amount (RS.)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">RS.</span>
-                    <input
-                      type="number"
-                      min="100"
-                      max={selectedProject.targetAmount - selectedProject.currentAmount}
-                      value={investmentAmount}
-                      onChange={(e) => setInvestmentAmount(parseInt(e.target.value) || 0)}
-                      className="w-full pl-10 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Minimum: RS.100 • Maximum: {formatCurrency(selectedProject.targetAmount - selectedProject.currentAmount)}
-                  </p>
-                </div>
-
-                {/* Quick Amount Buttons */}
-                <div className="grid grid-cols-3 gap-2">
-                  {[100, 500, 1000, 2500, 5000, 10000].map((amount) => (
+                {/* Toggle between normal and group investment */}
+                {selectedProject.investmentType === "equity" && selectedProject.investmentStructure === "units" && (
+                  <div className="flex gap-2 mb-4">
                     <button
-                      key={amount}
                       type="button"
-                      onClick={() => setInvestmentAmount(amount)}
-                      className={`py-2 text-sm rounded-lg border ${
-                        investmentAmount === amount
-                          ? "bg-secondary text-white border-secondary"
+                      onClick={() => setGroupInvestmentMode(false)}
+                      className={`flex-1 py-2 text-sm rounded-lg border ${
+                        !groupInvestmentMode
+                          ? "bg-primary text-white border-primary"
                           : "border-gray-300 text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      {formatCurrency(amount)}
+                      Fixed Amount
                     </button>
-                  ))}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setGroupInvestmentMode(true)}
+                      className={`flex-1 py-2 text-sm rounded-lg border ${
+                        groupInvestmentMode
+                          ? "bg-primary text-white border-primary"
+                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      Buy Shares
+                    </button>
+                  </div>
+                )}
+
+                {groupInvestmentMode ? (
+                  /* Stock/Unit Investment Mode */
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Purchase Shares
+                    </label>
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-gray-600">Share Price:</div>
+                          <div className="font-bold">{formatCurrency(unitPrice)}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600">Available Shares:</div>
+                          <div className="font-bold text-green-600">{availableUnits.toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600">Total Shares:</div>
+                          <div className="font-bold">{totalUnits.toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600">Ownership/Share:</div>
+                          <div className="font-bold text-accent1">
+                            {totalUnits ? (100 / totalUnits).toFixed(4) : 0}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newUnits = Math.max(1, unitsToPurchase - 1);
+                          setUnitsToPurchase(newUnits);
+                          updateAmountFromUnits(newUnits);
+                        }}
+                        className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                      >
+                        -
+                      </button>
+                      
+                      <div className="flex-1">
+                        <div className="text-center mb-2">
+                          <span className="text-2xl font-bold">{unitsToPurchase.toLocaleString()}</span>
+                          <span className="text-gray-600 ml-2">shares</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max={availableUnits}
+                          value={unitsToPurchase}
+                          onChange={(e) => {
+                            const newUnits = parseInt(e.target.value);
+                            setUnitsToPurchase(newUnits);
+                            updateAmountFromUnits(newUnits);
+                          }}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newUnits = Math.min(availableUnits, unitsToPurchase + 1);
+                          setUnitsToPurchase(newUnits);
+                          updateAmountFromUnits(newUnits);
+                        }}
+                        className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                      >
+                        +
+                      </button>
+                    </div>
+                    
+                    <div className="mt-4 text-center">
+                      <div className="text-sm text-gray-600 mb-1">Total Investment:</div>
+                      <div className="text-2xl font-bold text-primary">
+                        {formatCurrency(unitsToPurchase * unitPrice)}
+                      </div>
+                      <div className="text-sm text-accent1 mt-1">
+                        Ownership: {((unitsToPurchase / totalUnits) * 100).toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Original Fixed Amount Mode */
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Investment Amount (RS.)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">RS.</span>
+                        <input
+                          type="number"
+                          min="100"
+                          max={selectedProject.targetAmount - selectedProject.currentAmount}
+                          value={investmentAmount}
+                          onChange={(e) => {
+                            const amount = parseInt(e.target.value) || 0;
+                            setInvestmentAmount(amount);
+                            if (groupInvestmentMode) {
+                              updateUnitsFromAmount(amount);
+                            }
+                          }}
+                          className="w-full pl-10 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Minimum: RS.100 • Maximum: {formatCurrency(selectedProject.targetAmount - selectedProject.currentAmount)}
+                      </p>
+                    </div>
+
+                    {/* Quick Amount Buttons */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {[100, 500, 1000, 2500, 5000, 10000].map((amount) => (
+                        <button
+                          key={amount}
+                          type="button"
+                          onClick={() => {
+                            setInvestmentAmount(amount);
+                            if (groupInvestmentMode) {
+                              updateUnitsFromAmount(amount);
+                            }
+                          }}
+                          className={`py-2 text-sm rounded-lg border ${
+                            investmentAmount === amount
+                              ? "bg-secondary text-white border-secondary"
+                              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          {formatCurrency(amount)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Investment Summary */}
               <div className="bg-accent4 rounded-xl p-4 mb-6">
                 <h4 className="font-bold text-accent6 mb-3">Investment Summary</h4>
                 <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Investment Amount:</span>
-                    <span className="font-semibold">{formatCurrency(investmentAmount)}</span>
-                  </div>
+                  {groupInvestmentMode ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Shares Purchased:</span>
+                        <span className="font-semibold">{unitsToPurchase.toLocaleString()} shares</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Price Per Share:</span>
+                        <span className="font-semibold">{formatCurrency(unitPrice)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Total Investment:</span>
+                        <span className="font-semibold">{formatCurrency(unitsToPurchase * unitPrice)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Ownership Percentage:</span>
+                        <span className="font-semibold text-accent1">
+                          {((unitsToPurchase / totalUnits) * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Investment Amount:</span>
+                      <span className="font-semibold">{formatCurrency(investmentAmount)}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between">
                     <span className="text-gray-600">Expected ROI:</span>
                     <span className="font-semibold text-green-600">{selectedProject.roi}%</span>
@@ -1563,16 +1913,27 @@ const InvestmentPage = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Projected Return:</span>
                     <span className="font-semibold text-accent1">
-                      {formatCurrency(calculateExpectedReturn(investmentAmount, selectedProject.roi, selectedProject.duration))}
+                      {formatCurrency(
+                        calculateExpectedReturn(
+                          groupInvestmentMode ? unitsToPurchase * unitPrice : investmentAmount,
+                          selectedProject.roi,
+                          selectedProject.duration
+                        )
+                      )}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-300 mt-2">
                     <div className="flex justify-between font-bold">
-                      <span>Total Return:</span>
+                      <span>Total Profit:</span>
                       <span className="text-primary">
                         {formatCurrency(
-                          parseFloat(calculateExpectedReturn(investmentAmount, selectedProject.roi, selectedProject.duration)) -
-                            investmentAmount
+                          parseFloat(
+                            calculateExpectedReturn(
+                              groupInvestmentMode ? unitsToPurchase * unitPrice : investmentAmount,
+                              selectedProject.roi,
+                              selectedProject.duration
+                            )
+                          ) - (groupInvestmentMode ? unitsToPurchase * unitPrice : investmentAmount)
                         )}
                       </span>
                     </div>
@@ -1614,6 +1975,7 @@ const InvestmentPage = () => {
                   <input type="checkbox" className="mt-1 mr-3 text-secondary" defaultChecked />
                   <span className="text-sm text-gray-600">
                     I agree to the Terms & Conditions and understand that this investment involves risks. Returns are projected and not guaranteed.
+                    {groupInvestmentMode && " Profit distribution will be proportional to share ownership."}
                   </span>
                 </label>
               </div>
