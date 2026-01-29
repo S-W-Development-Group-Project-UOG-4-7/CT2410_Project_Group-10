@@ -2,25 +2,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Product images (unused but kept since you already import them)
-import prod1 from "../assets/coconut_oil.png";
-import prod2 from "../assets/coconut_water.png";
-import prod3 from "../assets/coir_rope.png";
-import prod4 from "../assets/Coconut Shell Bowl Set.png";
-import prod5 from "../assets/Desiccated Coconut Powder.png";
-import prod6 from "../assets/Coconut Husk Mulch.png";
-import prod7 from "../assets/Activated Coconut Biochar.png";
-import prod8 from "../assets/Handcrafted Coconut Ladle Set.png";
-import prod9 from "../assets/Natural Coconut Shell Cups.png";
-
-// News images (unused but kept since you already import them)
-import news1 from "../assets/news1.png";
-import news2 from "../assets/news2.png";
-import news3 from "../assets/news3.png";
-import news4 from "../assets/news4.png";
-import news5 from "../assets/news5.png";
-
-// Background images
 import shopBg from "../assets/shopbg.png";
 import shopheroBg from "../assets/cocoshopherobg.png";
 import { useCart } from "../context/CartContext";
@@ -49,10 +30,9 @@ const Product = () => {
   const [verifyingId, setVerifyingId] = useState(null);
   const [verifyError, setVerifyError] = useState(null);
 
-  // Ensure price filter expands at first load if products contain more expensive items
   const hasSetMaxPrice = useRef(false);
 
-  // ✅ Logged-in user (null if not logged in) — safe parse
+  // ✅ Logged-in user (null if not logged in)
   const user = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
@@ -62,17 +42,18 @@ const Product = () => {
   }, []);
   const access = localStorage.getItem("access");
 
-  // Add Product modal control
+  // Add Product modal
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
 
+  // News
   const [newsItems, setNewsItems] = useState([]);
   const [isLoadingNews, setIsLoadingNews] = useState(true);
+  const [newsIndex, setNewsIndex] = useState(0);
 
   const navigate = useNavigate();
-
-  const [newsIndex, setNewsIndex] = useState(0);
   const productsSectionRef = useRef(null);
 
+  // Product details modal
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
@@ -196,7 +177,7 @@ const Product = () => {
       }
 
       const updated = await res.json();
-      // ✅ Update only real fields (no fake is_verified)
+
       setProducts((prev) =>
         prev.map((p) =>
           p.id === productId
@@ -209,6 +190,17 @@ const Product = () => {
             : p
         )
       );
+
+      // keep modal in sync if it's open
+      setSelectedProduct((prev) => {
+        if (!prev || prev.id !== productId) return prev;
+        return {
+          ...prev,
+          tx_hash: updated.tx_hash ?? prev.tx_hash,
+          product_hash: updated.product_hash ?? prev.product_hash,
+          verified_at: updated.verified_at ?? prev.verified_at,
+        };
+      });
     } catch (e) {
       console.error("❌ verify error:", e);
       setVerifyError(String(e.message || e));
@@ -217,7 +209,10 @@ const Product = () => {
     }
   };
 
-  // Get all unique categories from products dynamically
+  const { addToCart } = useCart();
+  const handleAddToCart = async (productId) => addToCart(productId);
+
+  // Categories from products
   const availableCategories = useMemo(() => {
     if (!Array.isArray(products) || products.length === 0) return [];
     const categories = new Set();
@@ -225,7 +220,7 @@ const Product = () => {
     return Array.from(categories).sort();
   }, [products]);
 
-  // Calculate category counts based on current filters (price and type, but not category)
+  // Category counts based on filters except category
   const categoryCounts = useMemo(() => {
     if (!Array.isArray(products) || products.length === 0) return { all: 0 };
 
@@ -288,12 +283,14 @@ const Product = () => {
     setVisibleCount((prev) => Math.min(prev + 3, filteredProducts.length));
   };
 
-  const { addToCart } = useCart();
-  const handleAddToCart = async (productId) => addToCart(productId);
-
   const handleReset = () => {
     setFilters({ category: "all", price: 500, type: "all", sortBy: "relevance" });
     setVisibleCount(6);
+  };
+
+  const openProduct = (product) => {
+    setSelectedProduct(product);
+    setIsProductModalOpen(true);
   };
 
   return (
@@ -388,17 +385,12 @@ const Product = () => {
       </section>
 
       {/* MAIN */}
-      <div
-        ref={productsSectionRef}
-        className="relative z-10 text-[#2f3e46] min-h-screen p-6"
-      >
+      <div ref={productsSectionRef} className="relative z-10 text-[#2f3e46] min-h-screen p-6">
         {/* TITLE */}
         <div className="relative z-10 text-center py-10">
-          <div className="flex items-center justify-center gap-4">
-            <h2 className="text-3xl font-semibold text-[#4b3b2a]">
-              Sustainable Coconut Products
-            </h2>
-          </div>
+          <h2 className="text-3xl font-semibold text-[#4b3b2a]">
+            Sustainable Coconut Products
+          </h2>
           <div className="w-24 h-[2px] bg-green-600 mx-auto mt-3"></div>
         </div>
 
@@ -473,20 +465,21 @@ const Product = () => {
             {/* News slider */}
             <div className="bg-[#a37241] text-white rounded-lg shadow text-sm">
               <div className="relative w-full h-60 overflow-hidden rounded">
-                {newsItems.map((item, index) => (
-                  <img
-                    key={index}
-                    src={
-                      item.image?.startsWith("http")
-                        ? item.image
-                        : `${API}${item.image || ""}`
-                    }
-                    alt="news"
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-                      newsIndex === index ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                ))}
+                {!isLoadingNews &&
+                  newsItems.map((item, index) => (
+                    <img
+                      key={index}
+                      src={
+                        item.image?.startsWith("http")
+                          ? item.image
+                          : `${API}${item.image || ""}`
+                      }
+                      alt="news"
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+                        newsIndex === index ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  ))}
               </div>
               <p className="mt-2 px-2 text-center">
                 {newsItems.length ? newsItems[newsIndex]?.text : "Loading news..."}
@@ -536,27 +529,26 @@ const Product = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {visibleProducts.length > 0 ? (
                     visibleProducts.map((product) => {
-                      // ✅ Verified derived from real backend fields
                       const isVerified = Boolean(
                         product?.verified_at || product?.tx_hash || product?.product_hash
                       );
                       const isVerifying = verifyingId === product.id;
 
-                      // ✅ ownership check (serializer returns author {id, name})
                       const authorId = product?.author?.id ?? null;
                       const authorName = product?.author?.name ?? "Unknown";
                       const isOwner =
                         Boolean(user?.id && authorId) &&
                         Number(user.id) === Number(authorId);
 
-                      // ✅ Only owner + logged-in + not verified can see verify button
                       const canVerify = Boolean(access && isOwner && !isVerified);
 
                       return (
                         <div
                           key={product.id}
-                          className="bg-[#faf0e6] rounded-xl shadow-md hover:shadow-xl transition p-4 relative"
+                          onClick={() => openProduct(product)}
+                          className="group bg-[#faf0e6] rounded-2xl shadow-md hover:shadow-xl transition p-4 relative cursor-pointer"
                         >
+                          {/* Verified badge */}
                           {isVerified && (
                             <div className="absolute top-3 left-3 z-10">
                               <span className="text-[11px] bg-green-600 text-white px-2 py-1 rounded-full shadow">
@@ -565,109 +557,100 @@ const Product = () => {
                             </div>
                           )}
 
+                          {/* Image */}
                           {product.image ? (
-                            <img
-                              src={
-                                String(product.image).startsWith("http")
-                                  ? product.image
-                                  : `${API}${product.image}`
-                              }
-                              alt={product.name || "Product"}
-                              className="w-full h-48 object-cover rounded cursor-pointer"
-                              onClick={() => {
-                                setSelectedProduct(product);
-                                setIsProductModalOpen(true);
-                              }}
-                              onError={(e) => {
-                                e.target.style.display = "none";
-                              }}
-                            />
+                            <div className="overflow-hidden rounded-xl">
+                              <img
+                                src={
+                                  String(product.image).startsWith("http")
+                                    ? product.image
+                                    : `${API}${product.image}`
+                                }
+                                alt={product.name || "Product"}
+                                className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            </div>
                           ) : (
-                            <div
-                              className="w-full h-48 bg-gray-200 rounded flex items-center justify-center cursor-pointer"
-                              onClick={() => {
-                                setSelectedProduct(product);
-                                setIsProductModalOpen(true);
-                              }}
-                            >
+                            <div className="w-full h-48 bg-gray-200 rounded-xl flex items-center justify-center">
                               <span className="text-gray-400">No Image</span>
                             </div>
                           )}
 
-                          <h3
-                            className="font-semibold mt-3 cursor-pointer hover:underline"
-                            onClick={() => {
-                              setSelectedProduct(product);
-                              setIsProductModalOpen(true);
-                            }}
-                          >
-                            {product.name || "Unnamed Product"}
-                          </h3>
+                          {/* Title & author */}
+                          <div className="mt-3">
+                            <h3 className="font-semibold text-[#3b2f24] group-hover:underline">
+                              {product.name || "Unnamed Product"}
+                            </h3>
 
-                          <div className="flex items-center gap-2">
-                            <p className="text-xs text-green-700">By {authorName}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-green-700">By {authorName}</p>
 
-                            {user && (
+                              {user && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsAddProductOpen(true);
+                                  }}
+                                  className="text-green-600 font-bold hover:scale-110 transition"
+                                  title="Add your product"
+                                >
+                                  +
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Short description */}
+                            <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                              {product.description || ""}
+                            </p>
+
+                            {/* Price + Add */}
+                            <div className="flex justify-between items-center mt-3">
+                              <p className="font-semibold text-[#2f3e46]">
+                                ${Number(product.price || 0).toFixed(2)}
+                              </p>
+
                               <button
-                                onClick={() => setIsAddProductOpen(true)}
-                                className="text-green-600 font-bold hover:scale-110 transition"
-                                title="Add your product"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAddToCart(product.id);
+                                }}
+                                className="bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600 transition"
                               >
-                                +
+                                Add
+                              </button>
+                            </div>
+
+                            {/* Verify button */}
+                            {canVerify && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVerify(product.id);
+                                }}
+                                disabled={isVerifying}
+                                className={`mt-3 w-full px-3 py-2 rounded-xl font-semibold transition ${
+                                  isVerifying
+                                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                    : "bg-black text-white hover:bg-gray-900"
+                                }`}
+                              >
+                                {isVerifying ? "Verifying..." : "Verify on Blockchain"}
                               </button>
                             )}
+
+                            {/* Non-owner hint */}
+                            {user && !isOwner && !isVerified && (
+                              <p className="mt-3 text-[11px] text-gray-500 text-center">
+                                Only the owner can verify this product
+                              </p>
+                            )}
+
+                            {/* ✅ Tx removed from card (requested) */}
                           </div>
-
-                          <p className="text-xs text-gray-500 line-clamp-2">
-                            {product.description || ""}
-                          </p>
-
-                          <div className="flex justify-between items-center mt-2">
-                            <p className="font-semibold">
-                              ${Number(product.price || 0).toFixed(2)}
-                            </p>
-
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAddToCart(product.id);
-                              }}
-                              className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition"
-                            >
-                              Add
-                            </button>
-                          </div>
-
-                          {/* ✅ VERIFY BUTTON only for OWNER */}
-                          {canVerify && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleVerify(product.id);
-                              }}
-                              disabled={isVerifying}
-                              className={`mt-3 w-full px-3 py-2 rounded font-semibold transition ${
-                                isVerifying
-                                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                                  : "bg-black text-white hover:bg-gray-900"
-                              }`}
-                            >
-                              {isVerifying ? "Verifying..." : "Verify on Blockchain"}
-                            </button>
-                          )}
-
-                          {/* Optional hint for non-owner logged-in users */}
-                          {user && !isOwner && !isVerified && (
-                            <p className="mt-3 text-[11px] text-gray-500 text-center">
-                              Only the owner can verify this product
-                            </p>
-                          )}
-
-                          {isVerified && product?.tx_hash && (
-                            <p className="mt-2 text-[11px] text-gray-600 break-all">
-                              Tx: {String(product.tx_hash).slice(0, 12)}...
-                            </p>
-                          )}
                         </div>
                       );
                     })
@@ -726,10 +709,16 @@ const Product = () => {
       <ProductDetailsModal
         isOpen={isProductModalOpen}
         product={selectedProduct}
+        API={API}
+        user={user}
+        access={access}
+        verifyingId={verifyingId}
         onClose={() => {
           setIsProductModalOpen(false);
           setSelectedProduct(null);
         }}
+        onAddToCart={(id) => handleAddToCart(id)}
+        onVerify={(id) => handleVerify(id)}
       />
     </div>
   );

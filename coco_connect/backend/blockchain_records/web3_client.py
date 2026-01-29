@@ -13,9 +13,10 @@ LOCAL_PRIVATE_KEY = os.getenv("LOCAL_PRIVATE_KEY")
 ABI_PATH = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
-        "../../blockchain/cococonnect-chain/artifacts/contracts/ProductRegistry.sol/ProductRegistry.json"
+        "../../blockchain/artifacts/contracts/ProductRegistry.sol/ProductRegistry.json"
     )
 )
+
 
 def _get_w3() -> Web3:
     """Create Web3 client lazily (no crash on import)."""
