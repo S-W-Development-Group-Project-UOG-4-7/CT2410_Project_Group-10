@@ -2,15 +2,23 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerUser } from "../services/authService";
 
-export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLogin }) {
-
+export default function RegisterModal({
+  isOpen,
+  onClose,
+  onAuthSuccess,
+  onOpenLogin,
+}) {
   const modalRef = useRef();
   const navigate = useNavigate();
 
+  // ✅ role is fixed (safe for backend): "buyer" = normal user/customer
+  const DEFAULT_ROLE = "buyer";
+
   const [formData, setFormData] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
     email: "",
-    role: "",
+    role: DEFAULT_ROLE, // ✅ default role
     password: "",
     confirmPassword: "",
   });
@@ -25,9 +33,10 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
   useEffect(() => {
     if (!isOpen) {
       setFormData({
-        name: "",
+        firstName: "",
+        lastName: "",
         email: "",
-        role: "",
+        role: DEFAULT_ROLE,
         password: "",
         confirmPassword: "",
       });
@@ -43,19 +52,16 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
 
   // ✅ Regex patterns
   const emailRegex = /^\S+@\S+\.\S+$/;
-  // at least 6 chars, 1 uppercase, 1 number (edit if you want)
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{6,}$/;
 
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) newErrors.name = "Name is required";
+    if (!formData.firstName.trim()) newErrors.firstName = "First name is required";
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required";
 
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!emailRegex.test(formData.email))
-      newErrors.email = "Enter a valid email";
-
-    if (!formData.role) newErrors.role = "Please select a role";
+    else if (!emailRegex.test(formData.email)) newErrors.email = "Enter a valid email";
 
     if (!formData.password.trim()) newErrors.password = "Password is required";
     else if (!passwordRegex.test(formData.password))
@@ -78,22 +84,25 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
-      // 1) register
+      // ✅ backend expects "name" -> keep it for compatibility
+      const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+
       await registerUser({
-        name: formData.name,
+        name: fullName,
         email: formData.email,
         password: formData.password,
-        role: formData.role,
+        role: formData.role, // fixed default
       });
 
-      // ✅ optional: tell parent something (you can remove this if not needed)
       onAuthSuccess?.({
-        name: formData.name,
+        name: fullName,
         email: formData.email,
         role: formData.role,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        full_name: fullName,
       });
 
-      // ✅ after register -> go to login page
       onClose?.();
       onOpenLogin?.();
     } catch (err) {
@@ -101,7 +110,7 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
       const serverMsg =
         err?.response?.data?.error ||
         err?.response?.data?.detail ||
-        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        (typeof err?.response?.data === "string" ? err.response.data : null) ||
         err?.message ||
         "Registration failed. Please try again.";
       setErrors((p) => ({ ...p, submit: serverMsg }));
@@ -201,27 +210,51 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Name */}
+            {/* First Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name
+                First Name
               </label>
               <input
-                id="name"
+                id="firstName"
                 type="text"
-                value={formData.name}
+                value={formData.firstName}
                 onChange={handleChange}
                 className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
                   focus:ring-2 focus:outline-none transition-all
                   ${
-                    errors.name
+                    errors.firstName
                       ? "border-red-500 focus:ring-red-200"
                       : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                   }`}
-                placeholder="e.g. Saman Perera"
+                placeholder="e.g. Saman"
               />
-              {errors.name && (
-                <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+              {errors.firstName && (
+                <p className="text-red-600 text-sm mt-1">{errors.firstName}</p>
+              )}
+            </div>
+
+            {/* Last Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Last Name
+              </label>
+              <input
+                id="lastName"
+                type="text"
+                value={formData.lastName}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 rounded-lg border text-gray-800 placeholder:text-gray-400
+                  focus:ring-2 focus:outline-none transition-all
+                  ${
+                    errors.lastName
+                      ? "border-red-500 focus:ring-red-200"
+                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
+                  }`}
+                placeholder="e.g. Perera"
+              />
+              {errors.lastName && (
+                <p className="text-red-600 text-sm mt-1">{errors.lastName}</p>
               )}
             </div>
 
@@ -246,35 +279,6 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email}</p>
-              )}
-            </div>
-
-            {/* Role */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                I am a
-              </label>
-              <select
-                id="role"
-                value={formData.role}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 rounded-lg border bg-white focus:ring-2 focus:outline-none transition-all
-                  ${formData.role === "" ? "text-gray-400" : "text-gray-800"}
-                  ${
-                    errors.role
-                      ? "border-red-500 focus:ring-red-200"
-                      : "border-gray-300 focus:ring-green-300 hover:border-green-400"
-                  }`}
-              >
-                <option value="" disabled>
-                  Select your role
-                </option>
-                <option value="farmer">Farmer / Producer</option>
-                <option value="investor">Investor</option>
-                <option value="buyer">Buyer / Customer</option>
-              </select>
-              {errors.role && (
-                <p className="text-red-600 text-sm mt-1">{errors.role}</p>
               )}
             </div>
 
@@ -327,6 +331,9 @@ export default function RegisterModal({ isOpen, onClose, onAuthSuccess, onOpenLo
                 </p>
               )}
             </div>
+
+            {/* ✅ Hidden role to keep compatibility */}
+            <input type="hidden" id="role" value={formData.role} readOnly />
 
             <button
               type="submit"
