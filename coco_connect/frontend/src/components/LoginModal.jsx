@@ -1,7 +1,11 @@
+// src/components/LoginModal.jsx
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import axios from "axios";
 import { loginUser } from "../services/authService";
+
+const API_BASE = "http://localhost:8000/api";
 
 export default function LoginModal({
   isOpen,
@@ -9,7 +13,7 @@ export default function LoginModal({
   onOpenRegister,
   onAuthSuccess,
 }) {
-  const modalRef = useRef();
+  const modalRef = useRef(null);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -19,10 +23,9 @@ export default function LoginModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleBackdropClick = (e) => {
-    if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
+    if (modalRef.current && !modalRef.current.contains(e.target)) onClose?.();
   };
 
-  // ✅ Regex → format-based checks
   const emailRegex = /^\S+@\S+\.\S+$/;
   const passwordRegex = /^.{6,}$/;
 
@@ -41,7 +44,6 @@ export default function LoginModal({
     return Object.keys(newErrors).length === 0;
   }, [formData.email, formData.password]);
 
-  // ✅ Map backend error -> friendly message
   const getLoginErrorMessage = (err) => {
     const status = err?.response?.status;
     const detail =
@@ -52,15 +54,18 @@ export default function LoginModal({
 
     const d = String(detail).toLowerCase();
 
-    // Django / DRF common messages:
-    // - "No active account found with the given credentials"
-    // - "Invalid credentials" / "Unable to log in with provided credentials"
-    // - Sometimes 404 for "user not found" (depends on your backend)
+    if (
+      status === 400 &&
+      (d.includes("username") || d.includes("field is required"))
+    ) {
+      // keep it user-friendly, but still accurate
+      return "Login payload mismatch. Please try again.";
+    }
+
     if (d.includes("no active account")) {
       return "No active account found. Contact admin to activate the account.";
     }
 
-    // treat invalid credentials / user not found as "account not found"
     if (
       status === 401 ||
       status === 404 ||
@@ -72,8 +77,23 @@ export default function LoginModal({
       return "Account not found. Register to create a new account.";
     }
 
-    // fallback
-    return "Login failed. Check email/password and make sure Django is running.";
+    return "Login failed. Please check your credentials.";
+  };
+
+  async function loginFallbackUsername(email, password) {
+    const res = await axios.post(`${API_BASE}/token/`, {
+      username: email,
+      password,
+    });
+    return res.data;
+  }
+
+  const redirectAfterLogin = (role) => {
+    const isAdmin = String(role || "").toLowerCase().trim() === "admin";
+    const target = isAdmin ? "/admin" : "/";
+
+    onClose?.();
+    setTimeout(() => navigate(target), 0);
   };
 
   const handleSubmit = async (e) => {
@@ -84,34 +104,44 @@ export default function LoginModal({
     setErrors((p) => ({ ...p, submit: "" }));
 
     try {
-      const data = await loginUser(formData.email, formData.password);
-      const apiUser = data.user ?? data;
+      let data;
 
-      localStorage.setItem("access", data.access);
-      localStorage.setItem("refresh", data.refresh);
+      try {
+        // preferred (your authService)
+        data = await loginUser(formData.email, formData.password);
+      } catch (err1) {
+        // fallback when token endpoint expects `username`
+        if (err1?.response?.status === 400) {
+          data = await loginFallbackUsername(formData.email, formData.password);
+        } else {
+          throw err1;
+        }
+      }
 
-      localStorage.setItem("role", apiUser.role);
-      localStorage.setItem("name", apiUser.name);
-      localStorage.setItem("email", apiUser.email);
+      const apiUser = data?.user ?? data ?? {};
+      const access = data?.access;
+      const refresh = data?.refresh;
+
+      if (!access) throw new Error("Missing access token from backend response");
+
+      localStorage.setItem("access", access);
+      if (refresh) localStorage.setItem("refresh", refresh);
 
       const userObj = {
-        id: apiUser.id,
-        name: apiUser.name,
-        email: apiUser.email,
-        role: apiUser.role,
+        id: apiUser?.id ?? null,
+        name: apiUser?.name || apiUser?.first_name || formData.email,
+        email: apiUser?.email || formData.email,
+        role: apiUser?.role || (apiUser?.is_staff ? "admin" : "user"),
         rememberMe,
       };
 
       localStorage.setItem("user", JSON.stringify(userObj));
+      localStorage.setItem("role", userObj.role || "");
+      localStorage.setItem("name", userObj.name || "");
+      localStorage.setItem("email", userObj.email || "");
+
       onAuthSuccess?.(userObj);
-
-      onClose();
-
-      {/*if (String(apiUser.role).toLowerCase() === "admin") {
-        navigate("/admin/blockchain");
-      } else {
-        navigate("/customer");
-      }*/}
+      redirectAfterLogin(userObj.role);
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
     } finally {
@@ -120,8 +150,9 @@ export default function LoginModal({
   };
 
   const handleChange = (e) => {
-    setFormData((p) => ({ ...p, [e.target.id]: e.target.value }));
-    if (errors[e.target.id]) setErrors((p) => ({ ...p, [e.target.id]: "" }));
+    const { id, value } = e.target;
+    setFormData((p) => ({ ...p, [id]: value }));
+    if (errors[id]) setErrors((p) => ({ ...p, [id]: "" }));
     if (errors.submit) setErrors((p) => ({ ...p, submit: "" }));
   };
 
@@ -136,7 +167,7 @@ export default function LoginModal({
   }, [isOpen]);
 
   useEffect(() => {
-    const escClose = (e) => e.key === "Escape" && onClose();
+    const escClose = (e) => e.key === "Escape" && onClose?.();
     if (isOpen) {
       document.addEventListener("keydown", escClose);
       document.body.style.overflow = "hidden";
@@ -170,8 +201,9 @@ export default function LoginModal({
         aria-modal="true"
         role="dialog"
       >
-        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" />
 
+        {/* decorative blobs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
           <div
             className="absolute top-1/4 left-1/4 w-40 h-40 p1 rounded-full blur-2xl opacity-80"
@@ -215,6 +247,8 @@ export default function LoginModal({
           <button
             onClick={onClose}
             className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100/70"
+            aria-label="Close"
+            type="button"
           >
             ✕
           </button>
@@ -227,14 +261,13 @@ export default function LoginModal({
             <div className="bg-red-50 text-center p-4 mb-6 border border-red-200 rounded-xl">
               <p className="text-red-600 text-sm font-medium">{errors.submit}</p>
 
-              {/* ✅ If account not found, show quick register action */}
-              {errors.submit.toLowerCase().includes("account not found") && (
+              {String(errors.submit).toLowerCase().includes("account not found") && (
                 <button
                   type="button"
                   className="mt-3 text-sm text-green-700 font-semibold hover:underline"
                   onClick={() => {
-                    onClose();
-                    onOpenRegister();
+                    onClose?.();
+                    onOpenRegister?.();
                   }}
                 >
                   Create a new account
@@ -244,7 +277,6 @@ export default function LoginModal({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
@@ -262,13 +294,13 @@ export default function LoginModal({
                       : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                   }`}
                 placeholder="you@example.com"
+                autoComplete="email"
               />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email}</p>
               )}
             </div>
 
-            {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
@@ -288,6 +320,7 @@ export default function LoginModal({
                         : "border-gray-300 focus:ring-green-300 hover:border-green-400"
                     }`}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                 />
 
                 <button
@@ -319,6 +352,7 @@ export default function LoginModal({
               <button
                 type="button"
                 className="text-sm text-green-700 hover:underline"
+                onClick={() => alert("Forgot password not implemented yet")}
               >
                 Forgot Password?
               </button>
@@ -344,8 +378,8 @@ export default function LoginModal({
               type="button"
               className="text-green-700 font-semibold hover:underline"
               onClick={() => {
-                onClose();
-                onOpenRegister();
+                onClose?.();
+                onOpenRegister?.();
               }}
             >
               Create one

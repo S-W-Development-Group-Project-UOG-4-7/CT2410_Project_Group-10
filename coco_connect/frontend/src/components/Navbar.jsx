@@ -4,10 +4,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import { debounce } from "lodash";
+import { useCart } from "../context/CartContext";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
 const Navbar = () => {
+  const { cartCount } = useCart(); // ✅ from CartContext
+
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -18,11 +21,11 @@ const Navbar = () => {
   const [activeLanguage, setActiveLanguage] = useState("en");
   const [isSearching, setIsSearching] = useState(false);
 
-  // ✅ NEW: "More" dropdown
+  // ✅ "More" dropdown
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreMenuRef = useRef(null);
 
-  // ✅ NEW: Custom Logout Modal
+  // ✅ Custom Logout Modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const location = useLocation();
@@ -33,9 +36,6 @@ const Navbar = () => {
   const searchInputRef = useRef(null);
   const mobileMenuRef = useRef(null);
   const navbarRef = useRef(null);
-
-  // ✅ Cart count placeholder (replace with context/redux later)
-  const [cartItemCount] = useState(3);
 
   const [user, setUser] = useState(() => {
     try {
@@ -61,13 +61,7 @@ const Navbar = () => {
   );
 
   // ✅ "More" items (News Corner goes here)
-  const moreItems = useMemo(
-    () => [
-      { path: "/news", label: "News Corner" },
-      // add later: { path: "/events", label: "Events" }
-    ],
-    []
-  );
+  const moreItems = useMemo(() => [{ path: "/news", label: "News Corner" }], []);
 
   const languages = useMemo(
     () => [
@@ -98,7 +92,9 @@ const Navbar = () => {
       }
 
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
-        const hitMobileBtn = event.target.closest('button[aria-label="Mobile menu"]');
+        const hitMobileBtn = event.target.closest(
+          'button[aria-label="Mobile menu"]'
+        );
         if (!hitMobileBtn) setIsMobileOpen(false);
       }
     };
@@ -353,7 +349,9 @@ const Navbar = () => {
                           ? "text-[#4caf50] bg-accent5/20 shadow-sm"
                           : "text-accent2 hover:text-[#4caf50] hover:bg-accent5/10"
                       }`}
-                      aria-current={location.pathname === item.path ? "page" : undefined}
+                      aria-current={
+                        location.pathname === item.path ? "page" : undefined
+                      }
                     >
                       {item.label}
                     </Link>
@@ -388,7 +386,9 @@ const Navbar = () => {
                             to={item.path}
                             onClick={() => setIsMoreOpen(false)}
                             className={`flex items-center px-4 py-3 text-accent6 hover:bg-accent5/5 transition-colors text-sm ${
-                              location.pathname === item.path ? "font-bold text-[#4caf50]" : ""
+                              location.pathname === item.path
+                                ? "font-bold text-[#4caf50]"
+                                : ""
                             }`}
                           >
                             <span className="w-2 h-2 rounded-full bg-accent1 mr-3 opacity-70" />
@@ -490,7 +490,9 @@ const Navbar = () => {
                         <button
                           onClick={() => {
                             if (searchQuery.trim()) {
-                              navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+                              navigate(
+                                `/search?q=${encodeURIComponent(searchQuery)}`
+                              );
                               setIsSearchExpanded(false);
                             }
                           }}
@@ -505,16 +507,16 @@ const Navbar = () => {
                 </div>
               </div>
 
-              {/* ✅ Cart */}
+              {/* ✅ Cart (context-based) */}
               <Link
                 to="/cart"
                 className="relative p-2 rounded-full text-accent2 hover:text-[#4caf50] hover:bg-accent5/10 transition-all active:scale-95"
                 aria-label="Cart"
               >
                 <i className="fa-solid fa-cart-shopping text-base lg:text-lg" />
-                {cartItemCount > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full">
-                    {cartItemCount}
+                    {cartCount}
                   </span>
                 )}
               </Link>
@@ -586,7 +588,9 @@ const Navbar = () => {
                 aria-expanded={isMobileOpen}
               >
                 <i
-                  className={`fas ${isMobileOpen ? "fa-times" : "fa-bars"} text-xl transition-transform duration-300`}
+                  className={`fas ${
+                    isMobileOpen ? "fa-times" : "fa-bars"
+                  } text-xl transition-transform duration-300`}
                 />
               </button>
             </div>
@@ -609,8 +613,12 @@ const Navbar = () => {
                 <div className="px-4 py-6">
                   {user ? (
                     <div className="mb-6 p-4 bg-gradient-to-r from-accent5/10 to-transparent rounded-xl border border-accent5/20">
-                      <p className="font-bold text-accent6 truncate">{displayName}</p>
-                      <p className="text-sm text-accent3 truncate">{user.email}</p>
+                      <p className="font-bold text-accent6 truncate">
+                        {displayName}
+                      </p>
+                      <p className="text-sm text-accent3 truncate">
+                        {user.email}
+                      </p>
                     </div>
                   ) : (
                     <div className="mb-6">
@@ -623,7 +631,7 @@ const Navbar = () => {
                     </div>
                   )}
 
-                  {/* Cart in mobile */}
+                  {/* ✅ Cart in mobile */}
                   <div className="mb-4">
                     <Link
                       to="/cart"
@@ -632,9 +640,9 @@ const Navbar = () => {
                     >
                       <i className="fa-solid fa-cart-shopping mr-3" />
                       <span className="text-lg">Cart</span>
-                      {cartItemCount > 0 && (
+                      {cartCount > 0 && (
                         <span className="ml-auto bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                          {cartItemCount}
+                          {cartCount}
                         </span>
                       )}
                     </Link>
@@ -666,7 +674,9 @@ const Navbar = () => {
                       onClick={() => setIsMobileOpen(false)}
                     >
                       <span className="text-lg">News Corner</span>
-                      <span className="ml-auto text-xs font-semibold text-accent3">NEW</span>
+                      <span className="ml-auto text-xs font-semibold text-accent3">
+                        NEW
+                      </span>
                     </Link>
                   </div>
 

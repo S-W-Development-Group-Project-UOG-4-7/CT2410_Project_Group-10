@@ -1,73 +1,93 @@
 from django.contrib.auth.models import User
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, login as auth_login
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db.models import Q, Sum
+from django.utils import timezone
+from django.db import transaction
+
 import json
 import decimal
-from django.utils import timezone
-import random, string
-import os
-import uuid
-from decimal import Decimal
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
+import random
+import string
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import authenticate
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.permissions import (
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+    IsAdminUser,
+)
+from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
+
 from rest_framework_simplejwt.tokens import AccessToken
 
-from .models import Profile, InvestmentCategory, InvestmentProject, Investment, Product
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
+from .models import (
+    Idea,
+    Profile,
+    InvestmentCategory,
+    InvestmentProject,
+    Investment,
+    Product,
+    News,
+    SimilarityAlert,
+)
+from .serializers import (
+    IdeaSerializer,
+    NewsSerializer,
+    SimilarityAlertSerializer,
+)
+from .permissions import IsOwner
+
+from .services.embeddings import get_embedding
+from .services.similarity import cosine_similarity
 
 
-# ----------------------------
+# =================================================
 # AUTH HELPER (SESSION + JWT)
-# ----------------------------
+# =================================================
 def check_auth(request):
     """
-    Supports BOTH:
-    1) Session auth (request.user.is_authenticated)
-    2) JWT Bearer token in Authorization header
+    Supports:
+    - Session auth (request.user)
+    - JWT Bearer token in Authorization header
     """
-    # 1) Session auth
     if getattr(request, "user", None) and request.user.is_authenticated:
         return request.user
 
-    # 2) JWT auth
     auth_header = (
         request.headers.get("Authorization")
         or request.META.get("HTTP_AUTHORIZATION")
         or ""
     )
-
     if auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1].strip()
+        token = auth_header.split(" ", 1)[1]
         try:
             access = AccessToken(token)
             user_id = access.get("user_id")
-            if not user_id:
-                return None
-            user_id = int(user_id)  # ✅ important
             return User.objects.get(id=user_id)
-        except Exception as e:
-            print("JWT AUTH ERROR:", str(e))
+        except Exception:
             return None
 
     return None
 
 
-
-
-
-# ------------------ Hello API ------------------
+# =================================================
+# BASIC API
+# =================================================
+@csrf_exempt
 def hello_coco(request):
     return JsonResponse({"message": "CocoConnect API is running"})
 
-# ------------------ Register ------------------
+
+# =================================================
+# REGISTER
+# =================================================
 @csrf_exempt
 def register(request):
     if request.method != "POST":
@@ -76,23 +96,19 @@ def register(request):
     try:
         data = json.loads(request.body or "{}")
 
-        name = data.get("name")
-        email = data.get("email")
+        name = (data.get("name") or "").strip()
+        email = (data.get("email") or "").strip().lower()
         password = data.get("password")
-        role = data.get("role")  # optional
+        role = (data.get("role") or "buyer").strip()
 
         if not all([name, email, password]):
             return JsonResponse(
                 {"error": "Name, email, and password are required"},
-                status=400
+                status=400,
             )
 
-        # use email as username
         if User.objects.filter(username=email).exists():
-            return JsonResponse(
-                {"error": "User already exists"},
-                status=400
-            )
+            return JsonResponse({"error": "User already exists"}, status=400)
 
         user = User.objects.create_user(
             username=email,
@@ -101,7 +117,7 @@ def register(request):
             first_name=name,
         )
 
-        Profile.objects.create(user=user, role=role)
+        Profile.objects.get_or_create(user=user, defaults={"role": role})
 
         return JsonResponse(
             {
@@ -117,21 +133,19 @@ def register(request):
         )
 
     except Exception as e:
-        return JsonResponse(
-            {"error": str(e)},
-            status=500
-        )
+        return JsonResponse({"error": str(e)}, status=500)
 
-# ----------------------------
-# LOGIN (SESSION ONLY)
-# ----------------------------
+
+# =================================================
+# LOGIN (SESSION)
+# =================================================
 @csrf_exempt
 def login(request):
     if request.method != "POST":
-        return JsonResponse({"error": "Invalid request"}, status=405)
+        return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body or "{}")
 
         email = (data.get("email") or "").strip().lower()
         password = data.get("password")
@@ -143,11 +157,9 @@ def login(request):
         if user is None:
             return JsonResponse({"error": "Invalid credentials"}, status=401)
 
-        profile, _ = Profile.objects.get_or_create(user=user)
-
-        # Optional session login
-        from django.contrib.auth import login as auth_login
         auth_login(request, user)
+
+        profile, _ = Profile.objects.get_or_create(user=user)
 
         return JsonResponse(
             {
@@ -166,155 +178,396 @@ def login(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-# ----------------------------
-# CREATE PROJECT
-# ----------------------------
-@csrf_exempt
-def create_project(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+# =================================================
+# USER PROFILE
+# =================================================
+@api_view(["GET", "PUT", "PATCH"])
+@permission_classes([IsAuthenticated])
+def me(request):
+    user = request.user
+    profile = getattr(user, "profile", None)
 
-    try:
-        # Check authentication
-        user = check_auth(request)
-        if not user:
-            return JsonResponse({"error": "Authentication required"}, status=401)
+    if request.method in ["PUT", "PATCH"]:
+        # Allow updating first/last name safely.
+        first_name = (request.data.get("first_name") or "").strip()
+        last_name = (request.data.get("last_name") or "").strip()
 
-        # Get data from form
-        title = request.POST.get("title", "").strip()
-        description = request.POST.get("description", "").strip()
-        category_name = request.POST.get("category", "").strip()
-        location = request.POST.get("location", "Colombo").strip()
-        farmer_name = request.POST.get("farmer_name", "").strip()
-        farmer_experience = request.POST.get("farmer_experience", "0").strip()
-        farmer_rating = request.POST.get("farmer_rating", "4.5").strip()
-        roi = request.POST.get("roi", "15").strip()
-        duration = request.POST.get("duration", "12").strip()
-        target_amount = request.POST.get("target_amount", "0").strip()
-        investment_type = request.POST.get("investment_type", "equity").strip()
-        risk_level = request.POST.get("risk_level", "medium").strip()
-        tags = request.POST.get("tags", "").strip()
+        # Optional: if you REALLY want username update (NOT recommended if you login with email)
+        # username = (request.data.get("username") or "").strip()
+        # if username and username != user.username:
+        #     if User.objects.filter(username=username).exclude(id=user.id).exists():
+        #         return Response({"error": "Username already taken"}, status=400)
+        #     user.username = username
 
-        # Validate required fields
-        required_fields = {
-            "title": title,
-            "description": description,
-            "category": category_name,
-            "location": location,
-            "farmer_name": farmer_name,
-            "target_amount": target_amount,
+        if first_name != "":
+            user.first_name = first_name
+        # last name can be empty intentionally
+        user.last_name = last_name
+
+        user.save()
+
+    full_name = f"{user.first_name} {user.last_name}".strip()
+
+    return Response(
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name or "",
+            "last_name": user.last_name or "",
+            "full_name": full_name,
+            "role": getattr(profile, "role", "buyer"),
+            "name": full_name or user.username,  # keep old frontend compatibility
         }
+    )
 
-        for field_name, value in required_fields.items():
-            if not value:
-                return JsonResponse(
-                    {"error": f"{field_name.replace('_', ' ').title()} is required"},
-                    status=400
-                )
 
-        # Get or create category
-        try:
-            category = InvestmentCategory.objects.get(name=category_name)
-        except InvestmentCategory.DoesNotExist:
-            # Create new category if doesn't exist
-            category = InvestmentCategory.objects.create(
-                name=category_name,
-                description=f"{category_name} projects"
-            )
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    current_password = request.data.get("current_password")
+    new_password = request.data.get("new_password")
+    confirm_password = request.data.get("confirm_password")  # ✅ accept confirm too
 
-        # Convert numeric fields
-        try:
-            farmer_exp_int = int(farmer_experience) if farmer_experience else 0
-            farmer_rating_dec = Decimal(farmer_rating) if farmer_rating else Decimal("4.5")
-            roi_dec = Decimal(roi) if roi else Decimal("15.0")
-            duration_int = int(duration) if duration else 12
-            target_amount_dec = Decimal(target_amount) if target_amount else Decimal("100000")
-        except (ValueError, TypeError) as e:
-            return JsonResponse({"error": f"Invalid numeric value: {str(e)}"}, status=400)
-
-        # Validate ROI
-        if roi_dec < Decimal("1") or roi_dec > Decimal("50"):
-            return JsonResponse({"error": "ROI must be between 1% and 50%"}, status=400)
-
-        # Validate duration
-        if duration_int < 1 or duration_int > 60:
-            return JsonResponse({"error": "Duration must be between 1 and 60 months"}, status=400)
-
-        # Validate target amount
-        if target_amount_dec < Decimal("100000"):
-            return JsonResponse({"error": "Target amount must be at least 100,000 LKR"}, status=400)
-
-        # Handle file uploads
-        image_file = request.FILES.get("image")
-        business_plan_file = request.FILES.get("business_plan")
-        additional_docs_file = request.FILES.get("additional_docs")
-
-        # Generate unique filenames
-        def generate_filename(original_name, folder):
-            ext = os.path.splitext(original_name)[1]
-            filename = f"{folder}/{uuid.uuid4()}{ext}"
-            return filename
-
-        # Save files
-        image_path = None
-        business_plan_path = None
-        additional_docs_path = None
-
-        if image_file:
-            image_filename = generate_filename(image_file.name, "project_images")
-            image_path = default_storage.save(image_filename, ContentFile(image_file.read()))
-        
-        if business_plan_file:
-            bp_filename = generate_filename(business_plan_file.name, "business_plans")
-            business_plan_path = default_storage.save(bp_filename, ContentFile(business_plan_file.read()))
-        
-        if additional_docs_file:
-            ad_filename = generate_filename(additional_docs_file.name, "project_docs")
-            additional_docs_path = default_storage.save(ad_filename, ContentFile(additional_docs_file.read()))
-
-        # Create project
-        project = InvestmentProject.objects.create(
-            title=title,
-            description=description,
-            category=category,
-            location=location,
-            farmer=user,
-            farmer_name=farmer_name,
-            farmer_experience=farmer_exp_int,
-            farmer_rating=farmer_rating_dec,
-            target_amount=target_amount_dec,
-            expected_roi=roi_dec,
-            duration_months=duration_int,
-            investment_type=investment_type,
-            risk_level=risk_level,
-            tags=tags,
-            status="pending",  # Projects need admin approval
-            days_left=30,
-            investors_count=0,
-            current_amount=Decimal("0"),
-            
-            # File paths
-            image=image_path,
-            business_plan=business_plan_path,
-            additional_docs=additional_docs_path,
+    if not current_password or not new_password:
+        return Response(
+            {"error": "current_password and new_password are required"},
+            status=400,
         )
 
-        return JsonResponse({
-            "success": True,
-            "message": "Project created successfully and submitted for admin review",
-            "project_id": project.id,
-            "project_title": project.title
-        }, status=201)
+    if confirm_password is not None and new_password != confirm_password:
+        return Response({"error": "Passwords do not match"}, status=400)
 
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({"error": str(e)}, status=500)
+    user = request.user
+
+    if not user.check_password(current_password):
+        return Response({"error": "Current password is incorrect"}, status=400)
+
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as e:
+        return Response({"error": e.messages}, status=400)
+
+    user.set_password(new_password)
+    user.save()
+
+    return Response({"message": "Password changed successfully"})
 
 
-# ----------------------------
-# GET PROJECTS
-# ----------------------------
+# =================================================
+# ADMIN: USERS
+# =================================================
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def users_list(request):
+    q = (request.GET.get("q") or "").strip()
+
+    qs = User.objects.all().order_by("-date_joined")
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(username__icontains=q)
+        )
+
+    users = []
+    for u in qs:
+        profile = getattr(u, "profile", None)
+        users.append(
+            {
+                "id": u.id,
+                "name": f"{u.first_name} {u.last_name}".strip() or u.username,
+                "email": u.email,
+                "role": getattr(profile, "role", ""),
+                "is_active": u.is_active,
+                "is_staff": u.is_staff,
+            }
+        )
+
+    return Response({"users": users})
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAdminUser])
+def users_delete(request, user_id):
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    if u.is_superuser:
+        return Response({"error": "Cannot delete superuser"}, status=403)
+
+    u.delete()
+    return Response({"message": "User deleted"})
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAdminUser])
+def users_update(request, user_id):
+    try:
+        u = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    if "is_active" in request.data:
+        u.is_active = bool(request.data["is_active"])
+    if "is_staff" in request.data:
+        u.is_staff = bool(request.data["is_staff"])
+    u.save()
+
+    if "role" in request.data:
+        profile, _ = Profile.objects.get_or_create(user=u)
+        profile.role = request.data["role"]
+        profile.save()
+
+    return Response({"message": "User updated"})
+
+
+# =================================================
+# NEWS (DRF ViewSet)
+# =================================================
+class NewsViewSet(ModelViewSet):
+    queryset = News.objects.all().order_by("-date", "-id")
+    serializer_class = NewsSerializer
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser()]
+        return [IsAuthenticatedOrReadOnly()]
+
+
+# ==================================================
+# IDEAS (AI similarity: BLOCK/WARN/FORCE + ALERTS)
+# ==================================================
+class IdeaViewSet(ModelViewSet):
+    queryset = Idea.objects.all().order_by("-created_at")
+    serializer_class = IdeaSerializer
+
+    # Thresholds from error-correction3 (more complete flow)
+    BLOCK_THRESHOLD = 0.85
+    WARNING_THRESHOLD = 0.65
+
+    # Also keep main’s simpler threshold concept as a constant (no loss)
+    SIM_THRESHOLD = 0.80
+
+    def get_permissions(self):
+        if self.action in ["update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsOwner()]
+        elif self.action == "create":
+            return [IsAuthenticated()]
+        return [IsAuthenticatedOrReadOnly()]
+
+    def build_text(self, title, short_desc, full_desc):
+        # Combines both styles (“Title: …” and plain join) in a stable way
+        title = title or ""
+        short_desc = short_desc or ""
+        full_desc = full_desc or ""
+        return f"Title: {title}\nShort Description: {short_desc}\nFull Description: {full_desc}".strip()
+
+    def find_similar(self, embedding, exclude_id=None):
+        """
+        Returns top 5 similar ideas, including Idea objects for alerts + UI.
+        """
+        matches = []
+        qs = Idea.objects.exclude(embedding=None)
+
+        if exclude_id:
+            qs = qs.exclude(id=exclude_id)
+
+        for idea in qs:
+            score = cosine_similarity(embedding, idea.embedding)
+            if score is None:
+                continue
+            matches.append({"idea": idea, "score": float(score)})
+
+        matches.sort(key=lambda x: x["score"], reverse=True)
+        return matches[:5]
+
+    def serialize_matches(self, matches):
+        return [
+            {
+                "id": m["idea"].id,
+                "title": m["idea"].title,
+                "author": (m["idea"].author.get_full_name() or m["idea"].author.username)
+                if getattr(m["idea"], "author", None)
+                else "",
+                "score": round(m["score"], 3),
+            }
+            for m in matches
+        ]
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        title = request.data.get("title", "") or ""
+        short_desc = request.data.get("short_description", "") or ""
+        full_desc = request.data.get("full_description", "") or ""
+
+        # frontend sends "1"/true/yes when user clicks Publish Anyway
+        force_publish = str(request.data.get("force_publish", "")).lower() in [
+            "1",
+            "true",
+            "yes",
+        ]
+
+        embedding = get_embedding(self.build_text(title, short_desc, full_desc))
+
+        matches = self.find_similar(embedding)
+        best_score = matches[0]["score"] if matches else 0.0
+
+        # 🔴 BLOCK
+        if best_score >= self.BLOCK_THRESHOLD:
+            return Response(
+                {
+                    "type": "BLOCK",
+                    "similarity": round(best_score, 3),
+                    "message": (
+                        "Cannot publish this idea because a very similar idea already exists. "
+                        "Please edit your idea."
+                    ),
+                    "matches": self.serialize_matches(matches),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # 🟡 WARNING
+        if self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD and not force_publish:
+            return Response(
+                {
+                    "type": "WARNING",
+                    "similarity": round(best_score, 3),
+                    "message": (
+                        "Similar ideas found. You can view similar ideas, edit/cancel, "
+                        "or publish anyway."
+                    ),
+                    "matches": self.serialize_matches(matches),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # 🟢 CREATE
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        new_idea = serializer.save(
+            author=request.user,
+            embedding=embedding,
+        )
+
+        # Create alerts when forced publish within warning zone
+        if self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD:
+            for m in matches:
+                old_idea = m["idea"]
+                if old_idea.author_id == request.user.id:
+                    continue
+
+                SimilarityAlert.objects.get_or_create(
+                    idea=old_idea,          # ORIGINAL
+                    similar_idea=new_idea,  # NEW
+                    defaults={"similarity_score": round(m["score"], 3)},
+                )
+
+        return Response(self.get_serializer(new_idea).data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        title = request.data.get("title", instance.title)
+        short_desc = request.data.get("short_description", instance.short_description)
+        full_desc = request.data.get("full_description", instance.full_description)
+
+        embedding = get_embedding(self.build_text(title, short_desc, full_desc))
+
+        matches = self.find_similar(embedding, exclude_id=instance.id)
+        best_score = matches[0]["score"] if matches else 0.0
+
+        if best_score >= self.BLOCK_THRESHOLD:
+            return Response(
+                {
+                    "type": "BLOCK",
+                    "similarity": round(best_score, 3),
+                    "message": "Updated idea is too similar to an existing idea.",
+                    "matches": self.serialize_matches(matches),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = self.get_serializer(instance, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        idea = serializer.save(embedding=embedding)
+        return Response(self.get_serializer(idea).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        title = request.data.get("title", instance.title)
+        short_desc = request.data.get("short_description", instance.short_description)
+        full_desc = request.data.get("full_description", instance.full_description)
+
+        embedding = get_embedding(self.build_text(title, short_desc, full_desc))
+
+        matches = self.find_similar(embedding, exclude_id=instance.id)
+        best_score = matches[0]["score"] if matches else 0.0
+
+        if best_score >= self.BLOCK_THRESHOLD:
+            return Response(
+                {
+                    "type": "BLOCK",
+                    "similarity": round(best_score, 3),
+                    "message": "Updated idea is too similar to an existing idea.",
+                    "matches": self.serialize_matches(matches),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        idea = serializer.save(embedding=embedding)
+        return Response(self.get_serializer(idea).data)
+
+
+# ==================================================
+# SIMILARITY ALERTS (ViewSet)
+# ==================================================
+class SimilarityAlertViewSet(ModelViewSet):
+    serializer_class = SimilarityAlertSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            SimilarityAlert.objects.filter(
+                idea__author=self.request.user,
+                is_dismissed=False,
+            )
+            .select_related("idea__author", "similar_idea__author")
+            .order_by("-created_at")
+        )
+
+    def get_object(self):
+        obj = super().get_object()
+        if obj.idea.author_id != self.request.user.id:
+            raise PermissionDenied("Not your alert")
+        return obj
+
+    @action(detail=True, methods=["post"])
+    def report(self, request, pk=None):
+        alert = self.get_object()
+        alert.is_reported = True
+        alert.save(update_fields=["is_reported"])
+        return Response({"ok": True})
+
+    @action(detail=True, methods=["post"])
+    def dismiss(self, request, pk=None):
+        alert = self.get_object()
+        alert.is_dismissed = True
+        alert.save(update_fields=["is_dismissed"])
+        return Response({"ok": True})
+
+
+# =================================================
+# INVESTMENT ENDPOINTS (function-based)
+# =================================================
 @csrf_exempt
 def get_projects(request):
     try:
@@ -351,15 +604,11 @@ def get_projects(request):
                 | Q(description__icontains=search)
                 | Q(farmer__first_name__icontains=search)
                 | Q(farmer__last_name__icontains=search)
-                | Q(farmer_name__icontains=search)
             )
 
-        status_filter = request.GET.get("status", "")
-        if status_filter:
-            projects_qs = projects_qs.filter(status=status_filter)
-        else:
-            # Default to showing active and pending projects
-            projects_qs = projects_qs.filter(status__in=["active", "pending"])
+        status_q = request.GET.get("status", "")
+        if status_q:
+            projects_qs = projects_qs.filter(status=status_q)
 
         sort_by = request.GET.get("sortBy", "roi_desc")
         if sort_by == "roi_desc":
@@ -387,9 +636,7 @@ def get_projects(request):
                     "category": project.category.name if project.category else "",
                     "location": project.location,
                     "farmer": project.farmer.id,
-                    "farmer_name": project.farmer_name,
-                    "farmer_experience": project.farmer_experience,
-                    "farmer_rating": float(project.farmer_rating),
+                    "farmer_name": f"{project.farmer.first_name} {project.farmer.last_name}".strip(),
                     "roi": float(project.expected_roi),
                     "duration": project.duration_months,
                     "target_amount": float(project.target_amount),
@@ -403,21 +650,15 @@ def get_projects(request):
                     "days_left": project.days_left,
                     "progress_percentage": float(project.progress_percentage()),
                     "funding_needed": float(project.funding_needed()),
-                    "image_url": request.build_absolute_uri(project.image.url) if project.image else None,
                 }
             )
 
         return JsonResponse({"success": True, "projects": projects_data, "total": len(projects_data)})
 
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
-# ----------------------------
-# PROJECT DETAIL
-# ----------------------------
 @csrf_exempt
 def get_project_detail(request, project_id):
     try:
@@ -432,9 +673,7 @@ def get_project_detail(request, project_id):
                     "description": project.description,
                     "category": project.category.name if project.category else "",
                     "location": project.location,
-                    "farmer_name": project.farmer_name,
-                    "farmer_experience": project.farmer_experience,
-                    "farmer_rating": float(project.farmer_rating),
+                    "farmer_name": f"{project.farmer.first_name} {project.farmer.last_name}".strip(),
                     "roi": float(project.expected_roi),
                     "duration": project.duration_months,
                     "target_amount": float(project.target_amount),
@@ -448,9 +687,6 @@ def get_project_detail(request, project_id):
                     "days_left": project.days_left,
                     "progress_percentage": float(project.progress_percentage()),
                     "funding_needed": float(project.funding_needed()),
-                    "image_url": request.build_absolute_uri(project.image.url) if project.image else None,
-                    "business_plan_url": request.build_absolute_uri(project.business_plan.url) if project.business_plan else None,
-                    "additional_docs_url": request.build_absolute_uri(project.additional_docs.url) if project.additional_docs else None,
                 },
             }
         )
@@ -461,19 +697,12 @@ def get_project_detail(request, project_id):
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
-# ----------------------------
-# CREATE INVESTMENT
-# ----------------------------
 @csrf_exempt
 def create_investment(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     try:
-        # DEBUG
-        print("AUTH HEADER headers:", request.headers.get("Authorization"))
-        print("AUTH HEADER META:", request.META.get("HTTP_AUTHORIZATION"))
-
         user = check_auth(request)
         if not user:
             return JsonResponse({"error": "Authentication required"}, status=401)
@@ -486,413 +715,259 @@ def create_investment(request):
         if not project_id or amount is None:
             return JsonResponse({"error": "Project ID and amount are required"}, status=400)
 
-        try:
-            project = InvestmentProject.objects.get(id=project_id)
-        except InvestmentProject.DoesNotExist:
-            return JsonResponse({"error": "Project not found"}, status=404)
+        project = InvestmentProject.objects.get(id=project_id)
 
-        try:
-            amount_decimal = decimal.Decimal(str(amount))
-            if amount_decimal < decimal.Decimal("100"):
-                return JsonResponse({"error": "Minimum investment amount is RS.100"}, status=400)
-        except Exception:
-            return JsonResponse({"error": "Invalid amount"}, status=400)
+        amount_decimal = decimal.Decimal(str(amount))
+        if amount_decimal < decimal.Decimal("100"):
+            return JsonResponse({"error": "Minimum investment amount is RS.100"}, status=400)
 
         if project.status != "active":
             return JsonResponse({"error": "Project is not accepting investments"}, status=400)
 
         funding_needed = project.funding_needed()
         if amount_decimal > funding_needed:
-            return JsonResponse(
-                {"error": f"Maximum investment for this project is RS.{funding_needed:.2f}"},
-                status=400,
-            )
-
-        
+            return JsonResponse({"error": f"Maximum investment is RS.{funding_needed:.2f}"}, status=400)
 
         txid = "INV-" + timezone.now().strftime("%Y%m%d-%H%M%S") + "-" + "".join(
             random.choices(string.ascii_uppercase + string.digits, k=6)
         )
 
-        investment = Investment.objects.create(
+        inv = Investment.objects.create(
             investor=user,
             project=project,
             amount=amount_decimal,
             payment_method=payment_method,
             transaction_id=txid,
-            status="completed",
+            status="completed",  # adjust if you have payment gateway callback later
             payment_status="completed",
-            notes="",
             completed_at=timezone.now(),
         )
-
 
         return JsonResponse(
             {
                 "success": True,
-                "message": "Investment successful!",
                 "investment": {
-                    "id": investment.id,
-                    "project_title": project.title,
-                    "amount": float(investment.amount),
-                    "status": investment.status,
-                    "created_at": investment.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "id": inv.id,
+                    "transaction_id": inv.transaction_id,
+                    "amount": float(inv.amount),
+                    "project_id": project.id,
                 },
             },
             status=201,
         )
 
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except InvestmentProject.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Project not found"}, status=404)
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
-# ----------------------------
-# MY PROJECTS
-# ----------------------------
-@csrf_exempt
-def my_projects(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_investments(request):
+    qs = (
+        Investment.objects.filter(investor=request.user)
+        .select_related("project")
+        .order_by("-created_at")
+    )
 
-    try:
-        user = check_auth(request)
-        if not user:
-            return JsonResponse({"error": "Authentication required"}, status=401)
-
-        projects = InvestmentProject.objects.filter(farmer=user).order_by("-created_at")
-        
-        projects_data = []
-        for project in projects:
-            projects_data.append({
-                "id": project.id,
-                "title": project.title,
-                "description": project.description,
-                "category": project.category.name if project.category else "",
-                "location": project.location,
-                "farmer_name": project.farmer_name,
-                "farmer_experience": project.farmer_experience,
-                "farmer_rating": float(project.farmer_rating),
-                "roi": float(project.expected_roi),
-                "duration": project.duration_months,
-                "target_amount": float(project.target_amount),
-                "current_amount": float(project.current_amount),
-                "investment_type": project.investment_type,
-                "risk_level": project.risk_level,
-                "status": project.status,
-                "tags": project.get_tags_list(),
-                "created_at": project.created_at.strftime("%Y-%m-%d"),
-                "investors_count": project.investors_count,
-                "days_left": project.days_left,
-                "progress_percentage": float(project.progress_percentage()),
-                "funding_needed": float(project.funding_needed()),
-                "image_url": request.build_absolute_uri(project.image.url) if project.image else None,
-            })
-
-        return JsonResponse({
-            "success": True,
-            "projects": projects_data,
-            "count": len(projects_data)
-        })
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-# ----------------------------
-# UPDATE PROJECT STATUS
-# ----------------------------
-@csrf_exempt
-def update_project_status(request, project_id):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    try:
-        user = check_auth(request)
-        if not user:
-            return JsonResponse({"error": "Authentication required"}, status=401)
-
-        # Check if user is admin
-        if not user.is_staff:
-            return JsonResponse({"error": "Admin access required"}, status=403)
-
-        data = json.loads(request.body or "{}")
-        new_status = data.get("status")
-        
-        if new_status not in ["pending", "active", "rejected", "funded", "completed"]:
-            return JsonResponse({"error": "Invalid status"}, status=400)
-
-        try:
-            project = InvestmentProject.objects.get(id=project_id)
-        except InvestmentProject.DoesNotExist:
-            return JsonResponse({"error": "Project not found"}, status=404)
-
-        project.status = new_status
-        project.save()
-
-        return JsonResponse({
-            "success": True,
-            "message": f"Project status updated to {new_status}",
-            "project_id": project.id,
-            "status": project.status
-        })
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-# ----------------------------
-# CATEGORIES
-# ----------------------------
-@csrf_exempt
-def get_categories(request):
-    try:
-        categories = InvestmentCategory.objects.all()
-        categories_data = [{"id": cat.id, "name": cat.name} for cat in categories]
-        return JsonResponse({"success": True, "categories": categories_data})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-# ----------------------------
-# LOCATIONS
-# ----------------------------
-@csrf_exempt
-def get_locations(request):
-    try:
-        locations = InvestmentProject.objects.values_list("location", flat=True).distinct()
-        return JsonResponse({"success": True, "locations": list(locations)})
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
-# ----------------------------
-# STATS
-# ----------------------------
-@csrf_exempt
-def get_platform_stats(request):
-    try:
-        total_projects = InvestmentProject.objects.count()
-
-        total_investment_result = Investment.objects.filter(status="completed").aggregate(total=Sum("amount"))
-        total_investment = total_investment_result["total"] or decimal.Decimal("0")
-
-        unique_investors = Investment.objects.filter(status="completed").values("investor").distinct().count()
-
-        projects = InvestmentProject.objects.all()
-        avg_roi = 0
-        if projects.exists():
-            total_roi = sum(float(p.expected_roi) for p in projects)
-            avg_roi = total_roi / len(projects)
-
-        return JsonResponse(
+    data = []
+    for inv in qs:
+        data.append(
             {
-                "success": True,
-                "stats": {
-                    "total_projects": total_projects,
-                    "total_investment": float(total_investment),
-                    "total_investors": unique_investors,
-                    "average_roi": round(avg_roi, 1),
-                    "active_projects": InvestmentProject.objects.filter(status="active").count(),
-                    "pending_projects": InvestmentProject.objects.filter(status="pending").count(),
-                    "funded_projects": InvestmentProject.objects.filter(status="funded").count(),
+                "id": inv.id,
+                "amount": float(inv.amount),
+                "status": inv.status,
+                "payment_method": inv.payment_method,
+                "transaction_id": inv.transaction_id,
+                "created_at": inv.created_at.isoformat(),
+                "project": {
+                    "id": inv.project.id,
+                    "title": inv.project.title,
+                    "status": inv.project.status,
                 },
             }
         )
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    return Response(data)
 
 
-# ----------------------------
-# DEMO PROJECTS
-# ----------------------------
-@csrf_exempt
-def create_demo_projects(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
-
-    try:
-        farmer, created = User.objects.get_or_create(
-            username="demo_farmer@coco.com",
-            defaults={"email": "demo_farmer@coco.com", "first_name": "Ravi", "last_name": "Perera"},
-        )
-        if created:
-            farmer.set_password("demo123")
-            farmer.save()
-            Profile.objects.create(user=farmer, role="farmer")
-
-        coconut_farming, _ = InvestmentCategory.objects.get_or_create(name="Coconut Farming")
-        coconut_oil, _ = InvestmentCategory.objects.get_or_create(name="Coconut Oil Production")
-        coir_products, _ = InvestmentCategory.objects.get_or_create(name="Coir Products")
-
-        demo_projects = [
-            {
-                "title": "Organic Coconut Farm Expansion",
-                "description": "Expanding organic coconut farm with sustainable practices and modern irrigation in Kurunegala.",
-                "category": coconut_farming,
-                "location": "Kurunegala",
-                "farmer": farmer,
-                "farmer_name": "Ravi Perera",
-                "farmer_experience": 8,
-                "farmer_rating": 4.7,
-                "target_amount": 5000000,
-                "current_amount": 3250000,
-                "expected_roi": 18.5,
-                "duration_months": 24,
-                "investment_type": "equity",
-                "risk_level": "medium",
-                "status": "active",
-                "tags": "Organic,Sustainable,Modern Irrigation",
-                "days_left": 45,
-                "investors_count": 24,
-            },
-            {
-                "title": "Coconut Oil Processing Unit",
-                "description": "Establishing a cold-press coconut oil production facility in Gampaha.",
-                "category": coconut_oil,
-                "location": "Gampaha",
-                "farmer": farmer,
-                "farmer_name": "Ravi Perera",
-                "farmer_experience": 5,
-                "farmer_rating": 4.3,
-                "target_amount": 3500000,
-                "current_amount": 1800000,
-                "expected_roi": 22.0,
-                "duration_months": 18,
-                "investment_type": "equity",
-                "risk_level": "medium",
-                "status": "active",
-                "tags": "Cold Press,Organic,Export Quality",
-                "days_left": 60,
-                "investors_count": 18,
-            }
-        ]
-
-        created_projects = []
-        for pdata in demo_projects:
-            project = InvestmentProject.objects.create(**pdata)
-            created_projects.append({"id": project.id, "title": project.title, "status": project.status})
-
-        return JsonResponse({"success": True, "message": f"Created {len(created_projects)} demo projects", "projects": created_projects})
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_categories(request):
+    qs = InvestmentCategory.objects.all().order_by("name")
+    return Response([{"id": c.id, "name": c.name, "description": c.description} for c in qs])
 
 
-# ----------------------------
-# TEST
-# ----------------------------
-@csrf_exempt
-def hello_coco(request):
-    return JsonResponse(
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_locations(request):
+    # Minimal: derive locations from projects (no separate Location model needed)
+    qs = InvestmentProject.objects.all()
+
+    values = []
+    for field in ["location", "district", "city", "area"]:
+        try:
+            values = list(qs.values_list(field, flat=True))
+            break
+        except Exception:
+            continue
+
+    cleaned = sorted({v.strip() for v in values if isinstance(v, str) and v.strip()})
+    return Response(cleaned)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_platform_stats(request):
+    total_projects = InvestmentProject.objects.count()
+    active_projects = InvestmentProject.objects.filter(status="active").count()
+
+    total_investments = Investment.objects.count()
+    total_invested_amount = Investment.objects.filter(status="completed").aggregate(
+        total=Sum("amount")
+    )["total"] or decimal.Decimal("0")
+
+    total_users = User.objects.count()
+
+    return Response(
         {
-            "message": "CocoConnect API is running",
-            "endpoints": {
-                "projects": "/api/projects/",
-                "stats": "/api/stats/",
-                "categories": "/api/categories/",
-                "locations": "/api/locations/",
-                "make_investment": "/api/make-investment/",
-                "create_project": "/api/create-project/",
-                "my_projects": "/api/my-projects/",
-                "demo_projects": "/api/create-demo-projects/",
-            },
+            "total_projects": total_projects,
+            "active_projects": active_projects,
+            "total_investments": total_investments,
+            "total_invested_amount": float(total_invested_amount),
+            "total_users": total_users,
         }
     )
 
 
-@csrf_exempt
-def my_investments(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def create_demo_projects(request):
+    """
+    Creates a few demo projects if none exist.
+    Safe to run multiple times.
+    """
+    if InvestmentProject.objects.exists():
+        return Response({"detail": "Projects already exist"}, status=200)
 
-    user = check_auth(request)
-    if not user:
-        return JsonResponse({"error": "Authentication required"}, status=401)
+    # pick an admin/staff or fallback to first user
+    farmer = User.objects.filter(is_staff=True).first() or User.objects.first()
+    if not farmer:
+        return Response({"detail": "No users found to assign as farmer"}, status=400)
 
-    investments_qs = (
-        Investment.objects
-        .select_related("project")
-        .filter(investor=user)
+    cat, _ = InvestmentCategory.objects.get_or_create(
+        name="Default",
+        defaults={"description": "Default category"},
+    )
+
+    demo = [
+        {
+            "title": "Coconut Farm Expansion",
+            "description": "Expand coconut farm capacity with irrigation and seedlings.",
+            "expected_roi": 12.5,
+            "risk_level": "medium",
+            "investment_type": "equity",
+            "location": "Colombo",
+            "target_amount": decimal.Decimal("250000"),
+            "days_left": 45,
+        },
+        {
+            "title": "Coir Processing Upgrade",
+            "description": "Upgrade machinery for higher output and efficiency.",
+            "expected_roi": 15.0,
+            "risk_level": "high",
+            "investment_type": "loan",
+            "location": "Gampaha",
+            "target_amount": decimal.Decimal("400000"),
+            "days_left": 60,
+        },
+    ]
+
+    for d in demo:
+        InvestmentProject.objects.create(
+            category=cat,
+            farmer=farmer,
+            current_amount=decimal.Decimal("0"),
+            duration_months=12,
+            status="active",
+            investors_count=0,
+            tags="demo,coconut",
+            **d,
+        )
+
+    return Response({"detail": "Demo projects created"}, status=201)
+# =================================================
+# ADMIN: IDEA MODERATION (SAFE ADDITION)
+# =================================================
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_all_ideas(request):
+    """
+    Admin can see ALL ideas
+    """
+    ideas = Idea.objects.select_related("author").order_by("-created_at")
+    return Response(IdeaSerializer(ideas, many=True).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_reported_ideas(request):
+    """
+    Admin can see ONLY reported ideas
+    (reported = is_reported=True and not dismissed)
+    """
+    alerts = (
+        SimilarityAlert.objects
+        .filter(is_reported=True, is_dismissed=False)
+        .select_related("similar_idea", "similar_idea__author", "idea")
         .order_by("-created_at")
     )
 
-    investments_data = []
-    for inv in investments_qs:
-        investments_data.append({
-            "id": inv.id,
-            "amount": float(inv.amount),
-            "status": inv.status,
-            "payment_status": getattr(inv, "payment_status", ""),
-            "transaction_id": inv.transaction_id,
-            "created_at": inv.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "project": {
-                "id": inv.project.id,
-                "title": inv.project.title,
-                "location": inv.project.location,
-                "roi": float(inv.project.expected_roi),
-                "duration": inv.project.duration_months,
-            }
+    data = []
+    for alert in alerts:
+        reported = alert.similar_idea  # 🔴 the reported idea
+
+        data.append({
+            "idea_id": reported.id,
+            "title": reported.title,
+            "short_description": reported.short_description,
+            "full_description": reported.full_description,
+            "author_name": reported.author.get_full_name() or reported.author.username,
+            "author_email": reported.author.email,
+            "similarity": alert.similarity_score,
+            "created_at": alert.created_at,
+            "original_idea_title": alert.idea.title,
         })
 
-    return JsonResponse({"success": True, "investments": investments_data})
-
-
-@api_view(["GET", "PUT"])
-@permission_classes([IsAuthenticated])
-def me(request):
-    user = request.user
-
-    if request.method == "PUT":
-        username = request.data.get("username", "").strip()
-        first_name = request.data.get("first_name", user.first_name).strip()
-        last_name = request.data.get("last_name", user.last_name).strip()
-
-        if username:
-            # ✅ block duplicates
-            if User.objects.exclude(id=user.id).filter(username=username).exists():
-                return Response({"error": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST)
-            user.username = username
-
-        user.first_name = first_name
-        user.last_name = last_name
-        user.save()
-
-    return Response({
-        "id": user.id,
-        "username": user.username,          # ✅ send username to frontend
-        "email": user.email,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "role": "Admin" if user.is_staff else "User",
-        "is_active": user.is_active,
-    })
-
+    return Response(data)
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def change_password(request):
-    user = request.user
+@permission_classes([IsAdminUser])
+def admin_keep_idea(request, idea_id):
+    """
+    Admin keeps idea (dismiss report)
+    """
+    SimilarityAlert.objects.filter(
+        similar_idea_id=idea_id,
+        is_reported=True
+    ).update(is_dismissed=True)
 
-    current_password = request.data.get("current_password")
-    new_password = request.data.get("new_password")
-    confirm_password = request.data.get("confirm_password")
+    return Response({"message": "Idea kept (report dismissed)"})
 
-    if not current_password or not new_password:
-        return Response({"error": "Current and new password required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    if confirm_password is not None and new_password != confirm_password:
-        return Response({"error": "Passwords do not match"}, status=status.HTTP_400_BAD_REQUEST)
+@api_view(["DELETE"])
+@permission_classes([IsAdminUser])
+def admin_delete_idea(request, idea_id):
+    """
+    Admin deletes idea completely
+    """
+    idea = Idea.objects.get(id=idea_id)
+    idea.delete()
 
-    if not user.check_password(current_password):
-        return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
+    SimilarityAlert.objects.filter(
+        Q(similar_idea_id=idea_id) | Q(idea_id=idea_id)
+    ).delete()
 
-    if len(new_password) < 6:
-        return Response({"error": "Password must be at least 6 characters"}, status=status.HTTP_400_BAD_REQUEST)
-
-    user.set_password(new_password)
-    user.save()
-
-    return Response({"message": "Password updated successfully"}, status=status.HTTP_200_OK)
+    return Response({"message": "Idea removed"})
