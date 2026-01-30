@@ -9,6 +9,10 @@ import { useCart } from "../context/CartContext";
 import AddProductModal from "../components/AddProductModal";
 import ProductDetailsModal from "../components/ProductDetailsModal";
 
+// ✅ Use existing auth modals (no changes to other files)
+import LoginModal from "../components/LoginModal";
+import RegisterModal from "../components/RegisterModal";
+
 const API = "http://127.0.0.1:8000";
 
 const Product = () => {
@@ -32,18 +36,23 @@ const Product = () => {
 
   const hasSetMaxPrice = useRef(false);
 
-  // ✅ Logged-in user (null if not logged in)
-  const user = useMemo(() => {
+  // ✅ Logged-in user + access token (reactive)
+  const [user, setUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
     } catch {
       return null;
     }
-  }, []);
-  const access = localStorage.getItem("access");
+  });
+  const [access, setAccess] = useState(() => localStorage.getItem("access"));
 
   // Add Product modal
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+
+  // ✅ Login gating popup + modals
+  const [showLoginGate, setShowLoginGate] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   // News
   const [newsItems, setNewsItems] = useState([]);
@@ -56,6 +65,39 @@ const Product = () => {
   // Product details modal
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+
+  // ✅ Helper: refresh auth state from localStorage
+  const refreshAuth = () => {
+    let u = null;
+    try {
+      u = JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      u = null;
+    }
+    setUser(u);
+    setAccess(localStorage.getItem("access"));
+  };
+
+  // ✅ Helper: open Add Product (login-gated)
+  const requestAddProduct = (e) => {
+    if (e) e.stopPropagation();
+
+    const token = localStorage.getItem("access");
+    const u = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("user") || "null");
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!token || !u) {
+      setShowLoginGate(true);
+      return;
+    }
+
+    setIsAddProductOpen(true);
+  };
 
   useEffect(() => {
     if (!newsItems.length) return;
@@ -586,18 +628,14 @@ const Product = () => {
                             <div className="flex items-center gap-2 mt-1">
                               <p className="text-xs text-green-700">By {authorName}</p>
 
-                              {user && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsAddProductOpen(true);
-                                  }}
-                                  className="text-green-600 font-bold hover:scale-110 transition"
-                                  title="Add your product"
-                                >
-                                  +
-                                </button>
-                              )}
+                              {/* ✅ Plus is ALWAYS visible */}
+                              <button
+                                onClick={(e) => requestAddProduct(e)}
+                                className="text-green-600 font-bold hover:scale-110 transition"
+                                title="Add your product"
+                              >
+                                +
+                              </button>
                             </div>
 
                             <p className="text-xs text-gray-600 mt-2 line-clamp-2">
@@ -672,17 +710,61 @@ const Product = () => {
         </div>
       </div>
 
-      {/* Floating Add Product Button */}
-      {user && (
-        <button
-          onClick={() => setIsAddProductOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-green-600 text-white text-3xl
-            font-bold flex items-center justify-center shadow-lg hover:bg-green-700 hover:scale-105
-            transition z-50"
-          title="Add your product"
+      {/* ✅ Floating Add Product Button (ALWAYS visible) */}
+      <button
+        onClick={(e) => requestAddProduct(e)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-green-600 text-white text-3xl
+          font-bold flex items-center justify-center shadow-lg hover:bg-green-700 hover:scale-105
+          transition z-50"
+        title="Add your product"
+      >
+        +
+      </button>
+
+      {/* ✅ Custom popup (only when not logged in) */}
+      {showLoginGate && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowLoginGate(false)}
         >
-          +
-        </button>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative w-[92%] max-w-sm rounded-2xl bg-white shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-[#2f3e46]">Login required</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              You need to login first to add your product.
+            </p>
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                onClick={() => setShowLoginGate(false)}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                onClick={() => {
+                  // ✅ Save current page so after login it returns here (shop page / whatever page)
+                  localStorage.setItem(
+                    "redirectAfterLogin",
+                    window.location.pathname + window.location.search
+                  );
+
+                  setShowLoginGate(false);
+                  setIsLoginOpen(true);
+                }}
+              >
+                Login
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <AddProductModal
@@ -704,6 +786,33 @@ const Product = () => {
         }}
         onAddToCart={(id) => handleAddToCart(id)}
         onVerify={(id) => handleVerify(id)}
+      />
+
+      {/* ✅ Login/Register modals (opens from the popup) */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onOpenRegister={() => {
+          setIsLoginOpen(false);
+          setIsRegisterOpen(true);
+        }}
+        onAuthSuccess={() => {
+          refreshAuth();
+          setIsLoginOpen(false);
+        }}
+      />
+
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onOpenLogin={() => {
+          setIsRegisterOpen(false);
+          setIsLoginOpen(true);
+        }}
+        onAuthSuccess={() => {
+          refreshAuth();
+          setIsRegisterOpen(false);
+        }}
       />
     </div>
   );

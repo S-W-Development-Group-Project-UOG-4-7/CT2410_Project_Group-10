@@ -98,14 +98,26 @@ def register(request):
     try:
         data = json.loads(request.body or "{}")
 
-        name = (data.get("name") or "").strip()
+        # ✅ Accept both old + new payloads
+        first_name = (data.get("first_name") or "").strip()
+        last_name = (data.get("last_name") or "").strip()
+        name = (data.get("name") or "").strip()  # backward compatibility
+
         email = (data.get("email") or "").strip().lower()
         password = data.get("password")
-        role = (data.get("role") or "buyer").strip()
 
-        if not all([name, email, password]):
+        # ✅ DEFAULT ROLE = user
+        role = (data.get("role") or "user").strip()
+
+        # 🔁 fallback: split full name if first/last not provided
+        if not first_name and name:
+            parts = name.split()
+            first_name = parts[0]
+            last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+        if not first_name or not email or not password:
             return JsonResponse(
-                {"error": "Name, email, and password are required"},
+                {"error": "First name, email, and password are required"},
                 status=400,
             )
 
@@ -116,10 +128,14 @@ def register(request):
             username=email,
             email=email,
             password=password,
-            first_name=name,
+            first_name=first_name,
+            last_name=last_name,
         )
 
-        Profile.objects.get_or_create(user=user, defaults={"role": role})
+        Profile.objects.get_or_create(
+            user=user,
+            defaults={"role": role},
+        )
 
         return JsonResponse(
             {
@@ -127,7 +143,9 @@ def register(request):
                 "user": {
                     "id": user.id,
                     "email": user.email,
-                    "name": user.first_name,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "full_name": f"{user.first_name} {user.last_name}".strip(),
                     "role": role,
                 },
             },
@@ -136,7 +154,6 @@ def register(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 # =================================================
 # LOGIN (SESSION)

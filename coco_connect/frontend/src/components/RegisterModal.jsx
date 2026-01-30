@@ -88,11 +88,13 @@ export default function RegisterModal({
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
 
       await registerUser({
-        name: fullName,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
         email: formData.email,
         password: formData.password,
-        role: formData.role, // fixed default
+        role: "user",   // or omit entirely → backend defaults it
       });
+
 
       onAuthSuccess?.({
         name: fullName,
