@@ -7,9 +7,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+
+import hashlib
+import os
 from rest_framework.decorators import api_view, permission_classes
 
-from .models import Product, NewsItem, Cart, CartItem, Category
+from .models import Product, NewsItem, Cart, CartItem, Category, Order, OrderItem
 from .serializers import (
     ProductSerializer,
     ProductCreateSerializer,
@@ -128,6 +133,138 @@ class CategoryListAPIView(APIView):
 
         data = [{"id": c.id, "name": c.name, "slug": c.slug} for c in qs]
         return Response(data, status=status.HTTP_200_OK)
+
+
+# ======================================================
+# CHECKOUT (PAYHERE SANDBOX)
+# ======================================================
+class CheckoutCreateAPIView(APIView):
+    """
+    Create an order from the current user's cart after payment
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        cart = Cart.objects.filter(user=user).first()
+        if not cart:
+            return Response({"error": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        items = cart.items.select_related("product")
+        if not items.exists():
+            return Response({"error": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+        payload = request.data or {}
+        payment_provider = payload.get("payment_provider", "payhere")
+        currency = payload.get("currency", "LKR")
+        payhere_order_id = payload.get("payhere_order_id")
+        payhere_payment_id = payload.get("payhere_payment_id")
+
+        def to_decimal(value):
+            try:
+                return Decimal(str(value))
+            except Exception:
+                return Decimal("0")
+
+        subtotal = sum((item.product.price * item.quantity) for item in items)
+        tax = to_decimal(payload.get("tax", 0))
+        shipping = to_decimal(payload.get("shipping", 0))
+        total_amount = to_decimal(payload.get("total_amount", subtotal + tax + shipping))
+
+        order = Order.objects.create(
+            user=user,
+            subtotal=subtotal,
+            tax=tax,
+            shipping=shipping,
+            total_amount=total_amount,
+            currency=currency,
+            status="paid",
+            payment_provider=payment_provider,
+            payhere_order_id=payhere_order_id,
+            payhere_payment_id=payhere_payment_id,
+            raw_payload=payload,
+        )
+
+        OrderItem.objects.bulk_create(
+            [
+                OrderItem(
+                    order=order,
+                    product=item.product,
+                    product_name=item.product.name,
+                    unit_price=item.product.price,
+                    quantity=item.quantity,
+                    line_total=item.product.price * item.quantity,
+                )
+                for item in items
+            ]
+        )
+
+        items.delete()
+
+        return Response(
+            {
+                "order_id": order.id,
+                "total_amount": str(order.total_amount),
+                "currency": order.currency,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+# ======================================================
+# PAYHERE NOTIFY (SERVER CALLBACK)
+# ======================================================
+@csrf_exempt
+def payhere_notify(request):
+    """
+    PayHere server-to-server callback.
+    Validates signature (if secret configured) and updates order status.
+    """
+    if request.method != "POST":
+        return JsonResponse({"detail": "Method not allowed"}, status=405)
+
+    data = request.POST or {}
+    order_id = data.get("order_id")
+    payment_id = data.get("payment_id")
+    status_code = str(data.get("status_code", "")).strip()
+    merchant_id = data.get("merchant_id")
+    payhere_amount = data.get("payhere_amount")
+    payhere_currency = data.get("payhere_currency")
+    md5sig = data.get("md5sig")
+
+    merchant_secret = os.getenv("PAYHERE_MERCHANT_SECRET", "").strip()
+
+    if merchant_secret:
+        # PayHere signature verification
+        secret_hash = hashlib.md5(merchant_secret.encode("utf-8")).hexdigest().upper()
+        raw = f"{merchant_id}{order_id}{payhere_amount}{payhere_currency}{status_code}{secret_hash}"
+        local_sig = hashlib.md5(raw.encode("utf-8")).hexdigest().upper()
+
+        if not md5sig or local_sig != str(md5sig).upper():
+            return JsonResponse({"detail": "Invalid signature"}, status=400)
+
+    order = Order.objects.filter(payhere_order_id=order_id).first()
+    if not order:
+        # Accept the callback to avoid retries; frontend will still finalize on success
+        return JsonResponse({"detail": "Order not found"}, status=200)
+
+    status_map = {
+        "2": "paid",
+        "0": "pending",
+        "1": "cancelled",
+        "-1": "failed",
+        "-2": "failed",
+        "-3": "failed",
+    }
+
+    order.status = status_map.get(status_code, order.status)
+    if payment_id:
+        order.payhere_payment_id = payment_id
+    order.raw_payload = data.dict() if hasattr(data, "dict") else dict(data)
+    order.save(update_fields=["status", "payhere_payment_id", "raw_payload", "updated_at"])
+
+    return JsonResponse({"detail": "OK"}, status=200)
 
 
 # ======================================================
