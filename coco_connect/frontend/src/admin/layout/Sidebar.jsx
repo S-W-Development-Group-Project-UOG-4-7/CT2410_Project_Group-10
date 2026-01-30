@@ -75,11 +75,19 @@ function LogoutModal({ isOpen, onClose, onConfirm }) {
 
 function getInitials(name = "Admin") {
   const parts = String(name).trim().split(" ").filter(Boolean);
-  const initials = parts.slice(0, 2).map((p) => p[0]).join("");
+  const initials = parts
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("");
   return (initials || "A").toUpperCase();
 }
 
-export default function Sidebar({ open, collapsed, onClose, onToggleCollapse }) {
+export default function Sidebar({
+  open,
+  collapsed,
+  onClose,
+  onToggleCollapse,
+}) {
   const navigate = useNavigate();
   const [showLogout, setShowLogout] = useState(false);
 
