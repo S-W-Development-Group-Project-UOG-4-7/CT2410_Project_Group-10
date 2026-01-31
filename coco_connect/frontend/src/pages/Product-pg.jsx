@@ -721,6 +721,8 @@ const Product = () => {
         +
       </button>
 
+
+
       {/* ✅ Custom popup (only when not logged in) */}
       {showLoginGate && (
         <div

@@ -52,6 +52,12 @@ urlpatterns = [
     path("users/", views.users_list, name="users_list"),
     path("users/<int:user_id>/", views.users_delete, name="users_delete"),
     path("users/<int:user_id>/update/", views.users_update, name="users_update"),
+    
+    # =========================
+    # ADMIN – USER ROLES (GROUPS)
+    # =========================
+    path("roles/", views.roles_list, name="roles_list"),
+    path("users/<int:user_id>/roles/", views.user_roles, name="user_roles"),
 
     # =========================
     # ADMIN – IDEA MODERATION  ✅ NEW

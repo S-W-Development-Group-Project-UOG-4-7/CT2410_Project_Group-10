@@ -1,6 +1,9 @@
 from decimal import Decimal
 import traceback
 
+from django.contrib.auth.models import Group
+from django.db import transaction
+
 from rest_framework.generics import ListAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -18,6 +21,22 @@ from .serializers import (
 )
 
 from blockchain_records.web3_client import record_proof, make_product_hash, now_utc
+
+
+# ======================================================
+# ROLE HELPERS (EARNED ROLES)
+# ======================================================
+def ensure_user_in_group(user, group_name: str) -> bool:
+    """
+    Ensures the given user belongs to the Django auth Group (role).
+    Returns True if added now, False if user already had it.
+    Idempotent: calling multiple times won't duplicate.
+    """
+    group, _ = Group.objects.get_or_create(name=group_name)
+    if user.groups.filter(id=group.id).exists():
+        return False
+    user.groups.add(group)
+    return True
 
 
 # ======================================================
@@ -73,15 +92,21 @@ class ProductListAPIView(ListAPIView):
 
 
 # ======================================================
-# PRODUCT CREATE
+# PRODUCT CREATE  (EARN "FARMER" ROLE ON SUCCESS)
 # ======================================================
 class ProductCreateAPIView(CreateAPIView):
     serializer_class = ProductCreateSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    @transaction.atomic
     def perform_create(self, serializer):
+        # 1) Create product
         serializer.save(author=self.request.user)
+
+        # 2) Earn role (idempotent)
+        # Use "Farmer" because that's what exists in your auth_group table.
+        ensure_user_in_group(self.request.user, "Farmer")
 
 
 # ======================================================
