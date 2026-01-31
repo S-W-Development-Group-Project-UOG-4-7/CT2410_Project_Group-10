@@ -6,6 +6,7 @@ from .views import verify_product
 from .views import (
     ProductListAPIView,
     ProductCreateAPIView,
+    ProductUpdateAPIView,
     NewsListAPIView,
     CategoryListAPIView,
     CheckoutCreateAPIView,
@@ -13,6 +14,8 @@ from .views import (
     AddToCartView,
     CartDetailView,
     CartItemUpdateDeleteView,
+    SellerOrdersAPIView,
+    SellerSupplyOrderItemAPIView,
 )
 
 app_name = "products"
@@ -52,6 +55,7 @@ urlpatterns = [
     # ----- Products -----
     path("", ProductListAPIView.as_view(), name="product-list"),
     path("create/", ProductCreateAPIView.as_view(), name="product-create"),
+    path("<int:pk>/", ProductUpdateAPIView.as_view(), name="product-update"),
     path("news/", NewsListAPIView.as_view(), name="news-list"),
     path("categories/", CategoryListAPIView.as_view(), name="category-list"),
     path("checkout/", CheckoutCreateAPIView.as_view(), name="checkout-create"),
@@ -64,6 +68,14 @@ urlpatterns = [
         "cart/item/<int:pk>/",
         CartItemUpdateDeleteView.as_view(),
         name="cart-item-update-delete",
+    ),
+
+    # ----- Seller Orders -----
+    path("seller-orders/", SellerOrdersAPIView.as_view(), name="seller-orders"),
+    path(
+        "seller-orders/<int:item_id>/supply/",
+        SellerSupplyOrderItemAPIView.as_view(),
+        name="seller-order-supply",
     ),
 
     # ----- Health -----

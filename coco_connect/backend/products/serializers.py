@@ -120,6 +120,70 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
 
 # =========================
+# PRODUCT UPDATE SERIALIZER
+# =========================
+class ProductUpdateSerializer(serializers.ModelSerializer):
+    category = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Category.objects.all(),
+        required=False,
+    )
+
+    type = serializers.SlugRelatedField(
+        source="product_type",
+        slug_field="name",
+        queryset=ProductType.objects.all(),
+        required=False,
+        write_only=True,
+    )
+
+    image = serializers.ImageField(required=False, allow_null=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "category",
+            "type",
+            "image",
+        ]
+
+    def validate_name(self, value):
+        if value is None:
+            return value
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError("Product name must be at least 3 characters long.")
+        return value
+
+    def validate_description(self, value):
+        if value is None:
+            return value
+        if len(value.strip()) < 10:
+            raise serializers.ValidationError("Description must be at least 10 characters long.")
+        return value
+
+    def validate_price(self, value):
+        if value is None:
+            return value
+        if value <= 0:
+            raise serializers.ValidationError("Price must be greater than 0.")
+        return value
+
+    def validate_image(self, image):
+        if image is None:
+            return image
+        if image.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Image size must be under 5MB.")
+        content_type = getattr(image, "content_type", None)
+        if content_type and not content_type.startswith("image/"):
+            raise serializers.ValidationError("Uploaded file must be an image.")
+        return image
+
+
+# =========================
 # NEWS SERIALIZER
 # =========================
 class NewsSerializer(serializers.ModelSerializer):

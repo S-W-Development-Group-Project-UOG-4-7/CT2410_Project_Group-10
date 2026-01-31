@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 import hashlib
 import os
@@ -18,6 +20,7 @@ from .models import Product, NewsItem, Cart, CartItem, Category, Order, OrderIte
 from .serializers import (
     ProductSerializer,
     ProductCreateSerializer,
+    ProductUpdateSerializer,
     NewsSerializer,
     CartItemSerializer,
 )
@@ -88,6 +91,26 @@ class ProductCreateAPIView(CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+
+# ======================================================
+# PRODUCT UPDATE (OWNER ONLY)
+# ======================================================
+class ProductUpdateAPIView(UpdateAPIView):
+    serializer_class = ProductUpdateSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    queryset = Product.objects.select_related("author")
+
+    def get_object(self):
+        obj = super().get_object()
+        if not obj.author_id or obj.author_id != self.request.user.id:
+            raise PermissionDenied("You can update only your own products.")
+        return obj
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
 
 
 # ======================================================
@@ -327,6 +350,70 @@ class CartItemUpdateDeleteView(UpdateAPIView, DestroyAPIView):
 
     def get_queryset(self):
         return CartItem.objects.filter(cart__user=self.request.user)
+
+
+# ======================================================
+# SELLER ORDERS (PRODUCT AUTHORS)
+# ======================================================
+class SellerOrdersAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        items = (
+            OrderItem.objects.select_related("order", "product", "order__user")
+            .filter(product__author=request.user)
+            .order_by("-order__created_at", "id")
+        )
+
+        data = []
+        for item in items:
+            order = item.order
+            buyer = order.user
+            data.append(
+                {
+                    "id": item.id,
+                    "order_id": order.id,
+                    "order_status": order.status,
+                    "order_created_at": order.created_at.isoformat(),
+                    "buyer_email": buyer.email,
+                    "product_id": item.product_id,
+                    "product_name": item.product_name,
+                    "unit_price": str(item.unit_price),
+                    "quantity": item.quantity,
+                    "line_total": str(item.line_total),
+                    "supplied": bool(item.supplied),
+                    "supplied_at": item.supplied_at.isoformat() if item.supplied_at else None,
+                }
+            )
+
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class SellerSupplyOrderItemAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, item_id):
+        try:
+            item = OrderItem.objects.select_related("product").get(pk=item_id)
+        except OrderItem.DoesNotExist:
+            return Response({"detail": "Order item not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not item.product or item.product.author_id != request.user.id:
+            raise PermissionDenied("You can supply only your own order items.")
+
+        if not item.supplied:
+            item.supplied = True
+            item.supplied_at = timezone.now()
+            item.save(update_fields=["supplied", "supplied_at"])
+
+        return Response(
+            {
+                "id": item.id,
+                "supplied": item.supplied,
+                "supplied_at": item.supplied_at.isoformat() if item.supplied_at else None,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # ======================================================

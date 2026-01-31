@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 import BackgroundRain from "../components/BackgroundRain";
 import PayHerePayment from "../components/PayHerePayment";
@@ -75,6 +76,9 @@ export default function IdeaSharing() {
   // ✅ STEP 1: FULL IDEA VIEW state
   const [viewIdea, setViewIdea] = useState(null);
   const [viewIdeaLoading, setViewIdeaLoading] = useState(false);
+
+  // ✅ STEP 4: Add state for delete modal
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // alerts
   const [alertsCount, setAlertsCount] = useState(0);
@@ -314,11 +318,15 @@ export default function IdeaSharing() {
         return;
       }
 
-      // ✅ SUCCESS
+      // ✅ SUCCESS - Updated with toast notification
       setIdeas((prev) =>
         editing
           ? prev.map((i) => (i.id === data.id ? data : i))
           : [data, ...prev]
+      );
+
+      toast.success(
+        editing ? "✅ Idea updated successfully" : "🎉 Idea added successfully"
       );
 
       if (editing && selectedId === data.id) {
@@ -795,8 +803,9 @@ export default function IdeaSharing() {
                 >
                   Edit Idea
                 </button>
+                {/* ✅ STEP 5: Updated delete button to open confirmation modal */}
                 <button
-                  onClick={() => handleDelete(selected.id)}
+                  onClick={() => setConfirmDeleteId(selected.id)}
                   className="flex-1 px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600"
                 >
                   Delete Idea
@@ -808,7 +817,7 @@ export default function IdeaSharing() {
       )}
 
       {/* =========================
-         CREATE / EDIT MODAL
+         CREATE / EDIT MODAL - UPDATED WITH DARK TEXT
       ========================= */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
@@ -832,7 +841,7 @@ export default function IdeaSharing() {
 
             {/* Form */}
             <div className="space-y-6">
-              {/* Title */}
+              {/* Title - UPDATED with text-gray-900 placeholder-gray-400 */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Idea Title
@@ -841,11 +850,13 @@ export default function IdeaSharing() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Enter your idea title"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-green-500 outline-none"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-4 
+                           text-gray-900 placeholder-gray-400
+                           focus:ring-2 focus:ring-green-500 outline-none"
                 />
               </div>
 
-              {/* Short Description */}
+              {/* Short Description - UPDATED with text-gray-900 placeholder-gray-400 */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Short Description
@@ -854,11 +865,13 @@ export default function IdeaSharing() {
                   value={shortDesc}
                   onChange={(e) => setShortDesc(e.target.value)}
                   placeholder="Brief overview of your idea"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-green-500 outline-none"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-4 
+                           text-gray-900 placeholder-gray-400
+                           focus:ring-2 focus:ring-green-500 outline-none"
                 />
               </div>
 
-              {/* Full Description */}
+              {/* Full Description - UPDATED with text-gray-900 placeholder-gray-400 */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Full Description
@@ -867,7 +880,9 @@ export default function IdeaSharing() {
                   value={fullDesc}
                   onChange={(e) => setFullDesc(e.target.value)}
                   placeholder="Explain your idea in detail"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-4 h-40 resize-none focus:ring-2 focus:ring-green-500 outline-none"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-4 h-40 resize-none 
+                           text-gray-900 placeholder-gray-400
+                           focus:ring-2 focus:ring-green-500 outline-none"
                 />
               </div>
 
@@ -904,14 +919,16 @@ export default function IdeaSharing() {
                 </div>
               </div>
 
-              {/* Price */}
+              {/* Price - UPDATED with text-gray-900 placeholder-gray-400 */}
               {isPaid && (
                 <input
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="Price (LKR)"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-yellow-400 outline-none"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-4 
+                           text-gray-900 placeholder-gray-400
+                           focus:ring-2 focus:ring-yellow-400 outline-none"
                 />
               )}
 
@@ -1413,6 +1430,44 @@ export default function IdeaSharing() {
                 className="flex-1 bg-slate-200 text-slate-800 py-2 rounded-lg font-semibold hover:bg-slate-300"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================
+         ✅ STEP 6: DELETE CONFIRMATION MODAL
+      ========================= */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-xl p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-3">
+              Confirm Deletion
+            </h3>
+
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this idea? This action cannot be
+              undone.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-3 rounded-lg bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  await handleDelete(confirmDeleteId);
+                  setConfirmDeleteId(null);
+                  toast.success("🗑️ Idea deleted successfully");
+                }}
+                className="flex-1 py-3 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700"
+              >
+                Yes, Delete
               </button>
             </div>
           </div>

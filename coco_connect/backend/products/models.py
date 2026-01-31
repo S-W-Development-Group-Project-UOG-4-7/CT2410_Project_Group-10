@@ -252,6 +252,8 @@ class OrderItem(models.Model):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
     line_total = models.DecimalField(max_digits=10, decimal_places=2)
+    supplied = models.BooleanField(default=False)
+    supplied_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["id"]

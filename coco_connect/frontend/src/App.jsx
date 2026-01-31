@@ -23,8 +23,8 @@ import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
 import AdminNews from "./admin/pages/AdminNews";
 import AdminProducts from "./admin/pages/AdminProducts";
+import AdminIdea from "./admin/pages/AdminIdea"; // ✅ make sure file name is AdminIdea.jsx
 import ProtectedAdminRoute from "./admin/ProtectedAdminRoute";
-
 
 // CUSTOMER PAGES
 import CustomerLayout from "./customer/layout/CustomerLayout";
@@ -86,7 +86,7 @@ export default function App() {
       {/* ✅ Ideas list / create */}
       <Route path="/ideas" element={W(IdeaSharing)} />
 
-      {/* ✅ NEW: View single idea (used by BLOCK modal) */}
+      {/* ✅ View single idea (used by BLOCK modal) */}
       <Route path="/ideas/:id" element={W(IdeaSharing)} />
 
       <Route path="/shop" element={W(Product)} />
@@ -95,11 +95,60 @@ export default function App() {
 
       {/* ADMIN (PROTECTED) */}
       <Route element={<ProtectedAdminRoute />}>
-        <Route  path="/admin"  element={  <AdminLayout>    <Dashboard />  </AdminLayout>  } />
-        <Route  path="/admin/users"  element={   <AdminLayout>    <Users />  </AdminLayout>  }  />
-        <Route  path="/admin/blockchain"  element={  <AdminLayout>    <Blockchain />  </AdminLayout>  }  />
-        <Route  path="/admin/news"  element={   <AdminLayout>   <AdminNews />    </AdminLayout>  }  />
-        <Route path="/admin/products" element={<AdminLayout><AdminProducts/></AdminLayout>} />
+        <Route
+          path="/admin"
+          element={
+            <AdminLayout>
+              <Dashboard />
+            </AdminLayout>
+          }
+        />
+
+        <Route
+          path="/admin/users"
+          element={
+            <AdminLayout>
+              <Users />
+            </AdminLayout>
+          }
+        />
+
+        <Route
+          path="/admin/blockchain"
+          element={
+            <AdminLayout>
+              <Blockchain />
+            </AdminLayout>
+          }
+        />
+
+        <Route
+          path="/admin/news"
+          element={
+            <AdminLayout>
+              <AdminNews />
+            </AdminLayout>
+          }
+        />
+
+        <Route
+          path="/admin/products"
+          element={
+            <AdminLayout>
+              <AdminProducts />
+            </AdminLayout>
+          }
+        />
+
+        {/* ✅ NEW: Admin Ideas page */}
+        <Route
+          path="/admin/ideas"
+          element={
+            <AdminLayout>
+              <AdminIdea />
+            </AdminLayout>
+          }
+        />
       </Route>
 
       {/* CUSTOMER (PROTECTED) */}
@@ -109,7 +158,7 @@ export default function App() {
           <Route path="profile" element={<Profile />} />
           <Route path="profile/edit" element={<EditProfile />} />
           <Route path="orders" element={<Orders />} />
-          <Route path="products" element={<MyProducts />} />  
+          <Route path="products" element={<MyProducts />} />
         </Route>
       </Route>
     </Routes>
