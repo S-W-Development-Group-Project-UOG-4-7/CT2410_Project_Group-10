@@ -36,13 +36,13 @@ urlpatterns = [
     # =========================
     path("register/", views.register, name="register"),
     path("login/", views.login, name="login"),
-    path("api/logout/", views.logout_view, name="logout"),
+    path("logout/", views.logout_view, name="logout"),
 
     # ========================
     # Admin AuthLog
     # ========================
-    path("api/admin/auth-logs/", views.admin_auth_logs, name="admin_auth_logs"),
-    path("api/admin/auth-logs/stats/", views.admin_auth_logs_stats, name="admin_auth_logs_stats"),
+    path("admin/auth-logs/", views.admin_auth_logs, name="admin_auth_logs"),
+    path("admin/auth-logs/stats/", views.admin_auth_logs_stats, name="admin_auth_logs_stats"),
 
     # =========================
     # AUTH (JWT)

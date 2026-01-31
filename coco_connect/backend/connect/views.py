@@ -8,8 +8,12 @@ from django.utils import timezone
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-
+from .permissions import IsOwner
+from .services.embeddings import get_embedding
+from .services.similarity import cosine_similarity
+from .serializers import AuthLogSerializer
 from .models import AuthLog
+
 import json
 import decimal
 import random
@@ -27,6 +31,8 @@ from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAdminUser
+
 
 from .models import (
     Idea,
@@ -43,11 +49,6 @@ from .serializers import (
     NewsSerializer,
     SimilarityAlertSerializer,
 )
-from .permissions import IsOwner
-from .services.embeddings import get_embedding
-from .services.similarity import cosine_similarity
-from .serializers import AuthLogSerializer
-
 
 # =================================================
 # AUTH LOG HELPER
@@ -1484,6 +1485,55 @@ def admin_delete_idea(request, idea_id):
 # --------------------------------------
 # Admin AuthLog
 # --------------------------------------
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_auth_logs(request):
+    qs = AuthLog.objects.select_related("user").all().order_by("-created_at")
+
+    user_id = (request.GET.get("user_id") or "").strip()
+    action_q = (request.GET.get("action") or "").strip().upper()
+    status_q = (request.GET.get("status") or "").strip().upper()
+    q = (request.GET.get("q") or "").strip()
+    date_from = (request.GET.get("from") or "").strip()
+    date_to = (request.GET.get("to") or "").strip()
+
+    if user_id.isdigit():
+        qs = qs.filter(user_id=int(user_id))
+
+    if action_q in ["LOGIN", "LOGOUT"]:
+        qs = qs.filter(action=action_q)
+
+    if status_q in ["SUCCESS", "FAILED"]:
+        qs = qs.filter(status=status_q)
+
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    if q:
+        qs = qs.filter(
+            Q(message__icontains=q)
+            | Q(user__username__icontains=q)
+            | Q(user__email__icontains=q)
+        )
+
+    try:
+        limit = int(request.GET.get("limit", 100))
+    except Exception:
+        limit = 100
+    limit = max(1, min(limit, 500))
+
+    logs = qs[:limit]
+    return Response(
+        {
+            "count": qs.count(),
+            "limit": limit,
+            "results": AuthLogSerializer(logs, many=True).data,
+        }
+    )
+
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def admin_auth_logs(request):
