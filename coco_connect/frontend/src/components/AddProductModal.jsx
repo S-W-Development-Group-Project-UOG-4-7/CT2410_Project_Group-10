@@ -1,5 +1,6 @@
 // frontend/src/components/AddProductModal.jsx
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import coconutImg from "../assets/FloatingCoco.png";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
@@ -109,6 +110,30 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
     }
   }, [isOpen]);
 
+  // ✅ Fix: Fetch categories dynamically
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/products/categories/");
+        if (!response.ok) {
+          throw new Error("Failed to fetch categories");
+        }
+        const data = await response.json();
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Failed to load categories", error);
+        // Fallback or empty to prevent crash
+        setCategories([]);
+      }
+    };
+
+    if (isOpen) {
+      fetchCategories();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const updateField = (key, value) => {
@@ -149,7 +174,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
 
     const token = localStorage.getItem("access");
     if (!token) {
-      alert("Please login to add a product");
+      toast.info("Please sign in to add a product.");
       return;
     }
 
@@ -205,12 +230,12 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
         throw new Error(errorMessage);
       }
 
-      alert("Product added successfully!");
+      toast.success("Product added successfully.");
       onClose?.();
       onSuccess?.();
     } catch (err) {
       console.error("Add product error:", err);
-      alert(err.message || "Failed to add product");
+      toast.error(err.message || "Unable to add product. Please try again.");
     }
   };
 
@@ -292,7 +317,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
           />
           {errors.price && <p className="text-red-500 text-xs">{errors.price}</p>}
 
-          {/* ✅ Category slug must match DB (currently you have: food-items) */}
+          {/* ✅ Category slug must match DB */}
           <select
             className="w-full rounded-lg px-4 py-3
                        bg-white/95 border border-[#d6c3a5]
@@ -303,7 +328,11 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
             required
           >
             <option value="">Select Category</option>
-            <option value="food-items">Food Items</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.slug}>
+                {cat.name}
+              </option>
+            ))}
           </select>
           {errors.category && <p className="text-red-500 text-xs">{errors.category}</p>}
 
@@ -333,14 +362,14 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
               if (!file) return;
 
               if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-                alert("Only JPG, PNG, and WEBP images are allowed.");
+                toast.warning("Only JPG, PNG, and WEBP images are allowed.");
                 e.target.value = "";
                 return;
               }
 
               const sizeMB = file.size / (1024 * 1024);
               if (sizeMB > MAX_IMAGE_SIZE_MB) {
-                alert("Image size must be under 5MB.");
+                toast.warning("Image size must be under 5MB.");
                 e.target.value = "";
                 return;
               }
@@ -350,7 +379,7 @@ const AddProductModal = ({ isOpen, onClose, onSuccess }) => {
                 updateField("image", compressed);
               } catch (err) {
                 console.error("Image compression error:", err);
-                alert("Failed to process image.");
+                toast.error("Unable to process the image. Please try another file.");
                 e.target.value = "";
               }
             }}

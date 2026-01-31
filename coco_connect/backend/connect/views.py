@@ -24,6 +24,7 @@ from rest_framework.permissions import (
     IsAuthenticated,
     IsAuthenticatedOrReadOnly,
     IsAdminUser,
+    AllowAny,
 )
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
@@ -1303,10 +1304,10 @@ def my_investments(request):
     return Response(data)
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def get_categories(request):
     qs = InvestmentCategory.objects.all().order_by("name")
-    return Response([{"id": c.id, "name": c.name, "description": c.description} for c in qs])
+    return Response([{"id": c.id, "name": c.name, "slug": getattr(c, 'slug', c.name.lower().replace(' ', '-')), "description": c.description} for c in qs])
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
