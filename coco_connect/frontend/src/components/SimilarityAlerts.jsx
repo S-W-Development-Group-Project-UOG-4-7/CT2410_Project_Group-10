@@ -79,25 +79,21 @@ export default function SimilarityAlerts({ onClose }) {
     if (!selectedAlert) return;
 
     try {
-      // 1) REPORT
-      await fetch(`${API}/alerts/${selectedAlert.id}/report/`, {
+      const res = await fetch(`${API}/alerts/${selectedAlert.id}/report/`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      // 2) DISMISS (remove from list)
-      await fetch(`${API}/alerts/${selectedAlert.id}/dismiss/`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (!res.ok) throw new Error("Report failed");
 
       alert("✅ Idea reported successfully");
+
       setSelectedAlert(null);
       setOpenIdea(null);
+
+      // Reload alerts list (it will still show, unless you hide it)
       loadAlerts();
     } catch (err) {
       console.error(err);

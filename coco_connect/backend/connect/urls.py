@@ -5,7 +5,17 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from connect.jwt_views import MyTokenObtainPairView
 
 from . import views
-from .views import IdeaViewSet, SimilarityAlertViewSet, NewsViewSet
+from .views import (
+    IdeaViewSet,
+    SimilarityAlertViewSet,
+    NewsViewSet,
+
+    # ✅ ADMIN MODERATION VIEWS
+    admin_all_ideas,
+    admin_reported_ideas,
+    admin_keep_idea,
+    admin_delete_idea,
+)
 
 router = DefaultRouter()
 router.register(r"ideas", IdeaViewSet, basename="ideas")
@@ -13,27 +23,47 @@ router.register(r"alerts", SimilarityAlertViewSet, basename="alerts")
 router.register(r"news", NewsViewSet, basename="news")
 
 urlpatterns = [
+    # =========================
     # BASIC
+    # =========================
     path("hello/", views.hello_coco, name="hello_coco"),
 
-    # AUTH (SESSION endpoints - optional if you mainly use JWT)
+    # =========================
+    # AUTH (SESSION)
+    # =========================
     path("register/", views.register, name="register"),
     path("login/", views.login, name="login"),
 
+    # =========================
     # AUTH (JWT)
+    # =========================
     path("token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
+    # =========================
     # USER PROFILE
+    # =========================
     path("me/", views.me, name="me"),
     path("change-password/", views.change_password, name="change_password"),
 
+    # =========================
     # ADMIN – USER MANAGEMENT
+    # =========================
     path("users/", views.users_list, name="users_list"),
     path("users/<int:user_id>/", views.users_delete, name="users_delete"),
     path("users/<int:user_id>/update/", views.users_update, name="users_update"),
 
+    # =========================
+    # ADMIN – IDEA MODERATION  ✅ NEW
+    # =========================
+    path("admin/ideas/", admin_all_ideas, name="admin_all_ideas"),
+    path("admin/reported-ideas/", admin_reported_ideas, name="admin_reported_ideas"),
+    path("admin/ideas/<int:idea_id>/keep/", admin_keep_idea, name="admin_keep_idea"),
+    path("admin/ideas/<int:idea_id>/delete/", admin_delete_idea, name="admin_delete_idea"),
+
+    # =========================
     # INVESTMENT
+    # =========================
     path("projects/", views.get_projects, name="get_projects"),
     path("projects/<int:project_id>/", views.get_project_detail, name="get_project_detail"),
     path("make-investment/", views.create_investment, name="create_investment"),
@@ -43,9 +73,13 @@ urlpatterns = [
     path("stats/", views.get_platform_stats, name="get_platform_stats"),
     path("create-demo-projects/", views.create_demo_projects, name="create_demo_projects"),
 
+    # =========================
     # BLOCKCHAIN
+    # =========================
     path("blockchain/", include("blockchain_records.urls")),
 ]
 
-# DRF router endpoints:
+# =========================
+# DRF ROUTER ENDPOINTS
+# =========================
 urlpatterns += router.urls

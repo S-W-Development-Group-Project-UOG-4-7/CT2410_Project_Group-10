@@ -867,3 +867,78 @@ def create_demo_projects(request):
         )
 
     return Response({"detail": "Demo projects created"}, status=201)
+# =================================================
+# ADMIN: IDEA MODERATION (SAFE ADDITION)
+# =================================================
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_all_ideas(request):
+    """
+    Admin can see ALL ideas
+    """
+    ideas = Idea.objects.select_related("author").order_by("-created_at")
+    return Response(IdeaSerializer(ideas, many=True).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_reported_ideas(request):
+    """
+    Admin can see ONLY reported ideas
+    (reported = is_reported=True and not dismissed)
+    """
+    alerts = (
+        SimilarityAlert.objects
+        .filter(is_reported=True, is_dismissed=False)
+        .select_related("similar_idea", "similar_idea__author", "idea")
+        .order_by("-created_at")
+    )
+
+    data = []
+    for alert in alerts:
+        reported = alert.similar_idea  # 🔴 the reported idea
+
+        data.append({
+            "idea_id": reported.id,
+            "title": reported.title,
+            "short_description": reported.short_description,
+            "full_description": reported.full_description,
+            "author_name": reported.author.get_full_name() or reported.author.username,
+            "author_email": reported.author.email,
+            "similarity": alert.similarity_score,
+            "created_at": alert.created_at,
+            "original_idea_title": alert.idea.title,
+        })
+
+    return Response(data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def admin_keep_idea(request, idea_id):
+    """
+    Admin keeps idea (dismiss report)
+    """
+    SimilarityAlert.objects.filter(
+        similar_idea_id=idea_id,
+        is_reported=True
+    ).update(is_dismissed=True)
+
+    return Response({"message": "Idea kept (report dismissed)"})
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAdminUser])
+def admin_delete_idea(request, idea_id):
+    """
+    Admin deletes idea completely
+    """
+    idea = Idea.objects.get(id=idea_id)
+    idea.delete()
+
+    SimilarityAlert.objects.filter(
+        Q(similar_idea_id=idea_id) | Q(idea_id=idea_id)
+    ).delete()
+
+    return Response({"message": "Idea removed"})
