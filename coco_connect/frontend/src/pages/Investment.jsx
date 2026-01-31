@@ -375,7 +375,64 @@ const InvestmentPage = () => {
     setIsModalOpen(true);
   };
 
+  // ADDED: Handle confirm investment
+  const handleConfirmInvestment = async () => {
+    try {
+      const token = localStorage.getItem("access");
+      
+      if (!token) {
+        alert("Please login to make an investment");
+        return;
+      }
 
+      if (!selectedProject) {
+        alert("No project selected");
+        return;
+      }
+
+      // Prepare investment data
+      const investmentData = {
+        project_id: selectedProject.id,
+        amount: investmentAmount,
+        payment_method: document.querySelector('input[name="paymentMethod"]:checked')?.value || "payhere"
+      };
+
+      // Add unit-based investment data if in group mode
+      if (groupInvestmentMode) {
+        investmentData.units = unitsToPurchase;
+        investmentData.investment_type = "unit_purchase";
+        investmentData.investment_structure = "units";
+        investmentData.unit_price = unitPrice;
+      }
+
+      // Make API call
+      const response = await fetch("http://127.0.0.1:8000/api/make-investment/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(investmentData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Investment failed");
+      }
+
+      // Success
+      alert("Investment successful!");
+      setIsModalOpen(false);
+      
+      // Refresh projects
+      setFilters(prev => ({ ...prev }));
+      
+    } catch (error) {
+      console.error("Investment error:", error);
+      alert(`Investment failed: ${error.message}`);
+    }
+  };
 
   // Handle project creation
   const handleCreateProject = async () => {
