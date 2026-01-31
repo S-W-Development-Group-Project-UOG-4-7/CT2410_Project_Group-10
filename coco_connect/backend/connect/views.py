@@ -1,3 +1,4 @@
+# connect/views.py
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login as auth_login
 from django.views.decorators.csrf import csrf_exempt
@@ -17,9 +18,9 @@ from rest_framework.permissions import (
     IsAuthenticatedOrReadOnly,
     IsAdminUser,
 )
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes, action, parser_classes
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, parsers
 from rest_framework.exceptions import PermissionDenied
 
 from rest_framework_simplejwt.tokens import AccessToken
@@ -41,6 +42,13 @@ from .serializers import (
     IdeaSerializer,
     NewsSerializer,
     SimilarityAlertSerializer,
+    UserSerializer,
+)
+from .investment_serializers import (
+    InvestmentProjectCreateSerializer,
+    InvestmentProjectListSerializer,
+    InvestmentCreateSerializer,
+    MyInvestmentSerializer,
 )
 from .permissions import IsOwner
 
@@ -349,7 +357,7 @@ class IdeaViewSet(ModelViewSet):
     BLOCK_THRESHOLD = 0.85
     WARNING_THRESHOLD = 0.65
 
-    # Also keep main’s simpler threshold concept as a constant (no loss)
+    # Also keep main's simpler threshold concept as a constant (no loss)
     SIM_THRESHOLD = 0.80
 
     def get_permissions(self):
@@ -360,7 +368,7 @@ class IdeaViewSet(ModelViewSet):
         return [IsAuthenticatedOrReadOnly()]
 
     def build_text(self, title, short_desc, full_desc):
-        # Combines both styles (“Title: …” and plain join) in a stable way
+        # Combines both styles ("Title: …" and plain join) in a stable way
         title = title or ""
         short_desc = short_desc or ""
         full_desc = full_desc or ""
@@ -566,7 +574,219 @@ class SimilarityAlertViewSet(ModelViewSet):
 
 
 # =================================================
-# INVESTMENT ENDPOINTS (function-based)
+# NEW INVESTMENT ENDPOINTS
+# =================================================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([parsers.MultiPartParser, parsers.FormParser])
+def create_project(request):
+    """
+    Create new investment project
+    """
+    try:
+        data = request.data.copy()
+        
+        # Check if user has farmer profile
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.role != 'farmer':
+            return Response({
+                'success': False,
+                'error': 'Only farmers can create projects'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = InvestmentProjectCreateSerializer(data=data, context={'request': request})
+        
+        if serializer.is_valid():
+            project = serializer.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Project created successfully and sent for admin approval',
+                'project': InvestmentProjectListSerializer(project).data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'error': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def make_investment(request):
+    """
+    Make an investment (supports both fixed amount and share-based)
+    """
+    try:
+        user = request.user
+        
+        # Check if user has investor profile
+        profile = getattr(user, 'profile', None)
+        if profile and profile.role != 'investor':
+            return Response({
+                'success': False,
+                'error': 'Only investors can make investments'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = InvestmentCreateSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            investment = serializer.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Investment successful!',
+                'investment': MyInvestmentSerializer(investment).data,
+                'ownership_percentage': investment.ownership_percentage
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'error': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_investments(request):
+    """
+    Get current user's investments with full project details
+    """
+    try:
+        investments = Investment.objects.filter(
+            investor=request.user
+        ).select_related('project').order_by('-created_at')
+        
+        serializer = MyInvestmentSerializer(investments, many=True)
+        
+        # Calculate total invested
+        total_invested = investments.aggregate(total=Sum('amount'))['total'] or 0
+        
+        return Response({
+            'success': True,
+            'investments': serializer.data,
+            'total_invested': float(total_invested),
+            'count': investments.count()
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedOrReadOnly])
+def get_projects_api(request):
+    """
+    Get projects with advanced filtering
+    """
+    try:
+        queryset = InvestmentProject.objects.select_related('category', 'farmer')
+        
+        # Filter by status (default: active)
+        status_param = request.GET.get('status', 'active')
+        queryset = queryset.filter(status=status_param)
+        
+        # Filter by category
+        category = request.GET.get('category', '')
+        if category and category != 'All Categories':
+            queryset = queryset.filter(category__name=category)
+        
+        # Filter by location
+        location = request.GET.get('location', '')
+        if location and location != 'All Locations':
+            queryset = queryset.filter(location=location)
+        
+        # Filter by ROI range
+        min_roi = request.GET.get('minROI', '0')
+        max_roi = request.GET.get('maxROI', '50')
+        try:
+            queryset = queryset.filter(expected_roi__gte=decimal.Decimal(min_roi))
+            queryset = queryset.filter(expected_roi__lte=decimal.Decimal(max_roi))
+        except:
+            pass
+        
+        # Filter by risk level
+        risk_level = request.GET.get('riskLevel', '')
+        if risk_level:
+            queryset = queryset.filter(risk_level=risk_level)
+        
+        # Filter by investment type
+        investment_type = request.GET.get('investmentType', '')
+        if investment_type and investment_type != 'all':
+            queryset = queryset.filter(investment_type=investment_type)
+        
+        # Search
+        search = request.GET.get('search', '')
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(description__icontains=search) |
+                Q(farmer_name__icontains=search) |
+                Q(farmer__first_name__icontains=search) |
+                Q(farmer__last_name__icontains=search)
+            )
+        
+        # Sorting
+        sort_by = request.GET.get('sortBy', 'roi_desc')
+        if sort_by == 'roi_desc':
+            queryset = queryset.order_by('-expected_roi')
+        elif sort_by == 'roi_asc':
+            queryset = queryset.order_by('expected_roi')
+        elif sort_by == 'date_newest':
+            queryset = queryset.order_by('-created_at')
+        elif sort_by == 'date_oldest':
+            queryset = queryset.order_by('created_at')
+        elif sort_by == 'popularity':
+            queryset = queryset.order_by('-investors_count')
+        elif sort_by == 'price_per_share':
+            queryset = queryset.filter(investment_structure='units').order_by('unit_price')
+        
+        # Handle funding_needed sorting
+        if sort_by == 'funding_needed':
+            projects_list = list(queryset)
+            projects_list.sort(key=lambda p: float(p.target_amount - p.current_amount), reverse=True)
+        else:
+            projects_list = list(queryset)
+        
+        serializer = InvestmentProjectListSerializer(projects_list, many=True)
+        
+        # Get unique categories and locations for filters
+        categories = InvestmentCategory.objects.values_list('name', flat=True).distinct()
+        locations = InvestmentProject.objects.values_list('location', flat=True).distinct()
+        
+        return Response({
+            'success': True,
+            'projects': serializer.data,
+            'total': len(projects_list),
+            'categories': list(categories),
+            'locations': list(locations)
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# =================================================
+# EXISTING INVESTMENT ENDPOINTS (keep for backward compatibility)
 # =================================================
 @csrf_exempt
 def get_projects(request):
@@ -764,35 +984,6 @@ def create_investment(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def my_investments(request):
-    qs = (
-        Investment.objects.filter(investor=request.user)
-        .select_related("project")
-        .order_by("-created_at")
-    )
-
-    data = []
-    for inv in qs:
-        data.append(
-            {
-                "id": inv.id,
-                "amount": float(inv.amount),
-                "status": inv.status,
-                "payment_method": inv.payment_method,
-                "transaction_id": inv.transaction_id,
-                "created_at": inv.created_at.isoformat(),
-                "project": {
-                    "id": inv.project.id,
-                    "title": inv.project.title,
-                    "status": inv.project.status,
-                },
-            }
-        )
-    return Response(data)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
 def get_categories(request):
     qs = InvestmentCategory.objects.all().order_by("name")
     return Response([{"id": c.id, "name": c.name, "description": c.description} for c in qs])
@@ -896,6 +1087,8 @@ def create_demo_projects(request):
         )
 
     return Response({"detail": "Demo projects created"}, status=201)
+
+
 # =================================================
 # ADMIN: IDEA MODERATION (SAFE ADDITION)
 # =================================================

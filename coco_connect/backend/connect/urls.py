@@ -1,3 +1,4 @@
+# connect/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -62,12 +63,19 @@ urlpatterns = [
     path("admin/ideas/<int:idea_id>/delete/", admin_delete_idea, name="admin_delete_idea"),
 
     # =========================
-    # INVESTMENT
+    # NEW INVESTMENT ENDPOINTS (for your frontend)
+    # =========================
+    path("api/create-project/", views.create_project, name="create-project"),
+    path("api/make-investment/", views.make_investment, name="make-investment"),
+    path("api/my-investments/", views.my_investments, name="my-investments"),
+    path("api/projects/", views.get_projects_api, name="get-projects-api"),
+
+    # =========================
+    # EXISTING INVESTMENT ENDPOINTS (backward compatibility)
     # =========================
     path("projects/", views.get_projects, name="get_projects"),
     path("projects/<int:project_id>/", views.get_project_detail, name="get_project_detail"),
     path("make-investment/", views.create_investment, name="create_investment"),
-    path("my-investments/", views.my_investments, name="my_investments"),
     path("categories/", views.get_categories, name="get_categories"),
     path("locations/", views.get_locations, name="get_locations"),
     path("stats/", views.get_platform_stats, name="get_platform_stats"),
