@@ -3,8 +3,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Keep everything from both branches
-from .models import Idea, SimilarityAlert, News
-
+from .models import Idea, SimilarityAlert, News, AuthLog
 
 # ==================================================
 # IDEA SERIALIZER (FULL IDEA)
@@ -126,3 +125,34 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         attrs["username"] = user.username
         attrs["password"] = password
         return super().validate(attrs)
+    
+
+# ===================================================
+# Auth Log
+# ===================================================
+# connect/serializers.py
+class AuthLogSerializer(serializers.ModelSerializer):
+    # extra read-only fields for frontend display
+    username = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuthLog
+        fields = [
+            "id",
+            "user",
+            "username",
+            "email",
+            "action",
+            "status",
+            "message",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_username(self, obj):
+        return obj.user.username if obj.user else None
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else None
+

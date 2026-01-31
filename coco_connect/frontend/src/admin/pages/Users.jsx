@@ -267,22 +267,11 @@ function StatCard({ icon: Icon, label, value, color = "neutral", trend = null })
 }
 
 /* -----------------------------
-   User Table Component
+   User Table Component - UPDATED: Removed delete option
 ------------------------------ */
-function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast }) {
+function UserTableRow({ user, onManageRoles, onToggleActive, showToast }) {
   const [showActions, setShowActions] = useState(false);
   
-  const handleDelete = async (id) => {
-    if (window.confirm(`Delete user "${user.name || user.email}"?`)) {
-      try {
-        await onDelete(id);
-      } catch (error) {
-        showToast(`Error: ${error.message}`, 'error');
-      }
-      setShowActions(false);
-    }
-  };
-
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
       <td className="py-4 pl-6">
@@ -387,13 +376,6 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast
                       </>
                     )}
                   </button>
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-red-50 text-red-600 flex items-center"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete User
-                  </button>
                 </div>
               </>
             )}
@@ -483,7 +465,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [newGroup, setNewGroup] = useState({ name: "", description: "" });
+  const [newGroup, setNewGroup] = useState({ name: "" }); // Removed description
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [groupPermIds, setGroupPermIds] = useState([]);
 
@@ -504,12 +486,12 @@ function RolesManager({ onAnyRoleChange, showToast }) {
     } catch (e) {
       console.error("Error fetching roles:", e);
       const fallbackGroups = [
-        { id: 1, name: "Admin", description: "Administrator role", permission_ids: [] },
-        { id: 2, name: "Investor", description: "Investor role", permission_ids: [] },
-        { id: 3, name: "Idea-creator", description: "Idea creator role", permission_ids: [] },
-        { id: 4, name: "Customer", description: "Customer role", permission_ids: [] },
-        { id: 5, name: "Project-owner", description: "Project owner role", permission_ids: [] },
-        { id: 6, name: "Farmer", description: "Farmer role", permission_ids: [] }
+        { id: 1, name: "Admin", permission_ids: [] },
+        { id: 2, name: "Investor", permission_ids: [] },
+        { id: 3, name: "Idea-creator", permission_ids: [] },
+        { id: 4, name: "Customer", permission_ids: [] },
+        { id: 5, name: "Project-owner", permission_ids: [] },
+        { id: 6, name: "Farmer", permission_ids: [] }
       ];
       setGroups(fallbackGroups);
     } finally {
@@ -558,7 +540,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
         headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           name: newGroup.name,
-          description: newGroup.description
+          // Description removed as requested
         }),
       });
 
@@ -568,7 +550,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
         throw new Error(data?.error || data?.detail || "Failed to create role");
       }
 
-      setNewGroup({ name: "", description: "" });
+      setNewGroup({ name: "" }); // Reset only name
       await fetchGroups();
       onAnyRoleChange?.();
       showToast(data.message || "Role created successfully!", "success");
@@ -586,7 +568,8 @@ function RolesManager({ onAnyRoleChange, showToast }) {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/roles/${group.id}/`, {
+      // Updated endpoint for deleting groups
+      const res = await fetch(`${API_BASE}/groups/${group.id}/`, {
         method: "DELETE",
         headers: authHeaders(),
       });
@@ -620,7 +603,8 @@ function RolesManager({ onAnyRoleChange, showToast }) {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/roles/${selectedGroup.id}/`, {
+      // Updated endpoint for updating groups
+      const res = await fetch(`${API_BASE}/groups/${selectedGroup.id}/`, {
         method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ 
@@ -666,12 +650,12 @@ function RolesManager({ onAnyRoleChange, showToast }) {
           </button>
         </div>
 
-        {/* Create role */}
+        {/* Create role - UPDATED: Removed description field */}
         <div className="mb-8">
           <h4 className="font-semibold text-[#6b3f23] mb-4">Create New Role</h4>
           <form onSubmit={onCreateGroup} className="bg-gray-50 rounded-xl p-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Role Name *
                 </label>
@@ -681,19 +665,6 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                   placeholder="e.g., Distributor"
                   className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
                   required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <input
-                  value={newGroup.description}
-                  onChange={(e) =>
-                    setNewGroup((s) => ({ ...s, description: e.target.value }))
-                  }
-                  placeholder="What this role can do"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
                 />
               </div>
               <div className="flex items-end">
@@ -734,9 +705,6 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="font-semibold text-[#6b3f23]">{g.name}</div>
-                          {g.description && (
-                            <div className="text-sm text-gray-600 mt-1">{g.description}</div>
-                          )}
                         </div>
                         <Shield className="h-5 w-5 text-gray-400" />
                       </div>
@@ -767,9 +735,6 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                     <h4 className="text-lg font-bold text-[#6b3f23]">
                       {selectedGroup.name}
                     </h4>
-                    {selectedGroup.description && (
-                      <p className="text-gray-600 mt-1">{selectedGroup.description}</p>
-                    )}
                   </div>
                   <div className="flex space-x-2">
                     <button
@@ -864,7 +829,7 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
       if (!groupsRes.ok) throw new Error("Failed to fetch groups");
       const groupsData = await groupsRes.json();
       
-      // Fetch user's current groups
+      // Fetch user's current groups - using correct endpoint
       const userGroupsRes = await fetch(`${API_BASE}/users/${userId}/roles/`, { 
         headers: authHeaders() 
       });
@@ -872,7 +837,7 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
       let assignedGroupIds = [];
       if (userGroupsRes.ok) {
         const userGroupsData = await userGroupsRes.json();
-        assignedGroupIds = userGroupsData.role_ids || [];
+        assignedGroupIds = userGroupsData.role_ids || userGroupsData.group_ids || [];
       }
 
       setGroups(groupsData.groups || []);
@@ -898,12 +863,12 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
     if (!userId) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/update/`, {
-        method: "PATCH",
+      // Updated endpoint for assigning roles
+      const res = await fetch(`${API_BASE}/users/${userId}/roles/`, {
+        method: "POST",
         headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ 
-          add_role_ids: [groupId],
-          add_roles: [groups.find(g => g.id === groupId)?.name || ""].filter(Boolean)
+          role_ids: [groupId],
         }),
       });
       
@@ -927,12 +892,12 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
     if (!userId) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/update/`, {
-        method: "PATCH",
+      // Updated endpoint for removing roles
+      const res = await fetch(`${API_BASE}/users/${userId}/roles/`, {
+        method: "DELETE",
         headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ 
-          remove_role_ids: [groupId],
-          remove_roles: [groups.find(g => g.id === groupId)?.name || ""].filter(Boolean)
+          role_ids: [groupId],
         }),
       });
       
@@ -1028,9 +993,6 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-semibold text-gray-900">{g.name}</div>
-                          {g.description && (
-                            <div className="text-sm text-gray-600 mt-1">{g.description}</div>
-                          )}
                         </div>
                         <div className={`h-4 w-4 rounded-full border ${active ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-gray-300'}`} />
                       </div>
@@ -1186,21 +1148,7 @@ export default function UsersPage() {
     }
   };
 
-  const onDeleteUser = async (id) => {
-    try {
-      const res = await fetch(`${API_BASE}/users/${id}/`, {
-        method: "DELETE",
-        headers: authHeaders(),
-      });
-
-      if (!res.ok) throw new Error("Failed to delete user");
-      fetchUsers(q);
-      showToast('User deleted successfully!', 'success');
-    } catch (err) {
-      console.error(err);
-      showToast(err.message, 'error');
-    }
-  };
+  // REMOVED: onDeleteUser function
 
   const setActive = async (id, is_active) => {
     try {
@@ -1993,7 +1941,6 @@ export default function UsersPage() {
                               user={user}
                               onManageRoles={openManageRoles}
                               onToggleActive={setActive}
-                              onDelete={onDeleteUser}
                               showToast={showToast}
                             />
                           ))}

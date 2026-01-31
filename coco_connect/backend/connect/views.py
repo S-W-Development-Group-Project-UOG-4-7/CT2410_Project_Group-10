@@ -9,6 +9,7 @@ from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+from .models import AuthLog
 import json
 import decimal
 import random
@@ -25,6 +26,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import (
     Idea,
     Profile,
@@ -43,6 +46,19 @@ from .serializers import (
 from .permissions import IsOwner
 from .services.embeddings import get_embedding
 from .services.similarity import cosine_similarity
+from .serializers import AuthLogSerializer
+
+
+# =================================================
+# AUTH LOG HELPER
+# =================================================
+def log_auth(user, action, status, message=""):
+    AuthLog.objects.create(
+        user=user,          # can be None for failed login
+        action=action,      # LOGIN / LOGOUT
+        status=status,      # SUCCESS / FAILED
+        message=message or ""
+    )
 
 # =================================================
 # AUTH HELPER (SESSION + JWT)
@@ -166,14 +182,35 @@ def login(request):
 
         user = authenticate(username=email, password=password)
         if user is None:
+            log_auth(
+                user=None,
+                action=AuthLog.Action.LOGIN,
+                status=AuthLog.Status.FAILED,
+                message="Invalid credentials",
+            )
             return JsonResponse({"error": "Invalid credentials"}, status=401)
 
+        if not user.is_active:
+            log_auth(
+                user=user,
+                action=AuthLog.Action.LOGIN,
+                status=AuthLog.Status.FAILED,
+                message="User inactive",
+            )
+            return JsonResponse({"error": "Account disabled"}, status=403)
+
         auth_login(request, user)
+
+        log_auth(
+            user=user,
+            action=AuthLog.Action.LOGIN,
+            status=AuthLog.Status.SUCCESS,
+            message="Login success",
+        )
 
         profile, _ = Profile.objects.get_or_create(user=user)
 
         # Generate JWT token for frontend
-        from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(user)
 
         return JsonResponse(
@@ -193,6 +230,20 @@ def login(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+# ================================================
+#   Logout 
+# ================================================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    log_auth(
+        user=request.user,
+        action=AuthLog.Action.LOGOUT,
+        status=AuthLog.Status.SUCCESS,
+        message="Logout success",
+    )
+    return Response({"detail": "Logged out"})
 
 # =================================================
 # USER PROFILE
@@ -1429,3 +1480,98 @@ def admin_delete_idea(request, idea_id):
     ).delete()
 
     return Response({"message": "Idea removed"})
+
+# --------------------------------------
+# Admin AuthLog
+# --------------------------------------
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_auth_logs(request):
+    """
+    Admin-only: list auth logs with optional filters.
+
+    Query params:
+      - user_id=#
+      - action=LOGIN|LOGOUT
+      - status=SUCCESS|FAILED
+      - q=search by username/email/message
+      - from=YYYY-MM-DD (created_at date)
+      - to=YYYY-MM-DD (created_at date)
+      - limit=100 (default 100, max 500)
+    """
+    qs = AuthLog.objects.select_related("user").all().order_by("-created_at")
+
+    user_id = (request.GET.get("user_id") or "").strip()
+    action_q = (request.GET.get("action") or "").strip().upper()
+    status_q = (request.GET.get("status") or "").strip().upper()
+    q = (request.GET.get("q") or "").strip()
+    date_from = (request.GET.get("from") or "").strip()
+    date_to = (request.GET.get("to") or "").strip()
+
+    if user_id.isdigit():
+        qs = qs.filter(user_id=int(user_id))
+
+    if action_q in ["LOGIN", "LOGOUT"]:
+        qs = qs.filter(action=action_q)
+
+    if status_q in ["SUCCESS", "FAILED"]:
+        qs = qs.filter(status=status_q)
+
+    if date_from:
+        # filters by date portion of created_at
+        qs = qs.filter(created_at__date__gte=date_from)
+
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+
+    if q:
+        qs = qs.filter(
+            Q(message__icontains=q)
+            | Q(user__username__icontains=q)
+            | Q(user__email__icontains=q)
+        )
+
+    # simple limit (avoid returning huge lists)
+    try:
+        limit = int(request.GET.get("limit", 100))
+    except Exception:
+        limit = 100
+    limit = max(1, min(limit, 500))
+
+    logs = qs[:limit]
+    return Response(
+        {
+            "count": qs.count(),
+            "limit": limit,
+            "results": AuthLogSerializer(logs, many=True).data,
+        }
+    )
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_auth_logs_stats(request):
+    """
+    Admin-only: basic stats summary.
+    Optional query param:
+      - days=7  (default 7)
+    """
+    try:
+        days = int(request.GET.get("days", 7))
+    except Exception:
+        days = 7
+    days = max(1, min(days, 365))
+
+    start = timezone.now() - timezone.timedelta(days=days)
+
+    qs = AuthLog.objects.filter(created_at__gte=start)
+
+    data = {
+        "days": days,
+        "total": qs.count(),
+        "login_success": qs.filter(action="LOGIN", status="SUCCESS").count(),
+        "login_failed": qs.filter(action="LOGIN", status="FAILED").count(),
+        "logout_success": qs.filter(action="LOGOUT", status="SUCCESS").count(),
+    }
+    return Response(data)
+
+
