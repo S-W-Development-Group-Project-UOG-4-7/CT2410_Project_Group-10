@@ -6,6 +6,7 @@ import axios from "axios";
 import { loginUser } from "../services/authService";
 
 const API_BASE = "http://localhost:8000/api";
+const REDIRECT_KEY = "redirectAfterLogin";
 
 export default function LoginModal({
   isOpen,
@@ -58,7 +59,6 @@ export default function LoginModal({
       status === 400 &&
       (d.includes("username") || d.includes("field is required"))
     ) {
-      // keep it user-friendly, but still accurate
       return "Login payload mismatch. Please try again.";
     }
 
@@ -88,9 +88,15 @@ export default function LoginModal({
     return res.data;
   }
 
+  // ✅ Redirect back to the page where login was triggered
   const redirectAfterLogin = (role) => {
     const isAdmin = String(role || "").toLowerCase().trim() === "admin";
-    const target = isAdmin ? "/admin" : "/";
+
+    const saved = localStorage.getItem(REDIRECT_KEY);
+    if (saved) localStorage.removeItem(REDIRECT_KEY);
+
+    // if admin -> always go admin (ignore saved)
+    const target = isAdmin ? "/admin" : saved || "/";
 
     onClose?.();
     setTimeout(() => navigate(target), 0);
@@ -107,10 +113,8 @@ export default function LoginModal({
       let data;
 
       try {
-        // preferred (your authService)
         data = await loginUser(formData.email, formData.password);
       } catch (err1) {
-        // fallback when token endpoint expects `username`
         if (err1?.response?.status === 400) {
           data = await loginFallbackUsername(formData.email, formData.password);
         } else {
@@ -136,11 +140,15 @@ export default function LoginModal({
       };
 
       localStorage.setItem("user", JSON.stringify(userObj));
+      window.dispatchEvent(new Event("auth:changed"));
+
       localStorage.setItem("role", userObj.role || "");
       localStorage.setItem("name", userObj.name || "");
       localStorage.setItem("email", userObj.email || "");
 
       onAuthSuccess?.(userObj);
+
+      // ✅ key change: go to saved page (or home)
       redirectAfterLogin(userObj.role);
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });

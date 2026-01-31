@@ -23,8 +23,10 @@ import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
 import AdminNews from "./admin/pages/AdminNews";
 import AdminProducts from "./admin/pages/AdminProducts";
-import AdminIdea from "./admin/pages/AdminIdea"; // ✅ make sure file name is AdminIdea.jsx
+import AdminIdea from "./admin/pages/AdminIdea"; 
 import ProtectedAdminRoute from "./admin/ProtectedAdminRoute";
+import AdminAuthLogs from "./admin/pages/AdminAuthLogs";
+
 
 // CUSTOMER PAGES
 import CustomerLayout from "./customer/layout/CustomerLayout";
@@ -95,60 +97,13 @@ export default function App() {
 
       {/* ADMIN (PROTECTED) */}
       <Route element={<ProtectedAdminRoute />}>
-        <Route
-          path="/admin"
-          element={
-            <AdminLayout>
-              <Dashboard />
-            </AdminLayout>
-          }
-        />
-
-        <Route
-          path="/admin/users"
-          element={
-            <AdminLayout>
-              <Users />
-            </AdminLayout>
-          }
-        />
-
-        <Route
-          path="/admin/blockchain"
-          element={
-            <AdminLayout>
-              <Blockchain />
-            </AdminLayout>
-          }
-        />
-
-        <Route
-          path="/admin/news"
-          element={
-            <AdminLayout>
-              <AdminNews />
-            </AdminLayout>
-          }
-        />
-
-        <Route
-          path="/admin/products"
-          element={
-            <AdminLayout>
-              <AdminProducts />
-            </AdminLayout>
-          }
-        />
-
-        {/* ✅ NEW: Admin Ideas page */}
-        <Route
-          path="/admin/ideas"
-          element={
-            <AdminLayout>
-              <AdminIdea />
-            </AdminLayout>
-          }
-        />
+        <Route path="/admin" element={ <AdminLayout> <Dashboard /> </AdminLayout> } />
+        <Route path="/admin/users" element={ <AdminLayout> <Users /> </AdminLayout> } />
+        <Route path="/admin/blockchain" element={ <AdminLayout > <Blockchain /> </AdminLayout> } />
+        <Route path="/admin/news"  element={   <AdminLayout> <AdminNews /> </AdminLayout> } />
+        <Route path="/admin/products" element={ <AdminLayout> <AdminProducts /> </AdminLayout> } />
+        <Route path="/admin/ideas" element={ <AdminLayout> <AdminIdea /> </AdminLayout> }/>
+        <Route path="/admin/auth-logs" element={<AdminLayout> <AdminAuthLogs /> </AdminLayout> } />
       </Route>
 
       {/* CUSTOMER (PROTECTED) */}

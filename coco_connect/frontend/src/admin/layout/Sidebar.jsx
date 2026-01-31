@@ -3,12 +3,13 @@ import { useMemo, useState } from "react";
 
 const menuItems = [
   { name: "Dashboard", path: "/admin" },
-  { name: "Products", path: "/admin/products" },
-  { name: "Ideas", path: "/admin/ideas", badge: "New" },
-  { name: "Investments", path: "/admin/investments" },
   { name: "Users", path: "/admin/users" },
+  { name: "Products", path: "/admin/products" },
+  { name: "Investments", path: "/admin/investments" },
+  { name: "Ideas", path: "/admin/ideas", badge: "New" },
   { name: "News", path: "/admin/news" },
   { name: "Blockchain", path: "/admin/blockchain" },
+  { name: "Auth Logs", path: "/admin/auth-logs" },
 ];
 
 // ✅ Small logout modal (custom message)

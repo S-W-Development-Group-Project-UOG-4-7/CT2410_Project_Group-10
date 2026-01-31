@@ -1,8 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone  # needed for Investment.save()
-
-
+from django.conf import settings
 # =================================================
 # NOTE ABOUT MERGE CLASH (IMPORTANT)
 # =================================================
@@ -15,7 +14,6 @@ from django.utils import timezone  # needed for Investment.save()
 #
 # If you want to keep only one in the DB later, we can migrate safely.
 # =================================================
-
 
 # ----------------------------
 # IDEA SHARING (Legacy version preserved)
@@ -373,3 +371,38 @@ class Investment(models.Model):
                 self.project.days_left = 0
 
             self.project.save()
+
+#---------------------------------
+#   Auth Log
+#---------------------------------
+class AuthLog(models.Model):
+    class Action(models.TextChoices):
+        LOGIN = "LOGIN", "Login"
+        LOGOUT = "LOGOUT", "Logout"
+
+    class Status(models.TextChoices):
+        SUCCESS = "SUCCESS", "Success"
+        FAILED = "FAILED", "Failed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="auth_logs",
+    )
+    action = models.CharField(max_length=10, choices=Action.choices)
+    status = models.CharField(max_length=10, choices=Status.choices)
+    message = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["action", "status"]),
+        ]
+
+    def __str__(self):
+        username = self.user.username if self.user else "UnknownUser"
+        return f"{self.created_at:%Y-%m-%d %H:%M:%S} | {username} | {self.action} | {self.status}"
