@@ -375,72 +375,7 @@ const InvestmentPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleConfirmInvestment = async () => {
-    try {
-      const token = localStorage.getItem("access");
 
-      if (!token) {
-        alert("Please login to make an investment");
-        return;
-      }
-
-      const investmentData = {
-        project_id: selectedProject.id,
-        payment_method: "payhere",
-      };
-
-      // Add data based on investment mode
-      if (groupInvestmentMode) {
-        const totalInvestmentAmount = unitsToPurchase * unitPrice;
-        investmentData.amount = totalInvestmentAmount;
-        investmentData.units = unitsToPurchase;
-        investmentData.unit_price = unitPrice;
-        investmentData.total_units = totalUnits;
-        investmentData.investment_type = "unit_purchase";
-        investmentData.investment_structure = "units";
-        
-        // Calculate percentage ownership
-        investmentData.ownership_percentage = ((unitsToPurchase / totalUnits) * 100).toFixed(2);
-      } else {
-        investmentData.amount = investmentAmount;
-        investmentData.investment_type = "fixed_amount";
-        investmentData.investment_structure = "fixed";
-      }
-
-      const res = await fetch("http://127.0.0.1:8000/api/make-investment/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(investmentData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Investment failed");
-        return;
-      }
-
-      alert(`Investment successful! ${groupInvestmentMode ? `Purchased ${unitsToPurchase} shares (${((unitsToPurchase / totalUnits) * 100).toFixed(2)}% ownership)` : ''}`);
-      setIsModalOpen(false);
-
-      // Reset group investment mode
-      setGroupInvestmentMode(false);
-      setUnitsToPurchase(1);
-
-      // Refresh lists
-      if (tab === "all") {
-        setFilters((prev) => ({ ...prev })); // triggers fetchProjects via dependency
-      } else {
-        fetchMyInvestments();
-      }
-    } catch (error) {
-      console.error(error);
-      alert("Server error");
-    }
-  };
 
   // Handle project creation
   const handleCreateProject = async () => {

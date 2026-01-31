@@ -764,6 +764,14 @@ def get_projects_api(request):
         else:
             projects_list = list(queryset)
         
+        # TEMPORARY FIX: Add missing fields if they don't exist
+        for project in projects_list:
+            if not hasattr(project, 'total_units'):
+                project.total_units = 1000  # Default value
+                project.available_units = 1000
+                project.unit_price = project.target_amount / 1000 if project.target_amount > 0 else 0
+                project.investment_structure = 'fixed'
+        
         serializer = InvestmentProjectListSerializer(projects_list, many=True)
         
         # Get unique categories and locations for filters
