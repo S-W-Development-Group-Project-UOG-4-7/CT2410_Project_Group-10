@@ -15,6 +15,9 @@ from .views import (
     admin_reported_ideas,
     admin_keep_idea,
     admin_delete_idea,
+    
+    # ✅ ADMIN USER ROLES VIEW
+    admin_user_roles,
 )
 
 router = DefaultRouter()
@@ -57,7 +60,14 @@ urlpatterns = [
     # ADMIN – USER ROLES (GROUPS)
     # =========================
     path("roles/", views.roles_list, name="roles_list"),
-    path("users/<int:user_id>/roles/", views.user_roles, name="user_roles"),
+    path('roles/<int:group_id>/', views.roles_update, name='roles_update'),  # PATCH update
+    path('roles/<int:group_id>/delete/', views.roles_delete, name='roles_delete'),  # DELETE
+    path("users/<int:user_id>/roles/", admin_user_roles, name="admin_user_roles"),  # CHANGED HERE
+    path("permissions/", views.permissions_list, name="permissions_list"),
+
+    path("groups/", views.groups_list, name="groups_list"),
+    path('groups/create/', views.groups_create, name='groups_create'),  # POST create
+
 
     # =========================
     # ADMIN – IDEA MODERATION  ✅ NEW

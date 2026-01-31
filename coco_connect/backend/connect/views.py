@@ -1,11 +1,13 @@
 # connect/views.py
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from django.contrib.auth import authenticate, login as auth_login
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db.models import Q, Sum
 from django.utils import timezone
 from django.db import transaction
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 import json
 import decimal
@@ -23,9 +25,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
-
 from .models import (
     Idea,
     Profile,
@@ -42,10 +41,8 @@ from .serializers import (
     SimilarityAlertSerializer,
 )
 from .permissions import IsOwner
-
 from .services.embeddings import get_embedding
 from .services.similarity import cosine_similarity
-
 
 # =================================================
 # AUTH HELPER (SESSION + JWT)
@@ -75,14 +72,12 @@ def check_auth(request):
 
     return None
 
-
 # =================================================
 # BASIC API
 # =================================================
 @csrf_exempt
 def hello_coco(request):
     return JsonResponse({"message": "CocoConnect API is running"})
-
 
 # =================================================
 # REGISTER
@@ -152,7 +147,6 @@ def register(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 # =================================================
 # LOGIN (SESSION)
 # =================================================
@@ -199,7 +193,6 @@ def login(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 # =================================================
 # USER PROFILE
@@ -280,35 +273,6 @@ def change_password(request):
 
     return Response({"message": "Password changed successfully"})
 
-
-# connect/views.py
-
-from django.contrib.auth.models import User, Group  # ✅ add Group
-from django.db.models import Q
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
-from rest_framework.response import Response
-
-from .models import Profile  # keep if already used
-
-
-# =================================================
-# ADMIN: ROLES (AUTH GROUPS)
-# =================================================
-@api_view(["GET"])
-@permission_classes([IsAdminUser])
-def roles_list(request):
-    """
-    Returns all available roles in the system (Django auth_group).
-    """
-    roles = Group.objects.all().order_by("name")
-    return Response(
-        {
-            "roles": [{"id": g.id, "name": g.name} for g in roles],
-        }
-    )
-
-
 # =================================================
 # ADMIN: USERS - UPDATED (MULTI-ROLE SUPPORT)
 # =================================================
@@ -372,6 +336,19 @@ def users_list(request):
         )
 
     return Response({"users": users})
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def admin_user_roles(request, user_id):
+    try:
+        u = User.objects.prefetch_related("groups").get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    return Response({
+        "role_ids": list(u.groups.values_list("id", flat=True)),
+        "roles": [{"id": g.id, "name": g.name} for g in u.groups.all().order_by("name")],
+    })
 
 
 @api_view(["DELETE"])
@@ -504,47 +481,213 @@ def users_update(request, user_id):
 
 
 # =================================================
-# ROLES & PERMISSIONS ENDPOINTS (for frontend)
+# ROLES & PERMISSIONS ENDPOINTS (UPDATED - REAL IMPLEMENTATION)
 # =================================================
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def roles_list(request):
     """
-    Return available roles from Profile model
+    Return available roles (Django Groups)
     """
-    # Get distinct roles from profiles
-    roles = Profile.objects.values_list('role', flat=True).distinct()
+    groups = Group.objects.all().order_by('name')
     
-    # Convert to list of role objects for frontend
-    role_objects = []
-    for role in roles:
-        if role:
-            role_objects.append({
-                "id": role.lower().replace(" ", "-"),
-                "name": role,
-                "description": f"{role} role",
-                "permission_ids": []  # Simplified for now
-            })
+    groups_data = []
+    for group in groups:
+        groups_data.append({
+            "id": group.id,
+            "name": group.name,
+            "description": f"{group.name} role",  # You can add a description field if needed
+            "permission_ids": list(group.permissions.values_list('id', flat=True))
+        })
     
-    # Add default roles if not present
-    default_roles = ["Admin", "User"]
-    for role_name in default_roles:
-        if role_name not in roles:
-            role_objects.append({
-                "id": role_name.lower(),
-                "name": role_name,
-                "description": f"{role_name} role",
-                "permission_ids": []
-            })
-    
-    return Response({"roles": role_objects})
+    return Response({"groups": groups_data})
 
 
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def roles_create(request):
+    name = request.data.get("name", "").strip()
+    
+    if not name:
+        return Response({"error": "Role name is required"}, status=400)
+    
+    # Check if group already exists
+    if Group.objects.filter(name=name).exists():
+        return Response({"error": f"Role '{name}' already exists"}, status=400)
+    
+    try:
+        # Create the actual Django Group
+        group = Group.objects.create(name=name)
+        
+        # Optionally add description if you have a custom model
+        # For now, we'll just use the name as description
+        
+        return Response({
+            "message": "Role created successfully",
+            "group": {
+                "id": group.id,
+                "name": group.name,
+                "description": f"{group.name} role",
+                "permission_ids": []
+            }
+        }, status=201)
+        
+    except Exception as e:
+        return Response({"error": f"Failed to create role: {str(e)}"}, status=500)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAdminUser])
+def roles_update(request, group_id):
     """
-    Create a new role
+    Update role permissions
+    """
+    try:
+        group = Group.objects.get(id=group_id)
+    except Group.DoesNotExist:
+        return Response({"error": "Role not found"}, status=404)
+    
+    # Update name if provided
+    new_name = request.data.get("name", "").strip()
+    if new_name and new_name != group.name:
+        # Check if new name already exists
+        if Group.objects.filter(name=new_name).exclude(id=group_id).exists():
+            return Response({"error": f"Role '{new_name}' already exists"}, status=400)
+        group.name = new_name
+        group.save()
+    
+    # Update permissions if provided
+    permission_ids = request.data.get("permission_ids")
+    if permission_ids is not None:
+        try:
+            # Clear existing permissions
+            group.permissions.clear()
+            # Add new permissions
+            if permission_ids:
+                from django.contrib.auth.models import Permission
+                permissions = Permission.objects.filter(id__in=permission_ids)
+                group.permissions.set(permissions)
+        except Exception as e:
+            return Response({"error": f"Failed to update permissions: {str(e)}"}, status=400)
+    
+    return Response({
+        "message": "Role updated successfully",
+        "group": {
+            "id": group.id,
+            "name": group.name,
+            "description": f"{group.name} role",
+            "permission_ids": list(group.permissions.values_list('id', flat=True))
+        }
+    })
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAdminUser])
+def roles_delete(request, group_id):
+    """
+    Delete a role (Django Group)
+    """
+    try:
+        group = Group.objects.get(id=group_id)
+    except Group.DoesNotExist:
+        return Response({"error": "Role not found"}, status=404)
+    
+    # Check if this is a system/default role that shouldn't be deleted
+    default_roles = ["Admin", "User"]  # Add any other protected roles
+    if group.name in default_roles:
+        return Response({"error": f"Cannot delete default role '{group.name}'"}, status=403)
+    
+    # Check if any users are assigned to this group
+    user_count = group.user_set.count()
+    if user_count > 0:
+        return Response({
+            "error": f"Cannot delete role '{group.name}' because {user_count} user(s) are assigned to it"
+        }, status=400)
+    
+    try:
+        group_name = group.name
+        group.delete()
+        return Response({"message": f"Role '{group_name}' deleted successfully"})
+    except Exception as e:
+        return Response({"error": f"Failed to delete role: {str(e)}"}, status=500)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def permissions_list(request):
+    """
+    Return available permissions from Django
+    """
+    from django.contrib.auth.models import Permission
+    from django.contrib.contenttypes.models import ContentType
+    
+    permissions = Permission.objects.all().order_by('content_type__app_label', 'codename')
+    
+    permission_data = []
+    for perm in permissions:
+        permission_data.append({
+            "id": perm.id,
+            "name": perm.name,
+            "codename": perm.codename,
+            "content_type": perm.content_type.app_label,
+            "app_label": perm.content_type.app_label,
+            "model": perm.content_type.model,
+        })
+    
+    return Response({"permissions": permission_data})
+
+
+# Keep the existing groups_list endpoint for backward compatibility
+@api_view(["GET", "POST"])
+@permission_classes([IsAdminUser])
+def groups_list(request):
+    """
+    Handle GET (list) and POST (create) for Django Groups
+    """
+    if request.method == "GET":
+        groups = Group.objects.all().order_by('name')
+        data = [{
+            "id": g.id,
+            "name": g.name,
+            "description": f"{g.name} role",
+            "permission_ids": list(g.permissions.values_list('id', flat=True))
+        } for g in groups]
+        return Response({"groups": data})
+    
+    elif request.method == "POST":
+        # Create new group
+        name = request.data.get("name", "").strip()
+        description = request.data.get("description", "").strip()
+        
+        if not name:
+            return Response({"error": "Role name is required"}, status=400)
+        
+        # Check if group already exists
+        if Group.objects.filter(name=name).exists():
+            return Response({"error": f"Role '{name}' already exists"}, status=400)
+        
+        try:
+            # Create the actual Django Group
+            group = Group.objects.create(name=name)
+            
+            return Response({
+                "message": "Role created successfully",
+                "group": {
+                    "id": group.id,
+                    "name": group.name,
+                    "description": description or f"{group.name} role",
+                    "permission_ids": []
+                }
+            }, status=201)
+            
+        except Exception as e:
+            return Response({"error": f"Failed to create role: {str(e)}"}, status=500)
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def groups_create(request):
+    """
+    Create a new role (Django Group)
     """
     name = request.data.get("name", "").strip()
     description = request.data.get("description", "").strip()
@@ -552,64 +695,30 @@ def roles_create(request):
     if not name:
         return Response({"error": "Role name is required"}, status=400)
     
-    # In a real implementation, you would create a Role model
-    # For now, we'll just acknowledge the request
-    return Response({
-        "message": "Role created",
-        "role": {
-            "id": name.lower().replace(" ", "-"),
-            "name": name,
-            "description": description,
-            "permission_ids": []
-        }
-    })
-
-
-@api_view(["PATCH"])
-@permission_classes([IsAdminUser])
-def roles_update(request, role_id):
-    """
-    Update role permissions
-    """
-    # Simplified implementation
-    return Response({"message": "Role updated"})
-
-
-@api_view(["DELETE"])
-@permission_classes([IsAdminUser])
-def roles_delete(request, role_id):
-    """
-    Delete a role
-    """
-    # Simplified implementation
-    return Response({"message": "Role deleted"})
-
-
-@api_view(["GET"])
-@permission_classes([IsAdminUser])
-def permissions_list(request):
-    """
-    Return available permissions
-    """
-    # Simplified permissions list
-    permissions = [
-        {"id": "view_users", "name": "View Users", "code": "users.view"},
-        {"id": "edit_users", "name": "Edit Users", "code": "users.edit"},
-        {"id": "delete_users", "name": "Delete Users", "code": "users.delete"},
-        {"id": "view_ideas", "name": "View Ideas", "code": "ideas.view"},
-        {"id": "create_ideas", "name": "Create Ideas", "code": "ideas.create"},
-        {"id": "edit_ideas", "name": "Edit Ideas", "code": "ideas.edit"},
-        {"id": "delete_ideas", "name": "Delete Ideas", "code": "ideas.delete"},
-        {"id": "view_investments", "name": "View Investments", "code": "investments.view"},
-        {"id": "manage_investments", "name": "Manage Investments", "code": "investments.manage"},
-    ]
+    # Check if group already exists
+    if Group.objects.filter(name=name).exists():
+        return Response({"error": f"Role '{name}' already exists"}, status=400)
     
-    return Response({"permissions": permissions})
-
+    try:
+        # Create the actual Django Group
+        group = Group.objects.create(name=name)
+        
+        return Response({
+            "message": "Role created successfully",
+            "group": {
+                "id": group.id,
+                "name": group.name,
+                "description": description or f"{group.name} role",
+                "permission_ids": []
+            }
+        }, status=201)
+        
+    except Exception as e:
+        return Response({"error": f"Failed to create role: {str(e)}"}, status=500)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def user_roles(request, user_id):
+def user_role_details(request, user_id):
     """
     Get roles for a specific user
     """
@@ -676,7 +785,6 @@ def remove_user_role(request, user_id):
         return Response({"message": "Role removed"})
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
-
 
 # =================================================
 # NEWS (DRF ViewSet)
@@ -921,6 +1029,7 @@ class SimilarityAlertViewSet(ModelViewSet):
 # =================================================
 # INVESTMENT ENDPOINTS (function-based)
 # =================================================
+
 @csrf_exempt
 def get_projects(request):
     try:
@@ -1049,7 +1158,6 @@ def get_project_detail(request, project_id):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-
 @csrf_exempt
 def create_investment(request):
     if request.method != "POST":
@@ -1114,7 +1222,6 @@ def create_investment(request):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_investments(request):
@@ -1143,13 +1250,11 @@ def my_investments(request):
         )
     return Response(data)
 
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_categories(request):
     qs = InvestmentCategory.objects.all().order_by("name")
     return Response([{"id": c.id, "name": c.name, "description": c.description} for c in qs])
-
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -1167,7 +1272,6 @@ def get_locations(request):
 
     cleaned = sorted({v.strip() for v in values if isinstance(v, str) and v.strip()})
     return Response(cleaned)
-
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

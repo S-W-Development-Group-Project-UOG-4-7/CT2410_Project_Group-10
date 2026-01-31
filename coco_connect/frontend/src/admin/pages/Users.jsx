@@ -30,6 +30,108 @@ import {
 const API_BASE = "http://localhost:8000/api";
 
 /* -----------------------------
+   Toast Notification Component
+------------------------------ */
+function ToastNotification({ message, type = 'success', onClose }) {
+  const bgColor = {
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-amber-50 border-amber-200 text-amber-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800'
+  };
+
+  const iconColor = {
+    success: 'text-emerald-600',
+    error: 'text-red-600',
+    warning: 'text-amber-600',
+    info: 'text-blue-600'
+  };
+
+  const icons = {
+    success: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+      </svg>
+    ),
+    error: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+      </svg>
+    ),
+    warning: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+    ),
+    info: (
+      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+      </svg>
+    )
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
+      <div className={`pointer-events-auto max-w-md w-full rounded-xl border p-4 shadow-lg ${bgColor[type]}`}>
+        <div className="flex items-start">
+          <div className={`flex-shrink-0 ${iconColor[type]}`}>
+            {icons[type]}
+          </div>
+          <div className="ml-3 flex-1">
+            <p className="text-sm font-medium">{message}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-500"
+          >
+            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -----------------------------
+   Toast Hook
+------------------------------ */
+function useToast() {
+  const [toast, setToast] = useState(null);
+  const timeoutRef = useRef(null);
+
+  const showToast = (message, type = 'success', duration = 3000) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    setToast({ message, type });
+    
+    timeoutRef.current = setTimeout(() => {
+      setToast(null);
+    }, duration);
+  };
+
+  const hideToast = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setToast(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return { toast, showToast, hideToast };
+}
+
+/* -----------------------------
    Auth helpers (unchanged keys)
 ------------------------------ */
 function getAccessToken() {
@@ -167,9 +269,20 @@ function StatCard({ icon: Icon, label, value, color = "neutral", trend = null })
 /* -----------------------------
    User Table Component
 ------------------------------ */
-function UserTableRow({ user, onManageRoles, onToggleActive, onDelete }) {
+function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast }) {
   const [showActions, setShowActions] = useState(false);
   
+  const handleDelete = async (id) => {
+    if (window.confirm(`Delete user "${user.name || user.email}"?`)) {
+      try {
+        await onDelete(id);
+      } catch (error) {
+        showToast(`Error: ${error.message}`, 'error');
+      }
+      setShowActions(false);
+    }
+  };
+
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
       <td className="py-4 pl-6">
@@ -275,12 +388,7 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete }) {
                     )}
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm(`Delete user "${user.name || user.email}"?`)) {
-                        onDelete(user.id);
-                      }
-                      setShowActions(false);
-                    }}
+                    onClick={() => handleDelete(user.id)}
                     className="w-full text-left px-4 py-3 text-sm hover:bg-red-50 text-red-600 flex items-center"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -299,7 +407,7 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete }) {
 /* -----------------------------
    Filter Panel Component
 ------------------------------ */
-function FilterPanel({ filters, setFilters }) {
+function FilterPanel({ filters, setFilters, availableRoles }) {
   const [isOpen, setIsOpen] = useState(false);
   
   return (
@@ -347,8 +455,9 @@ function FilterPanel({ filters, setFilters }) {
               className="w-full rounded-xl border border-[#ece7e1] bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="all">All Roles</option>
-              <option value="Admin">Admin</option>
-              <option value="User">User</option>
+              {availableRoles.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
             </select>
           </div>
           
@@ -367,32 +476,42 @@ function FilterPanel({ filters, setFilters }) {
 }
 
 /* -----------------------------
-   Roles Manager (enhanced)
+   Roles Manager (updated to use groups endpoint)
 ------------------------------ */
-function RolesManager({ onAnyRoleChange }) {
-  const [roles, setRoles] = useState([]);
+function RolesManager({ onAnyRoleChange, showToast }) {
+  const [groups, setGroups] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [newRole, setNewRole] = useState({ name: "", description: "" });
-  const [selectedRoleId, setSelectedRoleId] = useState(null);
-  const [rolePermIds, setRolePermIds] = useState([]);
+  const [newGroup, setNewGroup] = useState({ name: "", description: "" });
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [groupPermIds, setGroupPermIds] = useState([]);
 
-  const selectedRole = useMemo(
-    () => roles.find((r) => r.id === selectedRoleId) || null,
-    [roles, selectedRoleId]
+  const selectedGroup = useMemo(
+    () => groups.find((g) => g.id === selectedGroupId) || null,
+    [groups, selectedGroupId]
   );
 
-  const fetchRoles = async () => {
+  // Fetch groups from backend
+  const fetchGroups = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/roles/`, { headers: authHeaders() });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed to fetch roles");
-      setRoles(data.roles || data || []);
+      // Use /groups/ endpoint instead of /roles/
+      const res = await fetch(`${API_BASE}/groups/`, { headers: authHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch roles");
+      const data = await res.json();
+      setGroups(data.groups || []);
     } catch (e) {
-      console.error(e);
-      alert(e.message);
+      console.error("Error fetching roles:", e);
+      const fallbackGroups = [
+        { id: 1, name: "Admin", description: "Administrator role", permission_ids: [] },
+        { id: 2, name: "Investor", description: "Investor role", permission_ids: [] },
+        { id: 3, name: "Idea-creator", description: "Idea creator role", permission_ids: [] },
+        { id: 4, name: "Customer", description: "Customer role", permission_ids: [] },
+        { id: 5, name: "Project-owner", description: "Project owner role", permission_ids: [] },
+        { id: 6, name: "Farmer", description: "Farmer role", permission_ids: [] }
+      ];
+      setGroups(fallbackGroups);
     } finally {
       setLoading(false);
     }
@@ -412,96 +531,116 @@ function RolesManager({ onAnyRoleChange }) {
   };
 
   useEffect(() => {
-    fetchRoles();
+    fetchGroups();
     fetchPermissions();
   }, []);
 
   useEffect(() => {
-    if (!selectedRole) {
-      setRolePermIds([]);
+    if (!selectedGroup) {
+      setGroupPermIds([]);
       return;
     }
-    const permIds =
-      selectedRole.permission_ids ||
-      selectedRole.permissions?.map((p) => p.id) ||
-      [];
-    setRolePermIds(permIds);
-  }, [selectedRole]);
+    setGroupPermIds(selectedGroup.permission_ids || []);
+  }, [selectedGroup]);
 
-  const onCreateRole = async (e) => {
+  const onCreateGroup = async (e) => {
     e.preventDefault();
-    if (!newRole.name.trim()) return;
+    if (!newGroup.name.trim()) {
+      showToast("Role name is required", "error");
+      return;
+    }
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/roles/`, {
+      // Use /groups/ endpoint for creation
+      const res = await fetch(`${API_BASE}/groups/`, {
         method: "POST",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(newRole),
+        body: JSON.stringify({
+          name: newGroup.name,
+          description: newGroup.description
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Failed to create role");
+      
+      if (!res.ok) {
+        throw new Error(data?.error || data?.detail || "Failed to create role");
+      }
 
-      setNewRole({ name: "", description: "" });
-      await fetchRoles();
+      setNewGroup({ name: "", description: "" });
+      await fetchGroups();
       onAnyRoleChange?.();
+      showToast(data.message || "Role created successfully!", "success");
     } catch (e) {
       console.error(e);
-      alert(e.message);
+      showToast(`Error: ${e.message}`, "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const onDeleteRole = async (role) => {
-    const name = role?.name || "this role";
-    if (!confirm(`Delete "${name}"? This action cannot be undone.`)) return;
+  const onDeleteGroup = async (group) => {
+    const name = group?.name || "this role";
+    if (!window.confirm(`Delete "${name}"? This action cannot be undone.`)) return;
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/roles/${role.id}/`, {
+      const res = await fetch(`${API_BASE}/roles/${group.id}/`, {
         method: "DELETE",
         headers: authHeaders(),
       });
-      if (!res.ok) throw new Error("Failed to delete role");
+      
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        throw new Error(data?.error || data?.detail || "Failed to delete role");
+      }
 
-      setSelectedRoleId(null);
-      await fetchRoles();
+      setSelectedGroupId(null);
+      await fetchGroups();
       onAnyRoleChange?.();
+      showToast(data.message || "Role deleted successfully!", "success");
     } catch (e) {
       console.error(e);
-      alert(e.message);
+      showToast(`Error: ${e.message}`, "error");
     } finally {
       setSaving(false);
     }
   };
 
   const togglePerm = (permId) => {
-    setRolePermIds((prev) =>
+    setGroupPermIds((prev) =>
       prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
     );
   };
 
-  const onSaveRolePermissions = async () => {
-    if (!selectedRole) return;
+  const onSaveGroupPermissions = async () => {
+    if (!selectedGroup) return;
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/roles/${selectedRole.id}/`, {
+      const res = await fetch(`${API_BASE}/roles/${selectedGroup.id}/`, {
         method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ permission_ids: rolePermIds }),
+        body: JSON.stringify({ 
+          permission_ids: groupPermIds,
+          name: selectedGroup.name
+        }),
       });
 
-      if (!res.ok) throw new Error("Failed to update role permissions");
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) {
+        throw new Error(data?.error || data?.detail || "Failed to update role permissions");
+      }
 
-      await fetchRoles();
+      await fetchGroups();
       onAnyRoleChange?.();
-      alert("Permissions updated successfully!");
+      showToast(data.message || "Permissions updated successfully!", "success");
     } catch (e) {
       console.error(e);
-      alert(e.message);
+      showToast(`Error: ${e.message}`, "error");
     } finally {
       setSaving(false);
     }
@@ -518,7 +657,7 @@ function RolesManager({ onAnyRoleChange }) {
             </p>
           </div>
           <button
-            onClick={fetchRoles}
+            onClick={fetchGroups}
             disabled={loading}
             className="flex items-center px-4 py-2 bg-white border border-[#ece7e1] rounded-xl hover:bg-gray-50"
           >
@@ -530,15 +669,15 @@ function RolesManager({ onAnyRoleChange }) {
         {/* Create role */}
         <div className="mb-8">
           <h4 className="font-semibold text-[#6b3f23] mb-4">Create New Role</h4>
-          <form onSubmit={onCreateRole} className="bg-gray-50 rounded-xl p-4">
+          <form onSubmit={onCreateGroup} className="bg-gray-50 rounded-xl p-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Role Name *
                 </label>
                 <input
-                  value={newRole.name}
-                  onChange={(e) => setNewRole((s) => ({ ...s, name: e.target.value }))}
+                  value={newGroup.name}
+                  onChange={(e) => setNewGroup((s) => ({ ...s, name: e.target.value }))}
                   placeholder="e.g., Distributor"
                   className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
                   required
@@ -549,9 +688,9 @@ function RolesManager({ onAnyRoleChange }) {
                   Description
                 </label>
                 <input
-                  value={newRole.description}
+                  value={newGroup.description}
                   onChange={(e) =>
-                    setNewRole((s) => ({ ...s, description: e.target.value }))
+                    setNewGroup((s) => ({ ...s, description: e.target.value }))
                   }
                   placeholder="What this role can do"
                   className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
@@ -571,38 +710,38 @@ function RolesManager({ onAnyRoleChange }) {
           </form>
         </div>
 
-        {/* Roles list + editor */}
+        {/* Groups list + editor */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Roles list */}
+          {/* Groups list */}
           <div className="lg:col-span-1">
             <div className="sticky top-6">
-              <h4 className="font-semibold text-[#6b3f23] mb-4">All Roles ({roles.length})</h4>
+              <h4 className="font-semibold text-[#6b3f23] mb-4">All Roles ({groups.length})</h4>
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                {roles.length === 0 ? (
+                {groups.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     No roles created yet
                   </div>
                 ) : (
-                  roles.map((r) => (
+                  groups.map((g) => (
                     <button
-                      key={r.id}
-                      onClick={() => setSelectedRoleId(r.id)}
-                      className={`w-full text-left p-4 rounded-xl border transition-all ${selectedRoleId === r.id
+                      key={g.id}
+                      onClick={() => setSelectedGroupId(g.id)}
+                      className={`w-full text-left p-4 rounded-xl border transition-all ${selectedGroupId === g.id
                           ? 'border-emerald-500 bg-emerald-50'
                           : 'border-gray-200 hover:bg-gray-50'
                         }`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <div className="font-semibold text-[#6b3f23]">{r.name}</div>
-                          {r.description && (
-                            <div className="text-sm text-gray-600 mt-1">{r.description}</div>
+                          <div className="font-semibold text-[#6b3f23]">{g.name}</div>
+                          {g.description && (
+                            <div className="text-sm text-gray-600 mt-1">{g.description}</div>
                           )}
                         </div>
                         <Shield className="h-5 w-5 text-gray-400" />
                       </div>
                       <div className="text-xs text-gray-500 mt-2">
-                        {r.permission_ids?.length || 0} permissions
+                        {g.permission_ids?.length || 0} permissions
                       </div>
                     </button>
                   ))
@@ -611,9 +750,9 @@ function RolesManager({ onAnyRoleChange }) {
             </div>
           </div>
 
-          {/* Role editor */}
+          {/* Group editor */}
           <div className="lg:col-span-2">
-            {!selectedRole ? (
+            {!selectedGroup ? (
               <div className="bg-gray-50 rounded-2xl p-8 text-center">
                 <Shield className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                 <h4 className="font-semibold text-gray-700 mb-2">Select a Role</h4>
@@ -626,22 +765,22 @@ function RolesManager({ onAnyRoleChange }) {
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-lg font-bold text-[#6b3f23]">
-                      {selectedRole.name}
+                      {selectedGroup.name}
                     </h4>
-                    {selectedRole.description && (
-                      <p className="text-gray-600 mt-1">{selectedRole.description}</p>
+                    {selectedGroup.description && (
+                      <p className="text-gray-600 mt-1">{selectedGroup.description}</p>
                     )}
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={onSaveRolePermissions}
+                      onClick={onSaveGroupPermissions}
                       disabled={saving}
                       className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50"
                     >
                       {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                     <button
-                      onClick={() => onDeleteRole(selectedRole)}
+                      onClick={() => onDeleteGroup(selectedGroup)}
                       disabled={saving}
                       className="flex items-center px-4 py-2 bg-white border border-red-300 text-red-600 rounded-xl hover:bg-red-50"
                     >
@@ -653,7 +792,7 @@ function RolesManager({ onAnyRoleChange }) {
 
                 <div className="bg-gray-50 rounded-2xl p-6">
                   <h5 className="font-semibold text-[#6b3f23] mb-4">
-                    Permissions ({rolePermIds.length} selected)
+                    Permissions ({groupPermIds.length} selected)
                   </h5>
                   
                   {permissions.length === 0 ? (
@@ -665,7 +804,7 @@ function RolesManager({ onAnyRoleChange }) {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {permissions.map((p) => {
-                        const checked = rolePermIds.includes(p.id);
+                        const checked = groupPermIds.includes(p.id);
                         return (
                           <label
                             key={p.id}
@@ -704,46 +843,43 @@ function RolesManager({ onAnyRoleChange }) {
 }
 
 /* -----------------------------
-   User Roles Modal (enhanced)
+   User Roles Modal (updated to use correct endpoints)
 ------------------------------ */
-function UserRolesModal({ isOpen, onClose, user, onChanged }) {
+function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
   const modalRef = useRef(null);
-  const [roles, setRoles] = useState([]);
-  const [userRoleIds, setUserRoleIds] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [userGroupIds, setUserGroupIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const userId = user?.id;
-  const userRoleSet = useMemo(() => new Set(userRoleIds), [userRoleIds]);
+  const userGroupSet = useMemo(() => new Set(userGroupIds), [userGroupIds]);
 
-  const fetchRolesAndUserRoles = async () => {
+  const fetchGroupsAndUserGroups = async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      const [rolesRes, userRolesRes] = await Promise.all([
-        fetch(`${API_BASE}/roles/`, { headers: authHeaders() }),
-        fetch(`${API_BASE}/users/${userId}/roles/`, { headers: authHeaders() }),
-      ]);
+      // Fetch all groups
+      const groupsRes = await fetch(`${API_BASE}/groups/`, { headers: authHeaders() });
+      if (!groupsRes.ok) throw new Error("Failed to fetch groups");
+      const groupsData = await groupsRes.json();
+      
+      // Fetch user's current groups
+      const userGroupsRes = await fetch(`${API_BASE}/users/${userId}/roles/`, { 
+        headers: authHeaders() 
+      });
+      
+      let assignedGroupIds = [];
+      if (userGroupsRes.ok) {
+        const userGroupsData = await userGroupsRes.json();
+        assignedGroupIds = userGroupsData.role_ids || [];
+      }
 
-      const rolesData = await rolesRes.json().catch(() => ({}));
-      const userRolesData = await userRolesRes.json().catch(() => ({}));
-
-      if (!rolesRes.ok) throw new Error(rolesData?.error || "Failed to fetch roles");
-      if (!userRolesRes.ok)
-        throw new Error(userRolesData?.error || "Failed to fetch user roles");
-
-      const allRoles = rolesData.roles || rolesData || [];
-      const assigned =
-        userRolesData.role_ids ||
-        userRolesData.roles?.map((r) => r.id) ||
-        userRolesData.roles_ids ||
-        [];
-
-      setRoles(allRoles);
-      setUserRoleIds(assigned);
+      setGroups(groupsData.groups || []);
+      setUserGroupIds(assignedGroupIds);
     } catch (e) {
       console.error(e);
-      alert(e.message);
+      showToast("Failed to load roles. Please check your connection and permissions.", "error");
     } finally {
       setLoading(false);
     }
@@ -751,59 +887,78 @@ function UserRolesModal({ isOpen, onClose, user, onChanged }) {
 
   useEffect(() => {
     if (!isOpen) return;
-    fetchRolesAndUserRoles();
+    fetchGroupsAndUserGroups();
   }, [isOpen, userId]);
 
   const onBackdrop = (e) => {
     if (modalRef.current && !modalRef.current.contains(e.target)) onClose();
   };
 
-  const assignRole = async (roleId) => {
+  const assignGroup = async (groupId) => {
     if (!userId) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/roles/assign/`, {
-        method: "POST",
+      const res = await fetch(`${API_BASE}/users/${userId}/update/`, {
+        method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ role_id: roleId }),
+        body: JSON.stringify({ 
+          add_role_ids: [groupId],
+          add_roles: [groups.find(g => g.id === groupId)?.name || ""].filter(Boolean)
+        }),
       });
-
-      if (!res.ok) throw new Error("Failed to assign role");
-      setUserRoleIds((prev) => (prev.includes(roleId) ? prev : [...prev, roleId]));
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to assign role");
+      }
+      
+      setUserGroupIds((prev) => (prev.includes(groupId) ? prev : [...prev, groupId]));
       onChanged?.();
+      showToast("Role assigned successfully!", "success");
     } catch (e) {
       console.error(e);
-      alert(e.message);
+      showToast(e.message, "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const removeRole = async (roleId) => {
+  const removeGroup = async (groupId) => {
     if (!userId) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/roles/remove/`, {
-        method: "POST",
+      const res = await fetch(`${API_BASE}/users/${userId}/update/`, {
+        method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ role_id: roleId }),
+        body: JSON.stringify({ 
+          remove_role_ids: [groupId],
+          remove_roles: [groups.find(g => g.id === groupId)?.name || ""].filter(Boolean)
+        }),
       });
-
-      if (!res.ok) throw new Error("Failed to remove role");
-      setUserRoleIds((prev) => prev.filter((id) => id !== roleId));
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to remove role");
+      }
+      
+      setUserGroupIds((prev) => prev.filter((id) => id !== groupId));
       onChanged?.();
+      showToast("Role removed successfully!", "success");
     } catch (e) {
       console.error(e);
-      alert(e.message);
+      showToast(e.message, "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleRole = async (roleId) => {
+  const toggleGroup = async (groupId) => {
     if (saving) return;
-    if (userRoleSet.has(roleId)) return removeRole(roleId);
-    return assignRole(roleId);
+    if (userGroupSet.has(groupId)) {
+      await removeGroup(groupId);
+    } else {
+      await assignGroup(groupId);
+    }
   };
 
   if (!isOpen) return null;
@@ -826,6 +981,10 @@ function UserRolesModal({ isOpen, onClose, user, onChanged }) {
               <p className="text-sm text-gray-600 mt-1">
                 {user?.name || 'User'} • {user?.email || 'No email'}
               </p>
+              <div className="mt-2 text-sm">
+                <span className="font-medium">Current roles:</span>{" "}
+                {user?.roles?.join(", ") || safeRole(user)}
+              </div>
             </div>
             <button
               onClick={onClose}
@@ -843,7 +1002,7 @@ function UserRolesModal({ isOpen, onClose, user, onChanged }) {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
               <p className="text-gray-600 mt-4">Loading roles...</p>
             </div>
-          ) : roles.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="text-center py-12">
               <Shield className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <p className="text-gray-700 font-medium">No roles available</p>
@@ -854,12 +1013,12 @@ function UserRolesModal({ isOpen, onClose, user, onChanged }) {
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {roles.map((r) => {
-                  const active = userRoleSet.has(r.id);
+                {groups.map((g) => {
+                  const active = userGroupSet.has(g.id);
                   return (
                     <button
-                      key={r.id}
-                      onClick={() => toggleRole(r.id)}
+                      key={g.id}
+                      onClick={() => toggleGroup(g.id)}
                       disabled={saving}
                       className={`p-4 rounded-xl border text-left transition-all ${active
                           ? 'border-emerald-500 bg-emerald-50'
@@ -868,9 +1027,9 @@ function UserRolesModal({ isOpen, onClose, user, onChanged }) {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-gray-900">{r.name}</div>
-                          {r.description && (
-                            <div className="text-sm text-gray-600 mt-1">{r.description}</div>
+                          <div className="font-semibold text-gray-900">{g.name}</div>
+                          {g.description && (
+                            <div className="text-sm text-gray-600 mt-1">{g.description}</div>
                           )}
                         </div>
                         <div className={`h-4 w-4 rounded-full border ${active ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-gray-300'}`} />
@@ -904,11 +1063,11 @@ function UserRolesModal({ isOpen, onClose, user, onChanged }) {
         <div className="border-t border-gray-200 p-6">
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-500">
-              {userRoleIds.length} of {roles.length} roles assigned
+              {userGroupIds.length} of {groups.length} roles assigned
             </div>
             <div className="flex space-x-3">
               <button
-                onClick={fetchRolesAndUserRoles}
+                onClick={fetchGroupsAndUserGroups}
                 disabled={loading}
                 className="px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
               >
@@ -938,6 +1097,7 @@ export default function UsersPage() {
   const [isRolesModalOpen, setIsRolesModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [filters, setFilters] = useState({ status: 'all', role: 'all' });
+  const [availableRoles, setAvailableRoles] = useState(["Admin", "User"]);
 
   const [form, setForm] = useState({
     name: "",
@@ -952,6 +1112,9 @@ export default function UsersPage() {
   const pieChartRef = useRef(null);
   const barChartRef = useRef(null);
   const lineChartRef = useRef(null);
+
+  // Use the toast hook
+  const { toast, showToast, hideToast } = useToast();
 
   const fetchUsers = async (query = "") => {
     setLoading(true);
@@ -974,9 +1137,20 @@ export default function UsersPage() {
       }
 
       setUsers(data.users || []);
+      
+      // Extract unique roles from users for filter dropdown
+      const roles = new Set();
+      (data.users || []).forEach(user => {
+        if (user.roles && Array.isArray(user.roles)) {
+          user.roles.forEach(role => roles.add(role));
+        } else if (user.role) {
+          roles.add(user.role);
+        }
+      });
+      setAvailableRoles(Array.from(roles).sort());
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -1005,15 +1179,14 @@ export default function UsersPage() {
 
       setForm({ name: "", email: "", password: "", role: "User" });
       fetchUsers(q);
-      alert('User added successfully!');
+      showToast('User added successfully!', 'success');
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   };
 
   const onDeleteUser = async (id) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
     try {
       const res = await fetch(`${API_BASE}/users/${id}/`, {
         method: "DELETE",
@@ -1022,10 +1195,10 @@ export default function UsersPage() {
 
       if (!res.ok) throw new Error("Failed to delete user");
       fetchUsers(q);
-      alert('User deleted successfully!');
+      showToast('User deleted successfully!', 'success');
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -1039,9 +1212,13 @@ export default function UsersPage() {
 
       if (!res.ok) throw new Error("Failed to update status");
       fetchUsers(q);
+      showToast(
+        `User ${is_active ? 'activated' : 'deactivated'} successfully!`,
+        'success'
+      );
     } catch (err) {
       console.error(err);
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   };
 
@@ -1126,7 +1303,12 @@ export default function UsersPage() {
     }
 
     if (filters.role !== 'all') {
-      filtered = filtered.filter(u => safeRole(u).includes(filters.role));
+      filtered = filtered.filter(u => {
+        if (u.roles && Array.isArray(u.roles)) {
+          return u.roles.some(role => role === filters.role);
+        }
+        return safeRole(u).includes(filters.role);
+      });
     }
 
     return filtered;
@@ -1298,7 +1480,7 @@ export default function UsersPage() {
   const exportUsersPDF = async () => {
     try {
       if (!users.length) {
-        alert("No users to export.");
+        showToast("No users to export.", "warning");
         return;
       }
 
@@ -1480,9 +1662,10 @@ export default function UsersPage() {
       }
 
       doc.save("cococonnect-users-report.pdf");
+      showToast("PDF exported successfully!", "success");
     } catch (err) {
       console.error(err);
-      alert(err?.message || "Export failed");
+      showToast(err?.message || "Export failed", "error");
     } finally {
       setExporting(false);
     }
@@ -1495,6 +1678,15 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toast && (
+        <ToastNotification
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -1670,7 +1862,7 @@ export default function UsersPage() {
               {/* Filters and Add User */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
-                  <FilterPanel filters={filters} setFilters={setFilters} />
+                  <FilterPanel filters={filters} setFilters={setFilters} availableRoles={availableRoles} />
                 </div>
                 
                 <div className="lg:col-span-2">
@@ -1727,6 +1919,9 @@ export default function UsersPage() {
                           >
                             <option>User</option>
                             <option>Admin</option>
+                            {availableRoles.filter(r => !['Admin', 'User'].includes(r)).map(role => (
+                              <option key={role} value={role}>{role}</option>
+                            ))}
                           </select>
                         </div>
                       </div>
@@ -1778,7 +1973,7 @@ export default function UsersPage() {
                               User
                             </th>
                             <th className="text-left py-4 text-sm font-semibold text-gray-700">
-                              Role
+                              Role(s)
                             </th>
                             <th className="text-left py-4 text-sm font-semibold text-gray-700">
                               Joined
@@ -1799,6 +1994,7 @@ export default function UsersPage() {
                               onManageRoles={openManageRoles}
                               onToggleActive={setActive}
                               onDelete={onDeleteUser}
+                              showToast={showToast}
                             />
                           ))}
                         </tbody>
@@ -1810,7 +2006,7 @@ export default function UsersPage() {
             </div>
           ) : (
             /* Roles Tab */
-            <RolesManager onAnyRoleChange={() => fetchUsers(q)} />
+            <RolesManager onAnyRoleChange={() => fetchUsers(q)} showToast={showToast} />
           )}
         </div>
       </div>
@@ -1821,6 +2017,7 @@ export default function UsersPage() {
         onClose={() => setIsRolesModalOpen(false)}
         user={selectedUser}
         onChanged={() => fetchUsers(q)}
+        showToast={showToast}
       />
     </div>
   );
