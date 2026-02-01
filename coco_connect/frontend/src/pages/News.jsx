@@ -52,7 +52,7 @@ export default function NewsCorner() {
         "Exporters report increased orders for coconut oil, desiccated coconut, and value-added products.\n\nIndustry analysts believe this trend will strengthen Sri Lanka’s agricultural export sector.",
       date: "2027-12-05",
       image:
-        "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2",
+        "https://www.bing.com/images/search?view=detailV2&ccid=pYjsvW1y&id=41B7BE8F460A373ECCBE618D54A2C8C76921EA92&thid=OIP.pYjsvW1ycZSjbRo-YJhq9AHaE7&mediaurl=https%3a%2f%2fcdn.pixabay.com%2fphoto%2f2020%2f06%2f12%2f02%2f47%2fcoconut-tree-5288844_1280.jpg&cdnurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.a588ecbd6d727194a36d1a3e60986af4%3frik%3dkuohacfIolSNYQ%26pid%3dImgRaw%26r%3d0&exph=853&expw=1280&q=coconut+images&mode=overlay&FORM=IQFRBA&ck=3887F75BB87500B62B9C6A26FD996EFB&selectedIndex=0&idpp=serp",
     },
     
     {
