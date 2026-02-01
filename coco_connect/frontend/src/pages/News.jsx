@@ -57,6 +57,7 @@ export default function NewsCorner() {
       id: 5,
       title: "How Coconut Ice Cream Is Made Using Natural Ingredients",
       source: "Coconut Food Lab",
+      tags: ["eco",],
       shortDescription:
         "A step-by-step look at producing creamy coconut ice cream without artificial additives.",
       fullDescription:
