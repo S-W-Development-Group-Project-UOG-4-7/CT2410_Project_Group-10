@@ -26,9 +26,9 @@ from rest_framework.permissions import (
     IsAdminUser,
     AllowAny,
 )
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes, action, parser_classes
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, parsers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -49,6 +49,13 @@ from .serializers import (
     IdeaSerializer,
     NewsSerializer,
     SimilarityAlertSerializer,
+    UserSerializer,
+)
+from .investment_serializers import (
+    InvestmentProjectCreateSerializer,
+    InvestmentProjectListSerializer,
+    InvestmentCreateSerializer,
+    MyInvestmentSerializer,
 )
 
 # =================================================
@@ -1080,7 +1087,194 @@ class SimilarityAlertViewSet(ModelViewSet):
 
 
 # =================================================
-# INVESTMENT ENDPOINTS (function-based)
+# NEW INVESTMENT ENDPOINTS
+# =================================================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([parsers.MultiPartParser, parsers.FormParser])
+def create_project(request):
+    """
+    Create new investment project
+    """
+    try:
+        data = request.data.copy()
+        
+        # Check if user has farmer profile
+        #profile = getattr(request.user, 'profile', None)
+        #if profile and profile.role != 'farmer':
+        #    return Response({
+        #        'success': False,
+        #        'error': 'Only farmers can create projects'
+        #   }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = InvestmentProjectCreateSerializer(data=data, context={'request': request})
+        
+        if serializer.is_valid():
+            project = serializer.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Project created successfully and sent for admin approval',
+                'project': InvestmentProjectListSerializer(project).data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'error': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def make_investment(request):
+    """
+    Make an investment (supports both fixed amount and share-based)
+    """
+    try:
+        user = request.user
+        
+        # Check if user has investor profile
+        profile = getattr(user, 'profile', None)
+        if profile and profile.role != 'investor':
+            return Response({
+                'success': False,
+                'error': 'Only investors can make investments'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = InvestmentCreateSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            investment = serializer.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Investment successful!',
+                'investment': MyInvestmentSerializer(investment).data,
+                'ownership_percentage': investment.ownership_percentage
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'error': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_investments(request):
+    """
+    Get current user's investments with full project details
+    """
+    try:
+        investments = Investment.objects.filter(
+            investor=request.user
+        ).select_related('project').order_by('-created_at')
+        
+        serializer = MyInvestmentSerializer(investments, many=True)
+        
+        # Calculate total invested
+        total_invested = investments.aggregate(total=Sum('amount'))['total'] or 0
+        
+        return Response({
+            'success': True,
+            'investments': serializer.data,
+            'total_invested': float(total_invested),
+            'count': investments.count()
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedOrReadOnly])
+def get_projects_api(request):
+    """
+    Get projects with advanced filtering
+    """
+    try:
+        queryset = InvestmentProject.objects.select_related('category', 'farmer')
+        
+        # Filter by status (default: active)
+        status_param = request.GET.get('status', 'active')
+        queryset = queryset.filter(status=status_param)
+        
+        # ... (rest of your filtering code remains the same) ...
+        
+        # Handle funding_needed sorting
+        if sort_by == 'funding_needed':
+            projects_list = list(queryset)
+            projects_list.sort(key=lambda p: float(p.target_amount - p.current_amount), reverse=True)
+        else:
+            projects_list = list(queryset)
+        
+        # ROBUST FIX: Add missing fields with proper error handling
+        for project in projects_list:
+            try:
+                # Check if total_units exists as a database field
+                if not hasattr(project, 'total_units') or project.total_units is None:
+                    project.total_units = 1000
+                if not hasattr(project, 'available_units') or project.available_units is None:
+                    project.available_units = 1000
+                if not hasattr(project, 'unit_price') or project.unit_price is None:
+                    project.unit_price = project.target_amount / 1000 if project.target_amount > 0 else 0
+                if not hasattr(project, 'investment_structure') or project.investment_structure is None:
+                    project.investment_structure = 'fixed'
+                if not hasattr(project, 'farmer_name') or project.farmer_name is None:
+                    project.farmer_name = f"{project.farmer.first_name} {project.farmer.last_name}".strip()
+                if not hasattr(project, 'farmer_experience') or project.farmer_experience is None:
+                    project.farmer_experience = 0
+                if not hasattr(project, 'farmer_rating') or project.farmer_rating is None:
+                    project.farmer_rating = 4.5
+            except Exception as e:
+                print(f"Error setting defaults for project {project.id}: {e}")
+                # Set defaults anyway
+                project.total_units = 1000
+                project.available_units = 1000
+                project.unit_price = project.target_amount / 1000 if hasattr(project, 'target_amount') and project.target_amount > 0 else 0
+                project.investment_structure = 'fixed'
+        
+        serializer = InvestmentProjectListSerializer(projects_list, many=True)
+        
+        # Get unique categories and locations for filters
+        categories = InvestmentCategory.objects.values_list('name', flat=True).distinct()
+        locations = InvestmentProject.objects.values_list('location', flat=True).distinct()
+        
+        return Response({
+            'success': True,
+            'projects': serializer.data,
+            'total': len(projects_list),
+            'categories': list(categories),
+            'locations': list(locations)
+        })
+        
+    except Exception as e:
+        print(f"Error in get_projects_api: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# =================================================
+# EXISTING INVESTMENT ENDPOINTS (keep for backward compatibility)
 # =================================================
 
 @csrf_exempt
@@ -1480,7 +1674,6 @@ def admin_delete_idea(request, idea_id):
     SimilarityAlert.objects.filter(
         Q(similar_idea_id=idea_id) | Q(idea_id=idea_id)
     ).delete()
-
     return Response({"message": "Idea removed"})
 
 # --------------------------------------

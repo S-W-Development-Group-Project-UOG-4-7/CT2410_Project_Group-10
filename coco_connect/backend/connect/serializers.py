@@ -1,8 +1,28 @@
+# connect/serializers.py
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 # Keep everything from both branches
+from .models import Idea, SimilarityAlert, News, InvestmentProject, Investment, Profile
+
+# ==================================================
+# PROFILE SERIALIZER
+# ==================================================
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['role', 'address', 'phone', 'city', 'bio', 'created_at']
+
+# ==================================================
+# USER SERIALIZER
+# ==================================================
+class UserSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
 from .models import Idea, SimilarityAlert, News, AuthLog
 
 # ==================================================
@@ -99,6 +119,22 @@ class NewsSerializer(serializers.ModelSerializer):
 
 
 # ==================================================
+# INVESTMENT PROJECT SIMPLE SERIALIZER
+# ==================================================
+class InvestmentProjectSimpleSerializer(serializers.ModelSerializer):
+    progress_percentage = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = InvestmentProject
+        fields = ['id', 'title', 'location', 'status', 'progress_percentage']
+    
+    def get_progress_percentage(self, obj):
+        if obj.target_amount > 0:
+            return float((obj.current_amount / obj.target_amount) * 100)
+        return 0
+
+
+# ==================================================
 # JWT LOGIN WITH EMAIL (IMPORTANT FIX)
 # ==================================================
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -124,8 +160,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Map email -> username for JWT (SimpleJWT expects username)
         attrs["username"] = user.username
         attrs["password"] = password
-        return super().validate(attrs)
-    
+        return super().validate(attrs)    
 
 # ===================================================
 # Auth Log
