@@ -135,7 +135,7 @@ export default function NewsCorner() {
                 onClick={() => setSelectedNews(news)}
                 className="mt-5 w-full py-2 bg-[#4caf50] text-white font-semibold rounded-lg hover:bg-[#66bb6a]"
               >
-                Read Full Article
+                Read more
               </button>
             </div>
           </div>
