@@ -8,7 +8,7 @@ const menuItems = [
   { name: "Dashboard", path: "/admin" },
   { name: "Users", path: "/admin/users" },
   { name: "Products", path: "/admin/products" },
-  { name: "Investments", path: "/admin/investments" },
+  //{ name: "Investments", path: "/admin/investments" },
   { name: "Ideas", path: "/admin/ideas", badge: "New" },
   { name: "News", path: "/admin/news" },
   { name: "Blockchain", path: "/admin/blockchain" },

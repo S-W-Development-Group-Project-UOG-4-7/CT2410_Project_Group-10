@@ -46,17 +46,17 @@ export default function Topbar({ onOpenSidebar, collapsed }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Search */}
+            {/* Search 
             <div className="hidden md:flex items-center gap-2 rounded-2xl bg-white/10 border border-white/15 px-3 py-2">
               
               <input
                 className="bg-transparent outline-none text-sm w-72 text-white placeholder:text-white/60"
                 placeholder="Search users, settings, logs..."
               />
-              {/*<kbd className="text-xs px-2 py-1 rounded-lg border border-white/15 bg-white/10 text-white/80">
+              <kbd className="text-xs px-2 py-1 rounded-lg border border-white/15 bg-white/10 text-white/80">
                 ⌘K
-              </kbd>*/}
-            </div>
+              </kbd>
+            </div>*/}
 
             {/* Buttons 
             <button
@@ -69,14 +69,14 @@ export default function Topbar({ onOpenSidebar, collapsed }) {
               🔔
             </button>*/}
 
-            <button
+            {/*<button
               className="hidden sm:inline-flex rounded-2xl px-3 py-2 bg-lime-300 text-emerald-950 font-extrabold shadow-sm hover:opacity-90 transition"
               title="Create"
               type="button"
               onClick={() => alert("Create action not wired yet")}
             >
               + New
-            </button>
+            </button>*/}
 
             {/* User */}
             <div className="flex items-center gap-3 pl-2">
