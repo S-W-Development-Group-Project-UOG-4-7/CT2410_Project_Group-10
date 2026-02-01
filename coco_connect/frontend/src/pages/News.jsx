@@ -72,7 +72,7 @@ export default function NewsCorner() {
             Cococonnect News Corner
           </h1>
 
-          <p className="text-sm text-white max-w-sm">
+          <p className="text-sm text-white max-w-sm leading-relaxed">
             Latest updates <br />
             Coconut industry, technology, and sustainability.
           </p>
