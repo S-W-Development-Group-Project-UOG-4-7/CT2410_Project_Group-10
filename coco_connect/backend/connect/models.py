@@ -551,6 +551,9 @@ class ProjectDraft(models.Model):
         default="loan",
     )
 
+    total_units = models.IntegerField(null=True, blank=True)  # ✅ ADD THIS
+
+
     status = models.CharField(
         max_length=20,
         choices=[

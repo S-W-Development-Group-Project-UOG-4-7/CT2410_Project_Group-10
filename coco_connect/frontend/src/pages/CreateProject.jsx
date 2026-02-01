@@ -9,8 +9,14 @@ const COLORS = {
   primaryDark: "#43A047",
   primaryLight: "#E8F5E9",
   accent: "#2E7D32",
-  textPrimary: "#1F2937",
-  textSecondary: "#6B7280",
+
+  // ✅ darker + clearer text
+  textPrimary: "#111827",   // was #1F2937
+  textSecondary: "#374151", // was #6B7280 (too ash)
+
+  // ✅ placeholders a bit darker too
+  placeholder: "#6B7280",
+
   border: "#E5E7EB",
   bgPage: "#F9FAFB",
   bgCard: "#FFFFFF",
@@ -65,6 +71,11 @@ export default function CreateProject() {
   // drafts list (idea + materials live here)
   const [drafts, setDrafts] = useState([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+  // ✅ unified input styles (fix invisible typing + darker placeholder)
+  const INPUT_BASE =
+    "w-full rounded-xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 transition-all " +
+    "bg-white text-gray-900 placeholder:text-gray-500 caret-gray-900";
 
   const swipeHandlers = useSwipeable({
     onSwipedLeft: () => {
@@ -197,10 +208,11 @@ export default function CreateProject() {
       })),
       expected_roi: needsInvestment ? Number(investmentData.roi) || null : null,
       duration_months: needsInvestment
-        ? Number(investmentData.duration) || null
-        : null,
+        ? Number(investmentData.duration) || 12
+        : 12,
+
       investment_type: needsInvestment ? investmentData.investment_type : null,
-      total_stocks:
+      total_units:
         needsInvestment && investmentData.investment_type === "equity"
           ? Number(investmentData.total_units) || null
           : null,
@@ -258,7 +270,7 @@ export default function CreateProject() {
       roi: payload.expected_roi ?? "",
       duration: payload.duration_months ?? "",
       investment_type: payload.investment_type || "loan",
-      total_units: payload.total_stocks ?? "",
+      total_units: payload.total_units ?? "",
     });
     setNeedsInvestment(true);
     setShowInvestmentForm(false);
@@ -434,7 +446,10 @@ export default function CreateProject() {
                               <span style={{ color: COLORS.textSecondary }}>
                                 Target
                               </span>
-                              <p className="font-bold">
+                              <p
+                                className="font-bold"
+                                style={{ color: COLORS.textPrimary }}
+                              >
                                 Rs. {Number(p.target_amount).toLocaleString()}
                               </p>
                             </div>
@@ -442,13 +457,19 @@ export default function CreateProject() {
                               <span style={{ color: COLORS.textSecondary }}>
                                 Raised
                               </span>
-                              <p className="font-bold">
+                              <p
+                                className="font-bold"
+                                style={{ color: COLORS.textPrimary }}
+                              >
                                 Rs. {Number(p.current_amount).toLocaleString()}
                               </p>
                             </div>
                           </div>
 
-                          <div className="text-sm mb-3">
+                          <div
+                            className="text-sm mb-3"
+                            style={{ color: COLORS.textPrimary }}
+                          >
                             <span style={{ color: COLORS.textSecondary }}>
                               Expected ROI
                             </span>
@@ -464,7 +485,10 @@ export default function CreateProject() {
                             </span>
                           </div>
 
-                          <div className="text-sm mb-4">
+                          <div
+                            className="text-sm mb-4"
+                            style={{ color: COLORS.textPrimary }}
+                          >
                             <span style={{ color: COLORS.textSecondary }}>
                               Type
                             </span>
@@ -516,13 +540,9 @@ export default function CreateProject() {
                 </h3>
 
                 {loadingDrafts ? (
-                  <p style={{ color: COLORS.textSecondary }}>
-                    Loading drafts...
-                  </p>
+                  <p style={{ color: COLORS.textSecondary }}>Loading drafts...</p>
                 ) : drafts.length === 0 ? (
-                  <p style={{ color: COLORS.textSecondary }}>
-                    No drafts found.
-                  </p>
+                  <p style={{ color: COLORS.textSecondary }}>No drafts found.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {drafts.map((d) => (
@@ -564,7 +584,12 @@ export default function CreateProject() {
                             >
                               ✅ Used Idea:
                             </p>
-                            <p className="text-sm font-bold">{d.idea.title}</p>
+                            <p
+                              className="text-sm font-bold"
+                              style={{ color: COLORS.textPrimary }}
+                            >
+                              {d.idea.title}
+                            </p>
                           </div>
                         )}
 
@@ -629,13 +654,16 @@ export default function CreateProject() {
 
               <div className="relative mb-7">
                 <input
-                  className="w-full rounded-xl px-5 py-4 pl-12 text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 transition-all"
+                  className={`${INPUT_BASE} pl-12`}
                   placeholder="Search ideas by title or description..."
                   value={ideaSearch}
                   onChange={(e) => setIdeaSearch(e.target.value)}
                   style={{
                     border: `1px solid ${COLORS.border}`,
                     backgroundColor: "#ffffff",
+                    color: COLORS.textPrimary,
+                    caretColor: COLORS.textPrimary,
+                    // hint: placeholder color handled by tailwind placeholder:text-gray-500
                   }}
                 />
               </div>
@@ -691,7 +719,7 @@ export default function CreateProject() {
                   >
                     Selected Idea
                   </div>
-                  <div style={{ color: COLORS.primary, fontWeight: 500 }}>
+                  <div style={{ color: COLORS.primary, fontWeight: 600 }}>
                     {selectedIdea.title}
                   </div>
                 </div>
@@ -722,7 +750,7 @@ export default function CreateProject() {
                     Project Title
                   </label>
                   <input
-                    className="w-full rounded-xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 transition-all"
+                    className={INPUT_BASE}
                     placeholder="Enter a strong project title..."
                     value={project.title}
                     onChange={(e) =>
@@ -731,6 +759,8 @@ export default function CreateProject() {
                     style={{
                       border: `1px solid ${COLORS.border}`,
                       backgroundColor: "#ffffff",
+                      color: COLORS.textPrimary,
+                      caretColor: COLORS.textPrimary,
                     }}
                   />
                 </div>
@@ -743,7 +773,7 @@ export default function CreateProject() {
                     Description
                   </label>
                   <textarea
-                    className="w-full rounded-xl px-5 py-4 text-base focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 transition-all min-h-[160px] resize-y"
+                    className={`${INPUT_BASE} min-h-[160px] resize-y`}
                     placeholder="Describe your project in detail..."
                     value={project.description}
                     onChange={(e) =>
@@ -752,6 +782,8 @@ export default function CreateProject() {
                     style={{
                       border: `1px solid ${COLORS.border}`,
                       backgroundColor: "#ffffff",
+                      color: COLORS.textPrimary,
+                      caretColor: COLORS.textPrimary,
                     }}
                   />
                 </div>
@@ -780,7 +812,7 @@ export default function CreateProject() {
                     className="flex flex-col sm:flex-row gap-4 items-start sm:items-center"
                   >
                     <input
-                      className="flex-1 rounded-xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 transition-all"
+                      className={`${INPUT_BASE} flex-1`}
                       placeholder="Material name"
                       value={m.name}
                       onChange={(e) =>
@@ -789,10 +821,12 @@ export default function CreateProject() {
                       style={{
                         border: `1px solid ${COLORS.border}`,
                         backgroundColor: "#ffffff",
+                        color: COLORS.textPrimary,
+                        caretColor: COLORS.textPrimary,
                       }}
                     />
                     <input
-                      className="w-full sm:w-40 rounded-xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[#4CAF50]/30 transition-all"
+                      className={`${INPUT_BASE} w-full sm:w-40`}
                       placeholder="Quantity"
                       type="number"
                       value={m.quantity}
@@ -802,6 +836,8 @@ export default function CreateProject() {
                       style={{
                         border: `1px solid ${COLORS.border}`,
                         backgroundColor: "#ffffff",
+                        color: COLORS.textPrimary,
+                        caretColor: COLORS.textPrimary,
                       }}
                     />
                     <button
@@ -950,7 +986,8 @@ export default function CreateProject() {
               <div className="mt-10 flex justify-end gap-4">
                 <button
                   onClick={() => setPreviewIdea(null)}
-                  className="px-8 py-3.5 rounded-2xl font-medium text-gray-700 hover:bg-gray-100"
+                  className="px-8 py-3.5 rounded-2xl font-medium hover:bg-gray-100"
+                  style={{ color: COLORS.textSecondary }}
                 >
                   Close
                 </button>
@@ -959,7 +996,8 @@ export default function CreateProject() {
                     setSelectedIdea(previewIdea);
                     setPreviewIdea(null);
                   }}
-                  className="px-8 py-3.5 bg-[#4CAF50] text-white rounded-2xl font-semibold hover:bg-[#43A047] transition-colors"
+                  className="px-8 py-3.5 text-white rounded-2xl font-semibold hover:bg-[#43A047] transition-colors"
+                  style={{ backgroundColor: COLORS.primary }}
                 >
                   Use This Idea
                 </button>

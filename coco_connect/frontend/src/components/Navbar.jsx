@@ -14,6 +14,9 @@ import { useCart } from "../context/CartContext";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
+// ✅ Keep redirect key (you are using it in confirmLogout)
+const REDIRECT_KEY = "redirectAfterLogin";
+
 const Navbar = () => {
   const { cartCount } = useCart(); // ✅ from CartContext
 
@@ -21,11 +24,16 @@ const Navbar = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // ✅ Search (kept in state, UI is commented out)
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [activeLanguage, setActiveLanguage] = useState("en");
   const [isSearching, setIsSearching] = useState(false);
+
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  // ✅ Language (kept in state, UI is commented out)
+  const [activeLanguage, setActiveLanguage] = useState("en");
 
   // ✅ "More" dropdown
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -68,10 +76,7 @@ const Navbar = () => {
   );
 
   // ✅ "More" items (News Corner goes here)
-  const moreItems = useMemo(
-    () => [{ path: "/news", label: "News Corner" }],
-    []
-  );
+  const moreItems = useMemo(() => [{ path: "/news", label: "News Corner" }], []);
 
   const languages = useMemo(
     () => [
@@ -210,16 +215,35 @@ const Navbar = () => {
     setShowLogoutModal(true);
   };
 
-  // ✅ confirm logout action
-  const confirmLogout = () => {
+  // ✅ UPDATED: call backend logout endpoint so AuthLog gets LOGOUT
+  const confirmLogout = async () => {
+    const access = localStorage.getItem("access");
+
+    try {
+      if (access) {
+        await fetch("http://127.0.0.1:8000/api/logout/", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${access}`,
+            "Content-Type": "application/json",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Logout API failed:", error);
+      // still proceed with client-side logout
+    }
+
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
     localStorage.removeItem("user");
     localStorage.removeItem("role");
     localStorage.removeItem("name");
     localStorage.removeItem("email");
+    localStorage.removeItem(REDIRECT_KEY);
 
     setUser(null);
+    window.dispatchEvent(new Event("auth:changed")); // ✅ keep this for instant UI update
     setShowLogoutModal(false);
     navigate("/");
   };
@@ -417,7 +441,8 @@ const Navbar = () => {
 
             {/* Right Actions */}
             <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3">
-              {/* Language */}
+              {/* Language (COMMENTED OUT) */}
+              {/*
               <div className="hidden sm:block relative group">
                 <button
                   className="flex items-center text-accent2 hover:text-[#4caf50] transition-all p-2 rounded-full hover:bg-accent5/10 active:scale-95"
@@ -449,8 +474,10 @@ const Navbar = () => {
                   ))}
                 </div>
               </div>
+              */}
 
-              {/* Search */}
+              {/* Search button + expanded search UI (COMMENTED OUT) */}
+              {/*
               <div className="relative" ref={searchWrapRef}>
                 <button
                   onClick={handleSearchToggle}
@@ -521,6 +548,7 @@ const Navbar = () => {
                   </div>
                 </div>
               </div>
+              */}
 
               {/* ✅ Cart (context-based) */}
               <Link

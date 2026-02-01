@@ -198,10 +198,15 @@ class AuthLogSerializer(serializers.ModelSerializer):
 # PROJECT DRAFT MATERIAL SERIALIZER
 # ==================================================
 class ProjectDraftMaterialSerializer(serializers.ModelSerializer):
+    unit_cost = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, default=0
+    )
+
     class Meta:
         model = ProjectDraftMaterial
         fields = ["id", "name", "quantity", "unit_cost"]
         read_only_fields = ["id"]
+
 
 
 # ==================================================
@@ -209,6 +214,7 @@ class ProjectDraftMaterialSerializer(serializers.ModelSerializer):
 # ==================================================
 class ProjectDraftSerializer(serializers.ModelSerializer):
     materials = ProjectDraftMaterialSerializer(many=True, required=False)
+    duration_months = serializers.IntegerField(required=False, default=12)
 
     class Meta:
         model = ProjectDraft
@@ -220,14 +226,12 @@ class ProjectDraftSerializer(serializers.ModelSerializer):
             "location",
             "duration_months",
 
-            # 🔘 investment toggle
             "needs_investment",
 
-            # 💰 investment fields
             "target_amount",
             "expected_roi",
             "investment_type",
-            "total_stocks",
+            "total_units",
 
             "status",
             "materials",
@@ -237,48 +241,40 @@ class ProjectDraftSerializer(serializers.ModelSerializer):
             "id",
             "status",
             "created_at",
-            "target_amount",  # auto-calculated
+            "target_amount",
         ]
 
     def create(self, validated_data):
         materials_data = validated_data.pop("materials", [])
         request = self.context.get("request")
 
-        # ----------------------------
-        # CREATE PROJECT DRAFT
-        # ----------------------------
         draft = ProjectDraft.objects.create(
             owner=request.user if request else None,
             **validated_data
         )
 
-        # ----------------------------
-        # CREATE MATERIALS
-        # ----------------------------
         for m in materials_data:
             ProjectDraftMaterial.objects.create(
-                project=draft,
+                draft=draft,
                 name=m.get("name", ""),
                 quantity=m.get("quantity", 0),
                 unit_cost=m.get("unit_cost", 0),
             )
 
-        # ----------------------------
-        # INVESTMENT HANDLING
-        # ----------------------------
         if not draft.needs_investment:
             draft.expected_roi = None
             draft.investment_type = None
-            draft.total_stocks = None
+            draft.total_units = None
             draft.target_amount = 0
             draft.save(update_fields=[
                 "expected_roi",
                 "investment_type",
-                "total_stocks",
+                "total_units",
                 "target_amount",
             ])
         else:
-            # auto-calc from materials
-            draft.recalculate_target_amount()
+            # only if you actually implemented this method in ProjectDraft model
+            if hasattr(draft, "recalculate_target_amount"):
+                draft.recalculate_target_amount()
 
         return draft
