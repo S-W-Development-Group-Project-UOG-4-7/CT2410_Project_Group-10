@@ -55,46 +55,51 @@ export default function NewsCorner() {
         </div>
       </section>
 
-      {/* NEWS LIST */}
-      {!selectedNews && (
-        <section className="-mt-20 px-8 pb-20">
-          <div className="max-w-7xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {newsList.map((news) => (
-              <div
-                key={news.id}
-                className="rounded-xl overflow-hidden shadow-lg bg-white border border-[#5d4037] transition hover:-translate-y-1"
+{/* NEWS LIST */}
+{!selectedNews && (
+  <section className="-mt-20 px-8 pb-20">
+    <div className="max-w-7xl mx-auto">
+      <h2 className="text-2xl font-extrabold text-[#6b3f23] mb-8">
+        Latest News
+      </h2>
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {newsList.map((news) => (
+          <div
+            key={news.id}
+            className="rounded-xl overflow-hidden shadow-lg bg-white border border-[#5d4037] transition hover:-translate-y-1"
+          >
+            <img
+              src={news.image}
+              alt={news.title}
+              className="h-56 w-full object-cover"
+            />
+
+            <div className="p-6">
+              <h3 className="text-xl font-bold mb-2 text-[#6b3f23]">
+                {news.title}
+              </h3>
+
+              <p className="text-sm text-[#5d4037]">{news.shortDescription}</p>
+
+              <p className="text-xs mt-4 text-[#5d4037]">
+                {new Date(news.date).toDateString()}
+              </p>
+
+              <button
+                onClick={() => setSelectedNews(news)}
+                className="mt-5 w-full py-2 bg-[#4caf50] text-white font-semibold rounded-lg hover:bg-[#66bb6a]"
               >
-                <img
-                  src={news.image}
-                  alt={news.title}
-                  className="h-56 w-full object-cover"
-                />
-
-                <div className="p-6">
-                  <h3 className="text-xl font-bold mb-2 text-[#6b3f23]">
-                    {news.title}
-                  </h3>
-
-                  <p className="text-sm text-[#5d4037]">
-                    {news.shortDescription}
-                  </p>
-
-                  <p className="text-xs mt-4 text-[#5d4037]">
-                    {new Date(news.date).toDateString()}
-                  </p>
-
-                  <button
-                    onClick={() => setSelectedNews(news)}
-                    className="mt-5 w-full py-2 bg-[#4caf50] text-white font-semibold rounded-lg hover:bg-[#66bb6a]"
-                  >
-                    Read More
-                  </button>
-                </div>
-              </div>
-            ))}
+                Read More
+              </button>
+            </div>
           </div>
-        </section>
-      )}
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
 
       {/* FULL NEWS VIEW */}
       {selectedNews && (
