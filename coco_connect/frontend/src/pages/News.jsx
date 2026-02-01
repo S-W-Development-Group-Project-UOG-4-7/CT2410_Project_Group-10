@@ -105,7 +105,7 @@ export default function NewsCorner() {
   <section className="-mt-20 px-8 pb-20">
     <div className="max-w-7xl mx-auto">
       <h2 className="text-2xl font-extrabold text-[#6b3f23] mb-8">
-        Latest Coconut News
+        Latest News
       </h2>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
