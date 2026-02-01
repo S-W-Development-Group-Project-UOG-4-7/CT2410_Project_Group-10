@@ -32,6 +32,7 @@ export default function NewsCorner() {
       title: "Eco-Friendly Coconut Products Gain Popularity",
       shortDescription:
         "Consumers shift towards biodegradable coconut-based products.",
+      location: "Thooththukudiya",
       fullDescription:
         "From coconut shell utensils to eco-friendly packaging, coconut-based products are gaining massive attention worldwide.\n\nEnvironmental experts encourage this trend as a step towards sustainability.",
       date: "2025-12-15",
