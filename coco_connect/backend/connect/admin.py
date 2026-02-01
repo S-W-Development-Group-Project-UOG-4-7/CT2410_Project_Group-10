@@ -5,6 +5,8 @@ from .models import (
     News,
     InvestmentCategory,
     InvestmentProject,
+    Investment,
+    AuthLog,
 )
 
 # -----------------------------
@@ -54,3 +56,23 @@ class InvestmentProjectAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "category", "risk_level", "investment_type")
     search_fields = ("title", "description", "location", "farmer__username")
+
+# -----------------------------
+# Investment
+# -----------------------------
+@admin.register(Investment)
+class InvestmentAdmin(admin.ModelAdmin):
+    list_display = ("investor", "project", "amount", "status", "transaction_id", "created_at")
+    list_filter = ("status",)
+    search_fields = ("investor__username", "project__title", "transaction_id")
+
+
+#-----------------------------
+#  Auth Log 
+#-----------------------------
+@admin.register(AuthLog)
+class AuthLogAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "action", "status", "message")
+    list_filter = ("action", "status", "created_at")
+    search_fields = ("user__username", "user__email", "message")
+    ordering = ("-created_at",)

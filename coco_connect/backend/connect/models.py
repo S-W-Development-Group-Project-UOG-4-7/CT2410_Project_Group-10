@@ -497,7 +497,8 @@ class AuthLog(models.Model):
     def __str__(self):
         username = self.user.username if self.user else "UnknownUser"
         return f"{self.created_at:%Y-%m-%d %H:%M:%S} | {username} | {self.action} | {self.status}"
-
+    
+    
 # ----------------------------
 # PROJECT DRAFT (USED BY REACT)
 # ----------------------------

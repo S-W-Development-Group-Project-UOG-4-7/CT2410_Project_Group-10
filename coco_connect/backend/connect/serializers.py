@@ -2,9 +2,11 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import ProjectDraftMaterial
+
 
 # Keep everything from both branches
-from .models import Idea, SimilarityAlert, News, InvestmentProject, Investment, Profile
+from .models import Idea, SimilarityAlert, News, InvestmentProject, Investment, Profile, ProjectDraft
 
 # ==================================================
 # PROFILE SERIALIZER
