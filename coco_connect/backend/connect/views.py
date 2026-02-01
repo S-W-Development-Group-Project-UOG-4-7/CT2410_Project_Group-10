@@ -588,12 +588,12 @@ def create_project(request):
         data = request.data.copy()
         
         # Check if user has farmer profile
-        profile = getattr(request.user, 'profile', None)
-        if profile and profile.role != 'farmer':
-            return Response({
-                'success': False,
-                'error': 'Only farmers can create projects'
-            }, status=status.HTTP_403_FORBIDDEN)
+        #profile = getattr(request.user, 'profile', None)
+        #if profile and profile.role != 'farmer':
+        #    return Response({
+        #        'success': False,
+        #        'error': 'Only farmers can create projects'
+        #   }, status=status.HTTP_403_FORBIDDEN)
         
         serializer = InvestmentProjectCreateSerializer(data=data, context={'request': request})
         
@@ -1067,7 +1067,6 @@ def create_demo_projects(request):
 # =================================================
 # ADMIN: IDEA MODERATION (SAFE ADDITION)
 # =================================================
-
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def admin_all_ideas(request):

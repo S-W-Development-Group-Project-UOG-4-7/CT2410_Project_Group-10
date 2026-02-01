@@ -1,5 +1,9 @@
 // InvestmentPage.jsx
+// src/pages/InvestmentPage.jsx
 import React, { useState, useEffect } from "react";
+import CreateProjectModal from "../components/CreateProjectModal";
+
+const API = "http://127.0.0.1:8000";
 
 const InvestmentPage = () => {
   const [projects, setProjects] = useState([]);
@@ -36,10 +40,12 @@ const InvestmentPage = () => {
   // New states for project creation
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+
+  // ✅ category should be PK (number/string id), not name
   const [newProject, setNewProject] = useState({
     title: "",
     description: "",
-    category: "Coconut Farming",
+    category: "", // ✅ will be set to category ID after categories load
     location: "Colombo",
     farmer_name: "",
     farmer_experience: "",
@@ -53,15 +59,49 @@ const InvestmentPage = () => {
     image: null,
     business_plan: null,
     additional_docs: null,
-    total_units: 1000, // New field for total units/shares
+    total_units: 1000,
   });
+
+  // ✅ categories from backend: [{id, name}, ...]
+  const [categoryOptions, setCategoryOptions] = useState([]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const token = localStorage.getItem("access");
+        if (!token) return;
+
+        const res = await fetch(`${API}/categories/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await res.json();
+        if (res.ok && Array.isArray(data)) {
+          setCategoryOptions(data);
+
+          // set default category if empty
+          if (!newProject.category && data.length > 0) {
+            setNewProject((p) => ({ ...p, category: String(data[0].id) }));
+          }
+        } else {
+          console.error("Unexpected categories response:", data);
+        }
+      } catch (e) {
+        console.error("Failed to load categories", e);
+      }
+    };
+
+    loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Mock data - Fallback if API fails
   const mockProjects = [
     {
       id: 1,
       title: "Organic Coconut Oil Production",
-      description: "Small-scale organic coconut oil production unit in Kurunegala",
+      description:
+        "Small-scale organic coconut oil production unit in Kurunegala",
       category: "Coconut Oil Production",
       location: "Kurunegala",
       farmerName: "R.M. Perera",
@@ -79,9 +119,9 @@ const InvestmentPage = () => {
       riskLevel: "medium",
       createdAt: "2024-01-15",
       tags: ["Organic", "Export", "Sustainable"],
-      totalUnits: 5000, // 5000 shares available
-      availableUnits: 2500, // 2500 shares remaining
-      unitPrice: 1000, // Price per share (targetAmount / totalUnits)
+      totalUnits: 5000,
+      availableUnits: 2500,
+      unitPrice: 1000,
       investmentStructure: "units",
     },
     {
@@ -135,6 +175,7 @@ const InvestmentPage = () => {
     },
   ];
 
+  // (kept for filters UI; project.category from API is a string name anyway)
   const categories = [
     "All Categories",
     "Coconut Farming",
@@ -178,7 +219,7 @@ const InvestmentPage = () => {
 
   // Calculate unit price from target amount and total units
   const calculateUnitPrice = (targetAmount, totalUnits) => {
-    if (!targetAmount || !totalUnits || totalUnits === 0) return 1000; // default
+    if (!targetAmount || !totalUnits || totalUnits === 0) return 1000;
     return Math.round(targetAmount / totalUnits);
   };
 
@@ -200,28 +241,20 @@ const InvestmentPage = () => {
         params.append("minROI", filters.minROI.toString());
         params.append("maxROI", filters.maxROI.toString());
 
-        if (filters.riskLevel) {
-          params.append("riskLevel", filters.riskLevel);
-        }
+        if (filters.riskLevel) params.append("riskLevel", filters.riskLevel);
 
         if (filters.investmentType && filters.investmentType !== "all") {
           params.append("investmentType", filters.investmentType);
         }
 
-        if (filters.search) {
-          params.append("search", filters.search);
-        }
+        if (filters.search) params.append("search", filters.search);
 
         params.append("sortBy", filters.sortBy);
         params.append("status", "active");
 
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/projects/?${params}`
-        );
+        const response = await fetch(`${API}/api/projects/?${params}`);
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch projects");
-        }
+        if (!response.ok) throw new Error("Failed to fetch projects");
 
         const data = await response.json();
 
@@ -229,13 +262,14 @@ const InvestmentPage = () => {
           const apiProjects = data.projects.map((project) => {
             const targetAmount = parseFloat(project.target_amount) || 0;
             const totalUnits = project.total_units || 1000;
-            const unitPrice = project.unit_price || calculateUnitPrice(targetAmount, totalUnits);
-            
+            const unitPrice =
+              project.unit_price || calculateUnitPrice(targetAmount, totalUnits);
+
             return {
               id: project.id,
               title: project.title,
               description: project.description,
-              category: project.category,
+              category: project.category, // name
               location: project.location,
               farmerName: project.farmer_name || "Farmer",
               farmerExperience: project.farmer_experience || 0,
@@ -243,7 +277,7 @@ const InvestmentPage = () => {
               imageUrl: "",
               roi: parseFloat(project.roi) || 0,
               duration: project.duration || 12,
-              targetAmount: targetAmount,
+              targetAmount,
               currentAmount: parseFloat(project.current_amount) || 0,
               investorsCount: project.investors_count || 0,
               status: project.status || "active",
@@ -256,10 +290,17 @@ const InvestmentPage = () => {
                 : project.tags
                 ? project.tags.split(",")
                 : [],
-              totalUnits: totalUnits,
-              availableUnits: project.available_units || Math.floor((targetAmount - parseFloat(project.current_amount || 0)) / unitPrice),
-              unitPrice: unitPrice,
-              investmentStructure: project.investment_structure || (project.investment_type === "equity" ? "units" : "fixed"),
+              totalUnits,
+              availableUnits:
+                project.available_units ||
+                Math.floor(
+                  (targetAmount - parseFloat(project.current_amount || 0)) /
+                    unitPrice
+                ),
+              unitPrice,
+              investmentStructure:
+                project.investment_structure ||
+                (project.investment_type === "equity" ? "units" : "fixed"),
             };
           });
 
@@ -307,9 +348,7 @@ const InvestmentPage = () => {
     }
 
     if (filters.investmentType !== "all") {
-      filtered = filtered.filter(
-        (project) => project.investmentType === filters.investmentType
-      );
+      filtered = filtered.filter((project) => project.investmentType === filters.investmentType);
     }
 
     if (filters.search) {
@@ -334,9 +373,7 @@ const InvestmentPage = () => {
           case "date_oldest":
             return new Date(a.createdAt) - new Date(b.createdAt);
           case "funding_needed":
-            return (
-              b.targetAmount - b.currentAmount - (a.targetAmount - a.currentAmount)
-            );
+            return b.targetAmount - b.currentAmount - (a.targetAmount - a.currentAmount);
           case "popularity":
             return b.investorsCount - a.investorsCount;
           default:
@@ -358,23 +395,24 @@ const InvestmentPage = () => {
 
     setLoadingMine(true);
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/my-investments/", {
+      const res = await fetch(`${API}/api/my-investments/`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Failed to load investments");
+        alert(`Failed to load investments: ${data.error || res.statusText}`);
         return;
       }
 
       setMyInvestments(data.investments || []);
     } catch (e) {
-      console.error(e);
-      alert("Server error loading investments");
+      console.error("Error details:", e);
+      alert(`Server error: ${e.message}. Please check if the backend server is running.`);
     } finally {
       setLoadingMine(false);
     }
@@ -382,9 +420,7 @@ const InvestmentPage = () => {
 
   // Load mine when tab changes
   useEffect(() => {
-    if (tab === "mine") {
-      fetchMyInvestments();
-    }
+    if (tab === "mine") fetchMyInvestments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -395,16 +431,16 @@ const InvestmentPage = () => {
         ? 100
         : project.targetAmount - project.currentAmount
     );
-    
-    // Set group investment data if project supports it
+
     if (project.investmentType === "equity" && project.investmentStructure === "units") {
       setGroupInvestmentMode(true);
-      
-      // Calculate unit price and available units
-      const calculatedUnitPrice = project.unitPrice || calculateUnitPrice(project.targetAmount, project.totalUnits);
-      const calculatedAvailableUnits = project.availableUnits || 
+
+      const calculatedUnitPrice =
+        project.unitPrice || calculateUnitPrice(project.targetAmount, project.totalUnits);
+      const calculatedAvailableUnits =
+        project.availableUnits ||
         Math.floor((project.targetAmount - project.currentAmount) / calculatedUnitPrice);
-      
+
       setUnitPrice(calculatedUnitPrice);
       setAvailableUnits(calculatedAvailableUnits);
       setTotalUnits(project.totalUnits);
@@ -412,15 +448,15 @@ const InvestmentPage = () => {
     } else {
       setGroupInvestmentMode(false);
     }
-    
+
     setIsModalOpen(true);
   };
 
-  // ADDED: Handle confirm investment
+  // Handle confirm investment
   const handleConfirmInvestment = async () => {
     try {
       const token = localStorage.getItem("access");
-      
+
       if (!token) {
         alert("Please login to make an investment");
         return;
@@ -431,14 +467,13 @@ const InvestmentPage = () => {
         return;
       }
 
-      // Prepare investment data
       const investmentData = {
         project_id: selectedProject.id,
         amount: investmentAmount,
-        payment_method: document.querySelector('input[name="paymentMethod"]:checked')?.value || "payhere"
+        payment_method:
+          document.querySelector('input[name="paymentMethod"]:checked')?.value || "payhere",
       };
 
-      // Add unit-based investment data if in group mode
       if (groupInvestmentMode) {
         investmentData.units = unitsToPurchase;
         investmentData.investment_type = "unit_purchase";
@@ -446,37 +481,33 @@ const InvestmentPage = () => {
         investmentData.unit_price = unitPrice;
       }
 
-      // Make API call
-      const response = await fetch("http://127.0.0.1:8000/api/make-investment/", {
+      const response = await fetch(`${API}/api/make-investment/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(investmentData)
+        body: JSON.stringify(investmentData),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Investment failed");
-      }
+      if (!response.ok) throw new Error(data.error || "Investment failed");
 
-      // Success
       alert("Investment successful!");
       setIsModalOpen(false);
-      
-      // Refresh projects
-      setFilters(prev => ({ ...prev }));
-      
+
+      setFilters((prev) => ({ ...prev }));
     } catch (error) {
       console.error("Investment error:", error);
       alert(`Investment failed: ${error.message}`);
     }
   };
 
-  // Handle project creation
+  // ✅ Corrected handleCreateProject (category is PK)
   const handleCreateProject = async () => {
+    let response;
+
     try {
       setCreatingProject(true);
       const token = localStorage.getItem("access");
@@ -486,99 +517,75 @@ const InvestmentPage = () => {
         return;
       }
 
-      const formData = new FormData();
-      
-      // Append all project data
-      Object.keys(newProject).forEach(key => {
-        if (newProject[key] !== null && newProject[key] !== undefined) {
-          if (key === 'image' || key === 'business_plan' || key === 'additional_docs') {
-            if (newProject[key]) {
-              formData.append(key, newProject[key]);
-            }
-          } else {
-            formData.append(key, newProject[key]);
-          }
-        }
-      });
-
-      // Calculate unit price for equity projects
-      if (newProject.investment_type === "equity" && newProject.target_amount && newProject.total_units) {
-        const calculatedUnitPrice = Math.round(newProject.target_amount / newProject.total_units);
-        formData.append("unit_price", calculatedUnitPrice);
+      if (!newProject.category) {
+        alert("Please select a category");
+        return;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/create-project/", {
+      const formData = new FormData();
+
+      Object.keys(newProject).forEach((key) => {
+        const val = newProject[key];
+        if (val === null || val === undefined) return;
+
+        if (key === "image" || key === "business_plan" || key === "additional_docs") {
+          if (val) formData.append(key, val);
+          return;
+        }
+
+        formData.append(key, val);
+      });
+
+      if (
+        newProject.investment_type === "equity" &&
+        newProject.target_amount &&
+        newProject.total_units
+      ) {
+        const calculatedUnitPrice = Math.round(
+          Number(newProject.target_amount) / Number(newProject.total_units)
+        );
+        formData.append("unit_price", String(calculatedUnitPrice));
+      }
+
+      response = await fetch(`${API}/api/create-project/`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
 
-      const data = await response.json();
+      const raw = await response.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = raw;
+      }
 
       if (!response.ok) {
-        alert(data.error || "Failed to create project");
+        const msg =
+          typeof data === "string"
+            ? data
+            : data?.error
+            ? typeof data.error === "string"
+              ? data.error
+              : JSON.stringify(data.error, null, 2)
+            : JSON.stringify(data, null, 2);
+
+        alert(msg || "Failed to create project");
         return;
       }
 
       alert("Project created successfully! It will be reviewed by admin.");
       setShowCreatePanel(false);
-      
-      // Reset form
-      setNewProject({
-        title: "",
-        description: "",
-        category: "Coconut Farming",
-        location: "Colombo",
-        farmer_name: "",
-        farmer_experience: "",
-        farmer_rating: 4.5,
-        roi: 15,
-        duration: 12,
-        target_amount: "",
-        investment_type: "equity",
-        risk_level: "medium",
-        tags: "",
-        image: null,
-        business_plan: null,
-        additional_docs: null,
-        total_units: 1000,
-      });
-
-      // Refresh projects list
-      setFilters(prev => ({ ...prev }));
-
+      setFilters((prev) => ({ ...prev }));
     } catch (error) {
       console.error("Error creating project:", error);
-      alert("Failed to create project");
+      alert(`Failed to create project: ${error?.message || "Unknown error"}`);
     } finally {
       setCreatingProject(false);
     }
-  };
-
-  // Reset form when panel closes
-  const handleCloseCreatePanel = () => {
-    setShowCreatePanel(false);
-    setNewProject({
-      title: "",
-      description: "",
-      category: "Coconut Farming",
-      location: "Colombo",
-      farmer_name: "",
-      farmer_experience: "",
-      farmer_rating: 4.5,
-      roi: 15,
-      duration: 12,
-      target_amount: "",
-      investment_type: "equity",
-      risk_level: "medium",
-      tags: "",
-      image: null,
-      business_plan: null,
-      additional_docs: null,
-      total_units: 1000,
-    });
   };
 
   // Update units to purchase based on amount or vice versa
@@ -605,7 +612,8 @@ const InvestmentPage = () => {
                 Investment Opportunities
               </h1>
               <p className="text-lg opacity-90">
-                Invest in Sri Lanka's coconut industry. Support local farmers, earn transparent returns.
+                Invest in Sri Lanka's coconut industry. Support local farmers, earn
+                transparent returns.
               </p>
             </div>
           </div>
@@ -631,9 +639,7 @@ const InvestmentPage = () => {
                   <select
                     className="w-full px-3 py-2 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                     value={filters.category}
-                    onChange={(e) =>
-                      setFilters({ ...filters, category: e.target.value })
-                    }
+                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
                     disabled={tab === "mine"}
                     title={tab === "mine" ? "Filters apply to All Projects only" : ""}
                   >
@@ -653,9 +659,7 @@ const InvestmentPage = () => {
                   <select
                     className="w-full px-3 py-2 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                     value={filters.location}
-                    onChange={(e) =>
-                      setFilters({ ...filters, location: e.target.value })
-                    }
+                    onChange={(e) => setFilters({ ...filters, location: e.target.value })}
                     disabled={tab === "mine"}
                     title={tab === "mine" ? "Filters apply to All Projects only" : ""}
                   >
@@ -931,7 +935,12 @@ const InvestmentPage = () => {
                 {!loading && filteredProjects.length === 0 && (
                   <div className="text-center py-16 bg-white rounded-xl shadow">
                     <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <svg className="w-12 h-12 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-12 h-12 text-primary"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -940,7 +949,9 @@ const InvestmentPage = () => {
                         />
                       </svg>
                     </div>
-                    <h3 className="text-2xl font-semibold text-accent6 mb-3">No matching projects found</h3>
+                    <h3 className="text-2xl font-semibold text-accent6 mb-3">
+                      No matching projects found
+                    </h3>
                     <p className="text-accent6 max-w-md mx-auto mb-6">
                       Try adjusting your filter criteria or search term to find investment opportunities
                     </p>
@@ -971,15 +982,23 @@ const InvestmentPage = () => {
                       <h3 className="text-2xl font-bold text-accent6">
                         Available Projects ({filteredProjects.length})
                       </h3>
-                      <p className="text-accent6">Invest in coconut industry projects and earn returns</p>
+                      <p className="text-accent6">
+                        Invest in coconut industry projects and earn returns
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {filteredProjects.map((project) => {
-                        const progress = (project.currentAmount / project.targetAmount) * 100;
-                        const fundingNeeded = project.targetAmount - project.currentAmount;
-                        const isEquityProject = project.investmentType === "equity" && project.investmentStructure === "units";
-                        const ownershipPerShare = project.totalUnits ? (100 / project.totalUnits).toFixed(4) : 0;
+                        const progress =
+                          (project.currentAmount / project.targetAmount) * 100;
+                        const fundingNeeded =
+                          project.targetAmount - project.currentAmount;
+                        const isEquityProject =
+                          project.investmentType === "equity" &&
+                          project.investmentStructure === "units";
+                        const ownershipPerShare = project.totalUnits
+                          ? (100 / project.totalUnits).toFixed(4)
+                          : 0;
 
                         return (
                           <div
@@ -1004,10 +1023,18 @@ const InvestmentPage = () => {
                             {/* Project Image/Placeholder */}
                             <div className="h-48 bg-gradient-to-r from-primary/10 to-secondary/10 relative overflow-hidden">
                               {project.imageUrl ? (
-                                <img src={project.imageUrl} alt={project.title} className="w-full h-full object-cover" />
+                                <img
+                                  src={project.imageUrl}
+                                  alt={project.title}
+                                  className="w-full h-full object-cover"
+                                />
                               ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-primary/40">
-                                  <svg className="w-20 h-20 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <svg
+                                    className="w-20 h-20 mb-2"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
                                     <path
                                       fillRule="evenodd"
                                       d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
@@ -1030,7 +1057,11 @@ const InvestmentPage = () => {
                             <div className="p-6">
                               {/* Location */}
                               <div className="flex items-center text-accent6 text-sm mb-3">
-                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <svg
+                                  className="w-4 h-4 mr-1"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
                                   <path
                                     fillRule="evenodd"
                                     d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
@@ -1041,16 +1072,23 @@ const InvestmentPage = () => {
                               </div>
 
                               {/* Title */}
-                              <h3 className="text-xl font-bold text-accent6 mb-3 line-clamp-1">{project.title}</h3>
+                              <h3 className="text-xl font-bold text-accent6 mb-3 line-clamp-1">
+                                {project.title}
+                              </h3>
 
                               {/* Description */}
-                              <p className="text-accent6 text-sm mb-4 line-clamp-2">{project.description}</p>
+                              <p className="text-accent6 text-sm mb-4 line-clamp-2">
+                                {project.description}
+                              </p>
 
                               {/* Tags */}
                               <div className="flex flex-wrap gap-2 mb-5">
                                 {project.tags &&
                                   project.tags.map((tag, index) => (
-                                    <span key={index} className="px-2.5 py-1 bg-accent5 text-accent6 text-xs rounded-full">
+                                    <span
+                                      key={index}
+                                      className="px-2.5 py-1 bg-accent5 text-accent6 text-xs rounded-full"
+                                    >
                                       {tag}
                                     </span>
                                   ))}
@@ -1074,7 +1112,11 @@ const InvestmentPage = () => {
                                     <span>{project.farmerExperience} years experience</span>
                                     <span>•</span>
                                     <div className="flex items-center">
-                                      <svg className="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                      <svg
+                                        className="w-4 h-4 text-yellow-500 mr-1"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
                                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                       </svg>
                                       {project.farmerRating}
@@ -1087,10 +1129,16 @@ const InvestmentPage = () => {
                               <div className="mb-6">
                                 <div className="flex justify-between text-sm mb-2">
                                   <span className="text-accent6">
-                                    Raised: <span className="font-bold text-primary">{formatCurrency(project.currentAmount)}</span>
+                                    Raised:{" "}
+                                    <span className="font-bold text-primary">
+                                      {formatCurrency(project.currentAmount)}
+                                    </span>
                                   </span>
                                   <span className="text-accent6">
-                                    Target: <span className="font-bold text-accent6">{formatCurrency(project.targetAmount)}</span>
+                                    Target:{" "}
+                                    <span className="font-bold text-accent6">
+                                      {formatCurrency(project.targetAmount)}
+                                    </span>
                                   </span>
                                 </div>
                                 <div className="w-full bg-accent3 rounded-full h-3">
@@ -1113,19 +1161,27 @@ const InvestmentPage = () => {
                                   <div className="grid grid-cols-2 gap-4">
                                     <div>
                                       <div className="text-sm text-accent6 mb-1">Total Shares:</div>
-                                      <div className="font-bold text-accent6">{project.totalUnits.toLocaleString()}</div>
+                                      <div className="font-bold text-accent6">
+                                        {project.totalUnits.toLocaleString()}
+                                      </div>
                                     </div>
                                     <div>
                                       <div className="text-sm text-accent6 mb-1">Price Per Share:</div>
-                                      <div className="font-bold text-accent1">{formatCurrency(project.unitPrice)}</div>
+                                      <div className="font-bold text-accent1">
+                                        {formatCurrency(project.unitPrice)}
+                                      </div>
                                     </div>
                                     <div>
                                       <div className="text-sm text-accent6 mb-1">Available Shares:</div>
-                                      <div className="font-bold text-primary">{project.availableUnits.toLocaleString()}</div>
+                                      <div className="font-bold text-primary">
+                                        {project.availableUnits.toLocaleString()}
+                                      </div>
                                     </div>
                                     <div>
                                       <div className="text-sm text-accent6 mb-1">Ownership per Share:</div>
-                                      <div className="font-bold text-accent1">{ownershipPerShare}%</div>
+                                      <div className="font-bold text-accent1">
+                                        {ownershipPerShare}%
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -1155,7 +1211,12 @@ const InvestmentPage = () => {
                               >
                                 {project.status === "active" ? (
                                   <>
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg
+                                      className="w-5 h-5"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
                                       <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -1165,10 +1226,13 @@ const InvestmentPage = () => {
                                     </svg>
                                     {isEquityProject ? "Buy Shares" : "Invest Now"}
                                     <span className="ml-auto text-sm font-normal">
-                                      {isEquityProject ? 
-                                        `From ${formatCurrency(project.unitPrice)}/share` : 
-                                        `Min: ${fundingNeeded > 100 ? formatCurrency(100) : formatCurrency(fundingNeeded)}`
-                                      }
+                                      {isEquityProject
+                                        ? `From ${formatCurrency(project.unitPrice)}/share`
+                                        : `Min: ${
+                                            fundingNeeded > 100
+                                              ? formatCurrency(100)
+                                              : formatCurrency(fundingNeeded)
+                                          }`}
                                     </span>
                                   </>
                                 ) : (
@@ -1209,10 +1273,17 @@ const InvestmentPage = () => {
                 {!loadingMine && myInvestments.length > 0 && (
                   <div className="space-y-4">
                     {myInvestments.map((inv) => (
-                      <div key={inv.id} className="border border-accent5 rounded-lg p-4 flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                      <div
+                        key={inv.id}
+                        className="border border-accent5 rounded-lg p-4 flex flex-col md:flex-row md:justify-between md:items-start gap-3"
+                      >
                         <div>
-                          <p className="font-bold text-lg text-accent6">{inv.project?.title || "Project"}</p>
-                          <p className="text-sm text-accent6">Location: {inv.project?.location || "-"}</p>
+                          <p className="font-bold text-lg text-accent6">
+                            {inv.project?.title || "Project"}
+                          </p>
+                          <p className="text-sm text-accent6">
+                            Location: {inv.project?.location || "-"}
+                          </p>
                           <p className="text-sm text-accent6">Date: {inv.created_at}</p>
                           <p className="text-sm text-accent6">
                             Tx: <span className="font-mono">{inv.transaction_id || "N/A"}</span>
@@ -1220,11 +1291,20 @@ const InvestmentPage = () => {
                           {inv.units && inv.total_units && (
                             <div className="mt-2">
                               <p className="text-sm text-accent6">
-                                Shares: <span className="font-semibold text-accent6">{inv.units.toLocaleString()}</span> 
-                                {inv.unit_price && <span className="text-xs text-accent3"> @ {formatCurrency(inv.unit_price)}/share</span>}
+                                Shares:{" "}
+                                <span className="font-semibold text-accent6">
+                                  {inv.units.toLocaleString()}
+                                </span>
+                                {inv.unit_price && (
+                                  <span className="text-xs text-accent3">
+                                    {" "}
+                                    @ {formatCurrency(inv.unit_price)}/share
+                                  </span>
+                                )}
                               </p>
                               <p className="text-sm text-accent6">
-                                Ownership: <span className="font-semibold text-accent1">
+                                Ownership:{" "}
+                                <span className="font-semibold text-accent1">
                                   {((inv.units / inv.total_units) * 100).toFixed(2)}%
                                 </span>
                               </p>
@@ -1235,10 +1315,14 @@ const InvestmentPage = () => {
                         <div className="md:text-right">
                           <p className="font-bold text-accent6">{formatCurrency(inv.amount)}</p>
                           <p className="text-sm text-accent6">
-                            Status: <span className="font-semibold text-accent6">{inv.status}</span>
+                            Status:{" "}
+                            <span className="font-semibold text-accent6">{inv.status}</span>
                           </p>
                           <p className="text-sm text-accent6">
-                            Payment: <span className="font-semibold text-accent6">{inv.payment_status || "-"}</span>
+                            Payment:{" "}
+                            <span className="font-semibold text-accent6">
+                              {inv.payment_status || "-"}
+                            </span>
                           </p>
                           {inv.investment_type === "unit_purchase" && (
                             <p className="text-sm text-accent1 font-semibold">Share Investment</p>
@@ -1303,394 +1387,12 @@ const InvestmentPage = () => {
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
         </svg>
-        
+
         {/* Tooltip */}
         <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-accent6 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
           Create New Project
         </div>
       </button>
-
-      {/* Create Project Panel (Centered) */}
-      {showCreatePanel && (
-        <>
-          {/* Overlay */}
-          <div 
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={handleCloseCreatePanel}
-          ></div>
-          
-          {/* Centered Panel */}
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up">
-              <div className="p-6">
-                {/* Panel Header */}
-                <div className="flex justify-between items-center mb-6 pb-4 border-b border-accent5">
-                  <h3 className="text-2xl font-bold text-accent6">Create New Project</h3>
-                  <button 
-                    onClick={handleCloseCreatePanel}
-                    className="text-accent3 hover:text-accent6"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left Column - Basic Information */}
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="font-bold text-accent6 mb-4 text-lg">Basic Information</h4>
-                      
-                      {/* Project Title */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-accent6 mb-2">
-                          Project Title *
-                        </label>
-                        <input
-                          type="text"
-                          value={newProject.title}
-                          onChange={(e) => setNewProject({...newProject, title: e.target.value})}
-                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          placeholder="e.g., Organic Coconut Oil Production Unit"
-                          required
-                        />
-                      </div>
-
-                      {/* Project Description */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-accent6 mb-2">
-                          Project Description *
-                        </label>
-                        <textarea
-                          value={newProject.description}
-                          onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          rows="4"
-                          placeholder="Describe your project in detail..."
-                          required
-                        />
-                      </div>
-
-                      {/* Category and Location */}
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Category *
-                          </label>
-                          <select
-                            value={newProject.category}
-                            onChange={(e) => setNewProject({...newProject, category: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          >
-                            {categories.filter(cat => cat !== "All Categories").map(category => (
-                              <option key={category} value={category}>{category}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Location *
-                          </label>
-                          <select
-                            value={newProject.location}
-                            onChange={(e) => setNewProject({...newProject, location: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          >
-                            {locations.filter(loc => loc !== "All Locations").map(location => (
-                              <option key={location} value={location}>{location}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Tags */}
-                      <div>
-                        <label className="block text-sm font-medium text-accent6 mb-2">
-                          Tags (comma separated)
-                        </label>
-                        <input
-                          type="text"
-                          value={newProject.tags}
-                          onChange={(e) => setNewProject({...newProject, tags: e.target.value})}
-                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          placeholder="e.g., Organic, Sustainable, Export"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Farmer Information */}
-                    <div>
-                      <h4 className="font-bold text-accent6 mb-4 text-lg">Farmer/Entrepreneur Information</h4>
-                      <div className="bg-accent4 p-4 rounded-lg border border-accent5">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-accent6 mb-2">
-                              Name *
-                            </label>
-                            <input
-                              type="text"
-                              value={newProject.farmer_name}
-                              onChange={(e) => setNewProject({...newProject, farmer_name: e.target.value})}
-                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                              placeholder="Your name"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-accent6 mb-2">
-                              Years of Experience *
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={newProject.farmer_experience}
-                              onChange={(e) => setNewProject({...newProject, farmer_experience: e.target.value})}
-                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                              placeholder="e.g., 5"
-                              required
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column - Investment Details */}
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="font-bold text-accent6 mb-4 text-lg">Investment Details</h4>
-                      
-                      {/* ROI, Duration, Target Amount */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Expected ROI (%) *
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="50"
-                            step="0.5"
-                            value={newProject.roi}
-                            onChange={(e) => setNewProject({...newProject, roi: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Duration (Months) *
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="60"
-                            value={newProject.duration}
-                            onChange={(e) => setNewProject({...newProject, duration: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                            required
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Target Amount (LKR) *
-                          </label>
-                          <input
-                            type="number"
-                            min="100000"
-                            step="10000"
-                            value={newProject.target_amount}
-                            onChange={(e) => setNewProject({...newProject, target_amount: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                            placeholder="e.g., 5000000"
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      {/* Total Shares for Equity Projects */}
-                      {newProject.investment_type === "equity" && (
-                        <div className="mb-6">
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Total Number of Shares *
-                          </label>
-                          <input
-                            type="number"
-                            min="100"
-                            step="100"
-                            value={newProject.total_units}
-                            onChange={(e) => setNewProject({...newProject, total_units: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                            placeholder="e.g., 1000 shares"
-                            required
-                          />
-                          <p className="text-xs text-accent3 mt-1">
-                            Price per share will be calculated automatically: {newProject.target_amount && newProject.total_units ? 
-                              formatCurrency(Math.round(newProject.target_amount / newProject.total_units)) : '0'} per share
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Investment Type and Risk Level */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Investment Type *
-                          </label>
-                          <div className="space-y-2">
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="newInvestmentType"
-                                value="equity"
-                                checked={newProject.investment_type === "equity"}
-                                onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
-                                className="mr-2 text-secondary"
-                              />
-                              <span className="text-accent6">Equity (Share Investment)</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="newInvestmentType"
-                                value="loan"
-                                checked={newProject.investment_type === "loan"}
-                                onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
-                                className="mr-2 text-secondary"
-                              />
-                              <span className="text-accent6">Loan</span>
-                            </label>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Risk Level *
-                          </label>
-                          <div className="flex gap-2">
-                            {["low", "medium", "high"].map((risk) => (
-                              <button
-                                key={risk}
-                                type="button"
-                                className={`flex-1 py-3 px-3 rounded-lg text-sm font-medium ${
-                                  newProject.risk_level === risk
-                                    ? risk === "low"
-                                      ? "bg-green-100 text-green-800 border border-green-300"
-                                      : risk === "medium"
-                                      ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
-                                      : "bg-red-100 text-red-800 border border-red-300"
-                                    : "bg-accent4 text-accent6 hover:bg-accent5"
-                                }`}
-                                onClick={() => setNewProject({...newProject, risk_level: risk})}
-                              >
-                                {risk.charAt(0).toUpperCase() + risk.slice(1)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* File Uploads */}
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Project Image (Optional)
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setNewProject({...newProject, image: e.target.files[0]})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Business Plan (PDF/DOC) (Optional)
-                          </label>
-                          <input
-                            type="file"
-                            accept=".pdf,.doc,.docx"
-                            onChange={(e) => setNewProject({...newProject, business_plan: e.target.files[0]})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-accent6 mb-2">
-                            Additional Documents (Optional)
-                          </label>
-                          <input
-                            type="file"
-                            accept=".pdf,.doc,.docx,.jpg,.png"
-                            onChange={(e) => setNewProject({...newProject, additional_docs: e.target.files[0]})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Terms and Information */}
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <h4 className="font-bold text-yellow-800 mb-2">Important Information</h4>
-                      <ul className="text-sm text-yellow-700 space-y-1">
-                        <li>• Your project will be reviewed by our team before being published</li>
-                        <li>• Ensure all information provided is accurate and truthful</li>
-                        <li>• You must have legal rights to the land/business</li>
-                        <li>• Returns to investors must be paid as promised</li>
-                        <li>• Project updates must be provided quarterly</li>
-                        {newProject.investment_type === "equity" && (
-                          <li>• For equity projects, profits will be distributed based on share ownership</li>
-                        )}
-                      </ul>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-3 pt-4">
-                      <button
-                        onClick={handleCloseCreatePanel}
-                        className="flex-1 py-3 px-4 border border-accent3 text-accent6 rounded-lg hover:bg-accent4 transition-colors font-medium"
-                        disabled={creatingProject}
-                      >
-                        Cancel
-                      </button>
-
-                      <button
-                        onClick={handleCreateProject}
-                        disabled={creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount || (newProject.investment_type === "equity" && !newProject.total_units)}
-                        className={`flex-1 py-3 px-4 bg-primary text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 ${
-                          creatingProject || !newProject.title || !newProject.description || !newProject.farmer_name || !newProject.target_amount || (newProject.investment_type === "equity" && !newProject.total_units)
-                            ? "opacity-50 cursor-not-allowed"
-                            : "hover:bg-accent2"
-                        }`}
-                      >
-                        {creatingProject ? (
-                          <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                            Creating...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Submit for Review
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Mobile Create Project Button */}
       <button
@@ -1702,6 +1404,19 @@ const InvestmentPage = () => {
         </svg>
         <span className="font-semibold">Create Project</span>
       </button>
+
+      {/* ✅ pass categoryOptions (objects) */}
+      <CreateProjectModal
+        showCreatePanel={showCreatePanel}
+        setShowCreatePanel={setShowCreatePanel}
+        creatingProject={creatingProject}
+        newProject={newProject}
+        setNewProject={setNewProject}
+        handleCreateProject={handleCreateProject}
+        categories={categoryOptions}
+        locations={locations}
+        formatCurrency={formatCurrency}
+      />
 
       {/* Investment Modal */}
       {isModalOpen && selectedProject && (
@@ -1738,7 +1453,6 @@ const InvestmentPage = () => {
 
               {/* Investment Details */}
               <div className="space-y-4 mb-6">
-                {/* Toggle between normal and group investment */}
                 {selectedProject.investmentType === "equity" && selectedProject.investmentStructure === "units" && (
                   <div className="flex gap-2 mb-4">
                     <button
@@ -1767,7 +1481,6 @@ const InvestmentPage = () => {
                 )}
 
                 {groupInvestmentMode ? (
-                  /* Stock/Unit Investment Mode */
                   <div>
                     <label className="block text-sm font-medium text-accent6 mb-2">
                       Purchase Shares
@@ -1794,7 +1507,7 @@ const InvestmentPage = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
@@ -1807,7 +1520,7 @@ const InvestmentPage = () => {
                       >
                         -
                       </button>
-                      
+
                       <div className="flex-1">
                         <div className="text-center mb-2">
                           <span className="text-2xl font-bold text-accent6">{unitsToPurchase.toLocaleString()}</span>
@@ -1826,7 +1539,7 @@ const InvestmentPage = () => {
                           className="w-full h-2 bg-accent3 rounded-lg appearance-none cursor-pointer"
                         />
                       </div>
-                      
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1839,7 +1552,7 @@ const InvestmentPage = () => {
                         +
                       </button>
                     </div>
-                    
+
                     <div className="mt-4 text-center">
                       <div className="text-sm text-accent6 mb-1">Total Investment:</div>
                       <div className="text-2xl font-bold text-primary">
@@ -1851,12 +1564,15 @@ const InvestmentPage = () => {
                     </div>
                   </div>
                 ) : (
-                  /* Original Fixed Amount Mode */
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-accent6 mb-2">Investment Amount (RS.)</label>
+                      <label className="block text-sm font-medium text-accent6 mb-2">
+                        Investment Amount (RS.)
+                      </label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-accent3">RS.</span>
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-accent3">
+                          RS.
+                        </span>
                         <input
                           type="number"
                           min="100"
@@ -1865,19 +1581,17 @@ const InvestmentPage = () => {
                           onChange={(e) => {
                             const amount = parseInt(e.target.value) || 0;
                             setInvestmentAmount(amount);
-                            if (groupInvestmentMode) {
-                              updateUnitsFromAmount(amount);
-                            }
+                            if (groupInvestmentMode) updateUnitsFromAmount(amount);
                           }}
                           className="w-full pl-10 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                         />
                       </div>
                       <p className="text-xs text-accent3 mt-1">
-                        Minimum: RS.100 • Maximum: {formatCurrency(selectedProject.targetAmount - selectedProject.currentAmount)}
+                        Minimum: RS.100 • Maximum:{" "}
+                        {formatCurrency(selectedProject.targetAmount - selectedProject.currentAmount)}
                       </p>
                     </div>
 
-                    {/* Quick Amount Buttons */}
                     <div className="grid grid-cols-3 gap-2">
                       {[100, 500, 1000, 2500, 5000, 10000].map((amount) => (
                         <button
@@ -1885,9 +1599,7 @@ const InvestmentPage = () => {
                           type="button"
                           onClick={() => {
                             setInvestmentAmount(amount);
-                            if (groupInvestmentMode) {
-                              updateUnitsFromAmount(amount);
-                            }
+                            if (groupInvestmentMode) updateUnitsFromAmount(amount);
                           }}
                           className={`py-2 text-sm rounded-lg border ${
                             investmentAmount === amount
@@ -1903,7 +1615,6 @@ const InvestmentPage = () => {
                 )}
               </div>
 
-              {/* Investment Summary */}
               <div className="bg-accent4 rounded-xl p-4 mb-6 border border-accent5">
                 <h4 className="font-bold text-accent6 mb-3">Investment Summary</h4>
                 <div className="space-y-2">
@@ -1934,7 +1645,7 @@ const InvestmentPage = () => {
                       <span className="font-semibold text-accent6">{formatCurrency(investmentAmount)}</span>
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between">
                     <span className="text-accent6">Expected ROI:</span>
                     <span className="font-semibold text-accent1">{selectedProject.roi}%</span>
@@ -1974,9 +1685,10 @@ const InvestmentPage = () => {
                 </div>
               </div>
 
-              {/* Payment Method */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-accent6 mb-3">Payment Method</label>
+                <label className="block text-sm font-medium text-accent6 mb-3">
+                  Payment Method
+                </label>
                 <div className="space-y-3">
                   <label className="flex items-center p-3 border border-accent3 rounded-lg cursor-pointer hover:bg-accent4">
                     <input type="radio" name="paymentMethod" value="payhere" defaultChecked className="mr-3 text-secondary" />
@@ -2002,7 +1714,6 @@ const InvestmentPage = () => {
                 </div>
               </div>
 
-              {/* Terms and Conditions */}
               <div className="mb-6">
                 <label className="flex items-start">
                   <input type="checkbox" className="mt-1 mr-3 text-secondary" defaultChecked />
@@ -2013,7 +1724,6 @@ const InvestmentPage = () => {
                 </label>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsModalOpen(false)}
@@ -2033,7 +1743,6 @@ const InvestmentPage = () => {
                 </button>
               </div>
 
-              {/* Security Note */}
               <p className="text-xs text-accent3 text-center mt-4">
                 <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                   <path
@@ -2048,7 +1757,7 @@ const InvestmentPage = () => {
           </div>
         </div>
       )}
-      
+
       {/* Add CSS for animation */}
       <style jsx>{`
         @keyframes slide-up {
@@ -2061,7 +1770,7 @@ const InvestmentPage = () => {
             transform: translateY(0);
           }
         }
-        
+
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
         }

@@ -65,10 +65,11 @@ urlpatterns = [
     # =========================
     # NEW INVESTMENT ENDPOINTS (for your frontend)
     # =========================
-    path("api/create-project/", views.create_project, name="create-project"),
-    path("api/make-investment/", views.make_investment, name="make-investment"),
-    path("api/my-investments/", views.my_investments, name="my-investments"),
-    path("api/projects/", views.get_projects_api, name="get-projects-api"),
+    path("create-project/", views.create_project, name="create-project"),
+    path("make-investment/", views.make_investment, name="make-investment"),
+    path("my-investments/", views.my_investments, name="my-investments"),
+    path("projects/", views.get_projects_api, name="get-projects-api"),
+
 
     # =========================
     # EXISTING INVESTMENT ENDPOINTS (backward compatibility)
