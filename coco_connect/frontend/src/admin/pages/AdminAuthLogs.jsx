@@ -27,7 +27,7 @@ function Badge({ value, type }) {
 }
 
 function formatDuration(ms) {
-  if (!ms || ms < 0) return "—";
+  if (ms == null || ms < 0) return "—";
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
@@ -57,30 +57,13 @@ function buildSessionsAndDecoratedRows(rows) {
   const lastLoginByKey = new Map();
   const sessions = []; // { key, username, email, loginAt, logoutAt, durationMs }
 
-  const decorated = rows.map((r) => ({ ...r, session_ms: null, session_text: "—" }));
+  const decorated = rows.map((r) => ({
+    ...r,
+    session_ms: null,
+    session_text: "—",
+  }));
 
-  for (let i = 0; i < decorated.length; i++) {
-    const row = decorated[i];
-    const action = String(row.action || "").toUpperCase();
-    const status = String(row.status || "").toUpperCase();
-    const createdAt = safeDate(row.created_at);
-
-    const key =
-      (row.user != null ? `id:${row.user}` : "") ||
-      (row.email ? `email:${row.email}` : "") ||
-      (row.username ? `u:${row.username}` : "") ||
-      `row:${row.id}`;
-
-    // Track LOGIN SUCCESS
-    if (action === "LOGIN" && status === "SUCCESS" && createdAt) {
-      // store the latest login we see (logs are usually newest->oldest;
-      // but your endpoint returns order_by("-created_at"), so newest first.
-      // For session pairing, we should process oldest->newest.
-      // So: we'll do a second pass below in chronological order.
-    }
-  }
-
-  // IMPORTANT: your API returns newest first, but session pairing must be oldest->newest.
+  // IMPORTANT: API returns newest first; session pairing must be oldest->newest.
   const chronological = [...decorated].sort((a, b) => {
     const da = safeDate(a.created_at)?.getTime() ?? 0;
     const db = safeDate(b.created_at)?.getTime() ?? 0;
@@ -129,16 +112,36 @@ function buildSessionsAndDecoratedRows(rows) {
           durationMs,
         });
 
-        // clear last login so next logout doesn't reuse it
         lastLoginByKey.delete(key);
       }
     }
   }
 
-  // sort sessions newest first (nice for UI/PDF)
+  // newest sessions first
   sessions.sort((a, b) => b.logoutAt.getTime() - a.logoutAt.getTime());
 
   return { decorated, sessions };
+}
+
+function TabButton({ active, onClick, children, rightMeta }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cx(
+        "relative px-3 sm:px-4 py-2 rounded-xl font-extrabold text-sm transition",
+        "border",
+        active
+          ? "bg-emerald-700 text-white border-emerald-700 shadow-sm"
+          : "bg-white text-emerald-900 border-gray-200 hover:bg-gray-50"
+      )}
+      type="button"
+    >
+      <span className="flex items-center gap-2">
+        {children}
+        {rightMeta}
+      </span>
+    </button>
+  );
 }
 
 export default function AdminAuthLogs() {
@@ -149,11 +152,12 @@ export default function AdminAuthLogs() {
   const [to, setTo] = useState(""); // YYYY-MM-DD
   const [limit, setLimit] = useState(100);
 
+  const [activeTab, setActiveTab] = useState("logs"); // "logs" | "sessions"
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [data, setData] = useState({ count: 0, limit: 100, results: [] });
 
-  // ✅ do NOT freeze token with useMemo([]) — always read latest
   const token = localStorage.getItem("access");
 
   const buildUrl = () => {
@@ -238,7 +242,6 @@ export default function AdminAuthLogs() {
     doc.setFontSize(10);
     doc.text(`Generated: ${generatedAt.toLocaleString()}`, 40, 58);
 
-    // Filters summary
     const f = [
       q?.trim() ? `q="${q.trim()}"` : null,
       action ? `action=${action}` : null,
@@ -252,16 +255,14 @@ export default function AdminAuthLogs() {
 
     doc.text(`Filters: ${f || "none"}`, 40, 74);
 
-    // Sessions stats
     doc.text(
-      `Sessions: ${stats.totalSessions} | Total Session Time: ${formatDuration(
+      `Sessions: ${stats.totalSessions} | Total: ${formatDuration(
         stats.totalMs
-      )} | Avg Session: ${formatDuration(stats.avgMs)}`,
+      )} | Avg: ${formatDuration(stats.avgMs)}`,
       40,
       90
     );
 
-    // Main logs table
     autoTable(doc, {
       startY: 110,
       head: [["Time", "User", "Email/UserID", "Action", "Status", "Session Time", "Message"]],
@@ -283,7 +284,6 @@ export default function AdminAuthLogs() {
       margin: { left: 40, right: 40 },
     });
 
-    // Sessions summary table (optional but useful)
     const y = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 20 : 130;
     doc.setFontSize(12);
     doc.text("Sessions Summary (LOGIN → LOGOUT)", 40, y);
@@ -307,6 +307,12 @@ export default function AdminAuthLogs() {
 
     doc.save(`auth-logs-${generatedAt.toISOString().slice(0, 10)}.pdf`);
   };
+
+  const showingText = (
+    <div className="text-sm text-gray-700">
+      Showing <b>{decoratedRows?.length || 0}</b> of <b>{data?.count ?? 0}</b>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
@@ -441,128 +447,169 @@ export default function AdminAuthLogs() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Tabs + Content */}
       <div className="rounded-2xl border border-[#ece7e1] bg-white overflow-hidden">
-        <div className="p-4 sm:p-5 flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing <b>{decoratedRows?.length || 0}</b> of <b>{data?.count ?? 0}</b>
+        <div className="p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          {/* LEFT: Showing + Tabs */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            {showingText}
+
+            <div className="flex gap-2">
+              <TabButton
+                active={activeTab === "logs"}
+                onClick={() => setActiveTab("logs")}
+                rightMeta={
+                  <span
+                    className={cx(
+                      "text-[11px] px-2 py-0.5 rounded-full border font-extrabold",
+                      activeTab === "logs"
+                        ? "bg-white/15 text-white border-white/20"
+                        : "bg-gray-50 text-gray-800 border-gray-200"
+                    )}
+                  >
+                    {decoratedRows?.length || 0}
+                  </span>
+                }
+              >
+                Auth Logs
+              </TabButton>
+
+              <TabButton
+                active={activeTab === "sessions"}
+                onClick={() => setActiveTab("sessions")}
+                rightMeta={
+                  <span
+                    className={cx(
+                      "text-[11px] px-2 py-0.5 rounded-full border font-extrabold",
+                      activeTab === "sessions"
+                        ? "bg-white/15 text-white border-white/20"
+                        : "bg-gray-50 text-gray-800 border-gray-200"
+                    )}
+                  >
+                    {sessions?.length || 0}
+                  </span>
+                }
+              >
+                Sessions Summary
+              </TabButton>
+            </div>
           </div>
 
+          {/* RIGHT: Error */}
           {err ? <div className="text-sm font-semibold text-red-700">{err}</div> : null}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[#f9faf7] text-left text-gray-700">
-              <tr>
-                <th className="px-4 py-3 font-extrabold">Time</th>
-                <th className="px-4 py-3 font-extrabold">User</th>
-                <th className="px-4 py-3 font-extrabold">Action</th>
-                <th className="px-4 py-3 font-extrabold">Status</th>
-                <th className="px-4 py-3 font-extrabold">Session Time</th>
-                <th className="px-4 py-3 font-extrabold">Message</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
+        {/* Tab content */}
+        {activeTab === "logs" ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#f9faf7] text-left text-gray-700">
                 <tr>
-                  <td className="px-4 py-4 text-gray-600" colSpan={6}>
-                    Loading...
-                  </td>
+                  <th className="px-4 py-3 font-extrabold">Time</th>
+                  <th className="px-4 py-3 font-extrabold">User</th>
+                  <th className="px-4 py-3 font-extrabold">Action</th>
+                  <th className="px-4 py-3 font-extrabold">Status</th>
+                  <th className="px-4 py-3 font-extrabold">Session Time</th>
+                  <th className="px-4 py-3 font-extrabold">Message</th>
                 </tr>
-              ) : (decoratedRows || []).length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={6}>
-                    No logs found.
-                  </td>
-                </tr>
-              ) : (
-                decoratedRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50/60">
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
-                      {row.created_at ? new Date(row.created_at).toLocaleString() : "-"}
-                    </td>
+              </thead>
 
-                    <td className="px-4 py-3">
-                      <div className="font-bold text-emerald-950">
-                        {row.username || "UnknownUser"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {row.email || (row.user ? `UserID: ${row.user}` : "—")}
-                      </div>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td className="px-4 py-4 text-gray-600" colSpan={6}>
+                      Loading...
                     </td>
-
-                    <td className="px-4 py-3">
-                      <Badge value={row.action} type="action" />
-                    </td>
-
-                    <td className="px-4 py-3">
-                      <Badge value={row.status} type="status" />
-                    </td>
-
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-700 font-semibold">
-                      {row.session_text || "—"}
-                    </td>
-
-                    <td className="px-4 py-3 text-gray-700">{row.message || "—"}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                ) : (decoratedRows || []).length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-6 text-gray-600" colSpan={6}>
+                      No logs found.
+                    </td>
+                  </tr>
+                ) : (
+                  decoratedRows.map((row) => (
+                    <tr key={row.id} className="hover:bg-gray-50/60">
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                        {row.created_at ? new Date(row.created_at).toLocaleString() : "-"}
+                      </td>
 
-      {/* Sessions Summary (UI) */}
-      <div className="rounded-2xl border border-[#ece7e1] bg-white overflow-hidden">
-        <div className="p-4 sm:p-5 flex items-center justify-between">
-          <div className="text-sm font-extrabold text-emerald-950">Sessions Summary</div>
-          <div className="text-xs text-gray-600">
-            Pairs LOGIN SUCCESS → LOGOUT SUCCESS per user.
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-emerald-950">
+                          {row.username || "UnknownUser"}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {row.email || (row.user ? `UserID: ${row.user}` : "—")}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <Badge value={row.action} type="action" />
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <Badge value={row.status} type="status" />
+                      </td>
+
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700 font-semibold">
+                        {row.session_text || "—"}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-700">{row.message || "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[#f9faf7] text-left text-gray-700">
-              <tr>
-                <th className="px-4 py-3 font-extrabold">User</th>
-                <th className="px-4 py-3 font-extrabold">Login</th>
-                <th className="px-4 py-3 font-extrabold">Logout</th>
-                <th className="px-4 py-3 font-extrabold">Duration</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-gray-100">
-              {sessions.length === 0 ? (
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#f9faf7] text-left text-gray-700">
                 <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={4}>
-                    No complete sessions found (need both LOGIN SUCCESS and LOGOUT SUCCESS).
-                  </td>
+                  <th className="px-4 py-3 font-extrabold">User</th>
+                  <th className="px-4 py-3 font-extrabold">Login</th>
+                  <th className="px-4 py-3 font-extrabold">Logout</th>
+                  <th className="px-4 py-3 font-extrabold">Duration</th>
                 </tr>
-              ) : (
-                sessions.map((s, idx) => (
-                  <tr key={`${s.key}-${idx}`} className="hover:bg-gray-50/60">
-                    <td className="px-4 py-3">
-                      <div className="font-bold text-emerald-950">{s.username}</div>
-                      <div className="text-xs text-gray-500">{s.email || "—"}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
-                      {fmtLocal(s.loginAt)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
-                      {fmtLocal(s.logoutAt)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-700 font-semibold">
-                      {formatDuration(s.durationMs)}
+              </thead>
+
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td className="px-4 py-4 text-gray-600" colSpan={4}>
+                      Loading...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : sessions.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-6 text-gray-600" colSpan={4}>
+                      No complete sessions found (need both LOGIN SUCCESS and LOGOUT SUCCESS).
+                    </td>
+                  </tr>
+                ) : (
+                  sessions.map((s, idx) => (
+                    <tr key={`${s.key}-${idx}`} className="hover:bg-gray-50/60">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-emerald-950">{s.username}</div>
+                        <div className="text-xs text-gray-500">{s.email || "—"}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                        {fmtLocal(s.loginAt)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                        {fmtLocal(s.logoutAt)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-gray-700 font-semibold">
+                        {formatDuration(s.durationMs)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
