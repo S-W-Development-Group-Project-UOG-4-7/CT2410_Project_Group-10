@@ -45,7 +45,7 @@ export default function NewsCorner() {
       <section className="bg-[#4caf50] px-8 py-20">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-10 items-center">
           <h1 className="text-[90px] font-extrabold text-white leading-none">
-            News Corner
+            Cococonnect News Corner
           </h1>
 
           <p className="text-sm text-white max-w-sm">
