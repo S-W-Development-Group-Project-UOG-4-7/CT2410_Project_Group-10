@@ -44,7 +44,7 @@ export default function NewsCorner() {
       id: 4,
       title: "Export Demand for Coconut Products Increases",
       source: "International Coco Demand",
-      tags: ["iot","ai"],
+      tags: ["iot","ai","smart farming Technology"],
       shortDescription:
         "Global demand for Sri Lankan coconut-based products continues to rise.",
       fullDescription:
