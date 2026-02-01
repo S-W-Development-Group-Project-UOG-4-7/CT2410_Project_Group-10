@@ -54,6 +54,7 @@ export default function NewsCorner() {
       image:
         "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2",
     },
+    
     {
       id: 5,
       title: "How Coconut Ice Cream Is Made Using Natural Ingredients",
@@ -67,6 +68,7 @@ export default function NewsCorner() {
       image:
         "https://images.unsplash.com/photo-1599785209798-7b0b2e5b4c2b",
     },
+    {id},
   ];
 
   return (
