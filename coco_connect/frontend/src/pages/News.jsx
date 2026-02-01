@@ -73,7 +73,7 @@ export default function NewsCorner() {
           </h1>
 
           <p className="text-sm text-white max-w-sm">
-            Latest highlights <br />
+            Latest updates <br />
             Coconut industry, technology, and sustainability.
           </p>
         </div>
