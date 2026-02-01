@@ -376,21 +376,38 @@ const InvestmentPage = () => {
         },
       });
 
-      const data = await res.json();
+      // backend might return JSON OR text on error
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = raw;
+      }
 
       if (!res.ok) {
-        alert(`Failed to load investments: ${data.error || res.statusText}`);
+        const msg =
+          typeof data === "string"
+            ? data
+            : (data?.error || data?.detail || res.statusText);
+        alert(`Failed to load investments: ${msg}`);
         return;
       }
 
-      setMyInvestments(data.investments || []);
+      // ✅ support both: {investments:[...]} OR [...]
+      const investments = Array.isArray(data) ? data : (data.investments || []);
+      setMyInvestments(investments);
+
+      console.log("my-investments response:", data);
+      console.log("parsed investments:", investments);
     } catch (e) {
-      console.error("Error details:", e);
-      alert(`Server error: ${e.message}. Please check if the backend server is running.`);
+      console.error("Error fetching investments:", e);
+      alert(`Server error: ${e.message}`);
     } finally {
       setLoadingMine(false);
     }
   };
+
 
   // Load mine when tab changes
   useEffect(() => {

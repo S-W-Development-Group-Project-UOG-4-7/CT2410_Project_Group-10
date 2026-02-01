@@ -109,7 +109,7 @@ urlpatterns = [
     # =========================
     path("projects/", views.get_projects, name="get_projects"),
     path("projects/<int:project_id>/", views.get_project_detail, name="get_project_detail"),
-    path("make-investment/", views.create_investment, name="create_investment"),
+    path("make-investment/", views.make_investment, name="make_investment"),
     path("my-investments/", views.my_investments, name="my_investments"),
     path("categories/", views.get_categories, name="get_categories"),
     path("locations/", views.get_locations, name="get_locations"),

@@ -152,7 +152,7 @@ export default function CustomerLayout() {
     { path: "/customer/profile", label: "My Profile", icon: <User size={20} /> },
     { path: "/customer/products", label: "My Products", icon: <Package size={20} /> },
     { path: "/customer/orders", label: "My Orders", icon: <Package size={20} /> },
-    {
+    {/*{
       path: "/customer/notifications",
       label: "Notifications",
       icon: <Bell size={20} />,
@@ -161,7 +161,7 @@ export default function CustomerLayout() {
       path: "/customer/support",
       label: "Help & Support",
       icon: <HelpCircle size={20} />,
-    },
+    },*/}
   ];
 
   const isActivePath = (itemPath) =>

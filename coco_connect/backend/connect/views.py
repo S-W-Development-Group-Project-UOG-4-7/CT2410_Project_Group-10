@@ -38,7 +38,6 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAdminUser
 
-
 from .models import (
     Idea,
     Profile,
@@ -61,6 +60,18 @@ from .investment_serializers import (
     InvestmentCreateSerializer,
     MyInvestmentSerializer,
 )
+from django.contrib.auth.models import Group
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.utils import timezone
+import json, decimal, random, string
+
+# ===============================================
+# Groups
+# ===============================================
+def add_group(user, group_name: str):
+    group, _ = Group.objects.get_or_create(name=group_name)
+    user.groups.add(group)
 
 # =================================================
 # AUTH LOG HELPER
@@ -257,6 +268,11 @@ def logout_view(request):
         message="Logout success",
     )
     return Response({"detail": "Logged out"})
+
+# ================================================
+# Roles
+# ================================================
+
 
 # =================================================
 # USER PROFILE
@@ -980,6 +996,8 @@ class IdeaViewSet(ModelViewSet):
             embedding=embedding,
         )
 
+        add_group(request.user, "Idea Creator")
+
         # Create alerts when forced publish within warning zone
         if self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD:
             for m in matches:
@@ -1116,6 +1134,8 @@ def create_project(request):
         
         if serializer.is_valid():
             project = serializer.save()
+
+            add_group(request.user, "Project Owner")
             
             return Response({
                 'success': True,
@@ -1134,77 +1154,64 @@ def create_project(request):
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def make_investment(request):
-    """
-    Make an investment (supports both fixed amount and share-based)
-    """
     try:
         user = request.user
-        
-        # Check if user has investor profile
-        profile = getattr(user, 'profile', None)
-        if profile and profile.role != 'investor':
-            return Response({
-                'success': False,
-                'error': 'Only investors can make investments'
-            }, status=status.HTTP_403_FORBIDDEN)
-        
+
         serializer = InvestmentCreateSerializer(data=request.data, context={'request': request})
-        
+
         if serializer.is_valid():
             investment = serializer.save()
-            
+
+            # ✅ add role AFTER successful save
+            add_group(user, "Investor")
+
             return Response({
                 'success': True,
                 'message': 'Investment successful!',
                 'investment': MyInvestmentSerializer(investment).data,
                 'ownership_percentage': investment.ownership_percentage
             }, status=status.HTTP_201_CREATED)
-        
-        return Response({
-            'success': False,
-            'error': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        return Response({'success': False, 'error': serializer.errors}, status=400)
+
     except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'success': False, 'error': str(e)}, status=500)
 
-
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def my_investments(request):
+def make_investment(request):
     """
-    Get current user's investments with full project details
+    Make an investment (supports both fixed amount and share-based)
+    ✅ After successful investment -> add Investor group (same as Farmer)
     """
     try:
-        investments = Investment.objects.filter(
-            investor=request.user
-        ).select_related('project').order_by('-created_at')
-        
-        serializer = MyInvestmentSerializer(investments, many=True)
-        
-        # Calculate total invested
-        total_invested = investments.aggregate(total=Sum('amount'))['total'] or 0
-        
-        return Response({
-            'success': True,
-            'investments': serializer.data,
-            'total_invested': float(total_invested),
-            'count': investments.count()
-        })
-        
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        user = request.user
 
+        serializer = InvestmentCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            investment = serializer.save()
+
+            # ✅ SAME METHOD AS FARMER
+            add_group(user, "Investor")
+
+            return Response({
+                'success': True,
+                'message': 'Investment successful!',
+                'investment': MyInvestmentSerializer(investment).data,
+                'ownership_percentage': investment.ownership_percentage
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({'success': False, 'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedOrReadOnly])
@@ -1411,6 +1418,7 @@ def get_project_detail(request, project_id):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
+
 @csrf_exempt
 def create_investment(request):
     if request.method != "POST":
@@ -1452,23 +1460,23 @@ def create_investment(request):
             amount=amount_decimal,
             payment_method=payment_method,
             transaction_id=txid,
-            status="completed",  # adjust if you have payment gateway callback later
+            status="completed",
             payment_status="completed",
             completed_at=timezone.now(),
         )
 
-        return JsonResponse(
-            {
-                "success": True,
-                "investment": {
-                    "id": inv.id,
-                    "transaction_id": inv.transaction_id,
-                    "amount": float(inv.amount),
-                    "project_id": project.id,
-                },
+        # ✅ role update here
+        add_group(user, "Investor")
+
+        return JsonResponse({
+            "success": True,
+            "investment": {
+                "id": inv.id,
+                "transaction_id": inv.transaction_id,
+                "amount": float(inv.amount),
+                "project_id": project.id,
             },
-            status=201,
-        )
+        }, status=201)
 
     except InvestmentProject.DoesNotExist:
         return JsonResponse({"success": False, "error": "Project not found"}, status=404)
@@ -1762,7 +1770,6 @@ def admin_auth_logs_stats(request):
     return Response(data)
 
 
-
 # =========================
 # Create Project
 # =========================
@@ -1772,6 +1779,8 @@ def create_project_draft(request):
     serializer = ProjectDraftSerializer(data=request.data, context={"request": request})
     if serializer.is_valid():
         draft = serializer.save()
+        add_group(request.user, "Project Owner")
+
         return Response({"success": True, "draft": ProjectDraftSerializer(draft).data}, status=status.HTTP_201_CREATED)
     return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 

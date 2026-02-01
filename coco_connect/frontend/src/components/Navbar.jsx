@@ -203,8 +203,12 @@ const Navbar = () => {
     setIsMoreOpen(false);
     setIsSearchExpanded(false);
 
-    navigate("/"); // ✅ always go to homepage after login
+    // ❌ REMOVE THIS:
+    // navigate("/");
+
+    // ✅ Do nothing here. LoginModal will redirect using REDIRECT_KEY.
   };
+
 
   // ✅ open custom logout modal (NO browser popup)
   const handleLogout = () => {
@@ -258,9 +262,15 @@ const Navbar = () => {
   };
 
   const openLoginModal = () => {
+    const fullPath =
+      location.pathname + location.search + location.hash;
+
+    localStorage.setItem(REDIRECT_KEY, fullPath);
+
     setIsLoginOpen(true);
     setIsMobileOpen(false);
   };
+
 
   const openRegisterModal = () => {
     setIsLoginOpen(false);
