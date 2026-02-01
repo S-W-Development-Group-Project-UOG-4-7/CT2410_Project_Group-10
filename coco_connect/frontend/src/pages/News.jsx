@@ -72,7 +72,7 @@ export default function NewsCorner() {
     title: "Coconut Water Gains Popularity as a Natural Health Drink",
     source: "Health & Nutrition Weekly",
     category: "Health",
-    location: "Global Area net work",
+    location: "Global",
     readTime: "3 min",
     shortDescription:
       "Coconut water is becoming a popular natural beverage due to its hydration and health benefits.",
