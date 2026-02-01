@@ -58,7 +58,6 @@ const InvestmentPage = () => {
 
   // Mock data - Fallback if API fails
   const mockProjects = [
-    // ... (keep your existing mockProjects array as is)
     {
       id: 1,
       title: "Organic Coconut Oil Production",
@@ -85,7 +84,55 @@ const InvestmentPage = () => {
       unitPrice: 1000, // Price per share (targetAmount / totalUnits)
       investmentStructure: "units",
     },
-    // ... other projects
+    {
+      id: 2,
+      title: "Coconut Farm Expansion in Puttalam",
+      description: "Expanding existing coconut farm with 500 new trees",
+      category: "Coconut Farming",
+      location: "Puttalam",
+      farmerName: "K.L. Fernando",
+      farmerExperience: 12,
+      farmerRating: 4.9,
+      imageUrl: "",
+      roi: 15.2,
+      duration: 24,
+      targetAmount: 3000000,
+      currentAmount: 1800000,
+      investorsCount: 8,
+      status: "active",
+      daysLeft: 60,
+      investmentType: "equity",
+      riskLevel: "low",
+      createdAt: "2024-01-20",
+      tags: ["Expansion", "Organic", "Local"],
+      totalUnits: 3000,
+      availableUnits: 1200,
+      unitPrice: 1000,
+      investmentStructure: "units",
+    },
+    {
+      id: 3,
+      title: "Coir Product Manufacturing Unit",
+      description: "Manufacturing coir mats, brushes and other products",
+      category: "Coir Products",
+      location: "Gampaha",
+      farmerName: "S.N. Rajapakse",
+      farmerExperience: 6,
+      farmerRating: 4.3,
+      imageUrl: "",
+      roi: 22.5,
+      duration: 12,
+      targetAmount: 7500000,
+      currentAmount: 4500000,
+      investorsCount: 15,
+      status: "active",
+      daysLeft: 30,
+      investmentType: "loan",
+      riskLevel: "medium",
+      createdAt: "2024-01-10",
+      tags: ["Manufacturing", "Export", "Employment"],
+      investmentStructure: "fixed",
+    },
   ];
 
   const categories = [
@@ -133,12 +180,6 @@ const InvestmentPage = () => {
   const calculateUnitPrice = (targetAmount, totalUnits) => {
     if (!targetAmount || !totalUnits || totalUnits === 0) return 1000; // default
     return Math.round(targetAmount / totalUnits);
-  };
-
-  // Calculate per-share ROI (if needed)
-  const calculatePerShareROI = (totalROI, totalUnits, unitsOwned) => {
-    if (!unitsOwned || unitsOwned === 0) return 0;
-    return (totalROI * unitsOwned) / totalUnits;
   };
 
   // Fetch projects
@@ -577,18 +618,18 @@ const InvestmentPage = () => {
           {/* Filters Sidebar */}
           <div className="lg:w-1/4">
             <div className="bg-white rounded-xl shadow-lg p-6 border border-accent5 sticky top-8">
-              <h3 className="text-xl font-bold text-accent6 mb-6 pb-3 border-b">
+              <h3 className="text-xl font-bold text-accent6 mb-6 pb-3 border-b border-accent5">
                 Filter Projects
               </h3>
 
               <div className="space-y-6">
                 {/* Category Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-accent6 mb-2">
                     Category
                   </label>
                   <select
-                    className="w-full px-3 py-2 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                    className="w-full px-3 py-2 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                     value={filters.category}
                     onChange={(e) =>
                       setFilters({ ...filters, category: e.target.value })
@@ -606,11 +647,11 @@ const InvestmentPage = () => {
 
                 {/* Location Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-accent6 mb-2">
                     Location
                   </label>
                   <select
-                    className="w-full px-3 py-2 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                    className="w-full px-3 py-2 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                     value={filters.location}
                     onChange={(e) =>
                       setFilters({ ...filters, location: e.target.value })
@@ -628,7 +669,7 @@ const InvestmentPage = () => {
 
                 {/* ROI Range */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-accent6 mb-2">
                     ROI Range: {filters.minROI}% - {filters.maxROI}%
                   </label>
                   <div className="space-y-4">
@@ -640,7 +681,7 @@ const InvestmentPage = () => {
                       onChange={(e) =>
                         setFilters({ ...filters, minROI: parseInt(e.target.value) })
                       }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-accent3 rounded-lg appearance-none cursor-pointer"
                       disabled={tab === "mine"}
                     />
                     <input
@@ -651,7 +692,7 @@ const InvestmentPage = () => {
                       onChange={(e) =>
                         setFilters({ ...filters, maxROI: parseInt(e.target.value) })
                       }
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-accent3 rounded-lg appearance-none cursor-pointer"
                       disabled={tab === "mine"}
                     />
                   </div>
@@ -659,7 +700,7 @@ const InvestmentPage = () => {
 
                 {/* Risk Level */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-accent6 mb-2">
                     Risk Level
                   </label>
                   <div className="flex gap-2">
@@ -674,8 +715,8 @@ const InvestmentPage = () => {
                               ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
                               : risk === "high"
                               ? "bg-red-100 text-red-800 border border-red-300"
-                              : "bg-secondary text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              : "bg-primary text-white"
+                            : "bg-accent4 text-accent6 hover:bg-accent5"
                         } ${tab === "mine" ? "opacity-50 cursor-not-allowed" : ""}`}
                         onClick={() => tab !== "mine" && setFilters({ ...filters, riskLevel: risk })}
                         disabled={tab === "mine"}
@@ -688,7 +729,7 @@ const InvestmentPage = () => {
 
                 {/* Investment Type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-accent6 mb-2">
                     Investment Type
                   </label>
                   <div className="space-y-2">
@@ -704,7 +745,7 @@ const InvestmentPage = () => {
                         className="mr-2 text-secondary"
                         disabled={tab === "mine"}
                       />
-                      <span>All Types</span>
+                      <span className="text-accent6">All Types</span>
                     </label>
 
                     <label className="flex items-center">
@@ -719,7 +760,7 @@ const InvestmentPage = () => {
                         className="mr-2 text-secondary"
                         disabled={tab === "mine"}
                       />
-                      <span>Equity (Shares)</span>
+                      <span className="text-accent6">Equity (Shares)</span>
                     </label>
 
                     <label className="flex items-center">
@@ -734,7 +775,7 @@ const InvestmentPage = () => {
                         className="mr-2 text-secondary"
                         disabled={tab === "mine"}
                       />
-                      <span>Loan</span>
+                      <span className="text-accent6">Loan</span>
                     </label>
                   </div>
                 </div>
@@ -753,7 +794,7 @@ const InvestmentPage = () => {
                       investmentType: "all",
                     })
                   }
-                  className={`w-full py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium ${
+                  className={`w-full py-2.5 px-4 border border-accent3 text-accent6 rounded-lg hover:bg-accent4 transition-colors font-medium ${
                     tab === "mine" ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                   disabled={tab === "mine"}
@@ -767,19 +808,19 @@ const InvestmentPage = () => {
             <div className="bg-white rounded-xl shadow-lg p-6 mt-6 border border-accent5">
               <h3 className="text-xl font-bold text-accent6 mb-4">Platform Stats</h3>
               <div className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-600">Total Projects</span>
+                <div className="flex justify-between items-center py-2 border-b border-accent5">
+                  <span className="text-accent6">Total Projects</span>
                   <span className="font-bold text-primary text-lg">{projects.length}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-600">Total Investment</span>
+                <div className="flex justify-between items-center py-2 border-b border-accent5">
+                  <span className="text-accent6">Total Investment</span>
                   <span className="font-bold text-secondary text-lg">
                     {formatCurrency(projects.reduce((sum, p) => sum + p.currentAmount, 0))}
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-gray-600">Average ROI</span>
-                  <span className="font-bold text-green-600 text-lg">
+                <div className="flex justify-between items-center py-2 border-b border-accent5">
+                  <span className="text-accent6">Average ROI</span>
+                  <span className="font-bold text-accent1 text-lg">
                     {projects.length > 0
                       ? (projects.reduce((sum, p) => sum + p.roi, 0) / projects.length).toFixed(1)
                       : 0}
@@ -787,7 +828,7 @@ const InvestmentPage = () => {
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-600">Total Shares</span>
+                  <span className="text-accent6">Total Shares</span>
                   <span className="font-bold text-coco text-lg">
                     {projects.reduce((sum, p) => sum + (p.totalUnits || 0), 0).toLocaleString()}
                   </span>
@@ -806,7 +847,7 @@ const InvestmentPage = () => {
                   <button
                     onClick={() => setTab("all")}
                     className={`px-5 py-2 rounded-full font-semibold ${
-                      tab === "all" ? "bg-primary text-white" : "bg-gray-100 text-gray-700"
+                      tab === "all" ? "bg-primary text-white" : "bg-accent4 text-accent6"
                     }`}
                   >
                     All Projects
@@ -814,7 +855,7 @@ const InvestmentPage = () => {
                   <button
                     onClick={() => setTab("mine")}
                     className={`px-5 py-2 rounded-full font-semibold ${
-                      tab === "mine" ? "bg-primary text-white" : "bg-gray-100 text-gray-700"
+                      tab === "mine" ? "bg-primary text-white" : "bg-accent4 text-accent6"
                     }`}
                   >
                     My Investments
@@ -829,13 +870,13 @@ const InvestmentPage = () => {
                       <input
                         type="text"
                         placeholder="Search projects by title, description, or farmer..."
-                        className="w-full pl-12 pr-4 py-3 rounded-full border border-accent3 focus:outline-none focus:ring-2 focus:ring-secondary"
+                        className="w-full pl-12 pr-4 py-3 rounded-full border border-accent3 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                         disabled={tab === "mine"}
                       />
                       <svg
-                        className="w-5 h-5 absolute left-4 top-3.5 text-gray-400"
+                        className="w-5 h-5 absolute left-4 top-3.5 text-accent3"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -852,9 +893,9 @@ const InvestmentPage = () => {
 
                   {/* Sort */}
                   <div className="flex items-center gap-4 w-full md:w-auto">
-                    <span className="text-gray-600 whitespace-nowrap">Sort by:</span>
+                    <span className="text-accent6 whitespace-nowrap">Sort by:</span>
                     <select
-                      className="px-4 py-2.5 rounded-lg border border-accent3 focus:outline-none focus:ring-2 focus:ring-secondary"
+                      className="px-4 py-2.5 rounded-lg border border-accent3 focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                       value={filters.sortBy}
                       onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
                       disabled={tab === "mine"}
@@ -881,7 +922,7 @@ const InvestmentPage = () => {
                   <div className="flex justify-center items-center h-64">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-secondary mx-auto"></div>
-                      <p className="mt-4 text-gray-600">Loading investment opportunities...</p>
+                      <p className="mt-4 text-accent6">Loading investment opportunities...</p>
                     </div>
                   </div>
                 )}
@@ -899,8 +940,8 @@ const InvestmentPage = () => {
                         />
                       </svg>
                     </div>
-                    <h3 className="text-2xl font-semibold text-gray-700 mb-3">No matching projects found</h3>
-                    <p className="text-gray-500 max-w-md mx-auto mb-6">
+                    <h3 className="text-2xl font-semibold text-accent6 mb-3">No matching projects found</h3>
+                    <p className="text-accent6 max-w-md mx-auto mb-6">
                       Try adjusting your filter criteria or search term to find investment opportunities
                     </p>
                     <button
@@ -930,7 +971,7 @@ const InvestmentPage = () => {
                       <h3 className="text-2xl font-bold text-accent6">
                         Available Projects ({filteredProjects.length})
                       </h3>
-                      <p className="text-gray-600">Invest in coconut industry projects and earn returns</p>
+                      <p className="text-accent6">Invest in coconut industry projects and earn returns</p>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -953,7 +994,7 @@ const InvestmentPage = () => {
                                     ? "bg-green-100 text-green-800"
                                     : project.status === "funded"
                                     ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
+                                    : "bg-accent4 text-accent6"
                                 }`}
                               >
                                 {project.status === "active" ? "Funding" : "Funded"}
@@ -961,7 +1002,7 @@ const InvestmentPage = () => {
                             </div>
 
                             {/* Project Image/Placeholder */}
-                            <div className="h-48 bg-gradient-to-r from-primary/20 to-secondary/20 relative overflow-hidden">
+                            <div className="h-48 bg-gradient-to-r from-primary/10 to-secondary/10 relative overflow-hidden">
                               {project.imageUrl ? (
                                 <img src={project.imageUrl} alt={project.title} className="w-full h-full object-cover" />
                               ) : (
@@ -973,7 +1014,7 @@ const InvestmentPage = () => {
                                       clipRule="evenodd"
                                     />
                                   </svg>
-                                  <span className="text-sm">Coconut Project</span>
+                                  <span className="text-sm text-accent6">Coconut Project</span>
                                 </div>
                               )}
 
@@ -988,7 +1029,7 @@ const InvestmentPage = () => {
                             {/* Project Content */}
                             <div className="p-6">
                               {/* Location */}
-                              <div className="flex items-center text-gray-500 text-sm mb-3">
+                              <div className="flex items-center text-accent6 text-sm mb-3">
                                 <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                   <path
                                     fillRule="evenodd"
@@ -1003,13 +1044,13 @@ const InvestmentPage = () => {
                               <h3 className="text-xl font-bold text-accent6 mb-3 line-clamp-1">{project.title}</h3>
 
                               {/* Description */}
-                              <p className="text-gray-600 text-sm mb-4 line-clamp-2">{project.description}</p>
+                              <p className="text-accent6 text-sm mb-4 line-clamp-2">{project.description}</p>
 
                               {/* Tags */}
                               <div className="flex flex-wrap gap-2 mb-5">
                                 {project.tags &&
                                   project.tags.map((tag, index) => (
-                                    <span key={index} className="px-2.5 py-1 bg-accent5 text-accent2 text-xs rounded-full">
+                                    <span key={index} className="px-2.5 py-1 bg-accent5 text-accent6 text-xs rounded-full">
                                       {tag}
                                     </span>
                                   ))}
@@ -1028,12 +1069,12 @@ const InvestmentPage = () => {
                                   </span>
                                 </div>
                                 <div className="flex-1">
-                                  <p className="font-medium text-gray-800">{project.farmerName}</p>
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <p className="font-medium text-accent6">{project.farmerName}</p>
+                                  <div className="flex items-center gap-2 text-sm text-accent6">
                                     <span>{project.farmerExperience} years experience</span>
                                     <span>•</span>
                                     <div className="flex items-center">
-                                      <svg className="w-4 h-4 text-yellow-400 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                      <svg className="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                       </svg>
                                       {project.farmerRating}
@@ -1045,20 +1086,20 @@ const InvestmentPage = () => {
                               {/* Investment Progress */}
                               <div className="mb-6">
                                 <div className="flex justify-between text-sm mb-2">
-                                  <span className="text-gray-600">
+                                  <span className="text-accent6">
                                     Raised: <span className="font-bold text-primary">{formatCurrency(project.currentAmount)}</span>
                                   </span>
-                                  <span className="text-gray-600">
-                                    Target: <span className="font-bold">{formatCurrency(project.targetAmount)}</span>
+                                  <span className="text-accent6">
+                                    Target: <span className="font-bold text-accent6">{formatCurrency(project.targetAmount)}</span>
                                   </span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3">
+                                <div className="w-full bg-accent3 rounded-full h-3">
                                   <div
                                     className="bg-secondary h-3 rounded-full transition-all duration-700"
                                     style={{ width: `${Math.min(progress, 100)}%` }}
                                   ></div>
                                 </div>
-                                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                                <div className="flex justify-between text-xs text-accent6 mt-2">
                                   <span>{Math.round(progress)}% funded</span>
                                   <span className="font-semibold text-accent1">
                                     Remaining: {formatCurrency(fundingNeeded)}
@@ -1071,19 +1112,19 @@ const InvestmentPage = () => {
                                 <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                   <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                      <div className="text-sm text-gray-600 mb-1">Total Shares:</div>
-                                      <div className="font-bold text-gray-800">{project.totalUnits.toLocaleString()}</div>
+                                      <div className="text-sm text-accent6 mb-1">Total Shares:</div>
+                                      <div className="font-bold text-accent6">{project.totalUnits.toLocaleString()}</div>
                                     </div>
                                     <div>
-                                      <div className="text-sm text-gray-600 mb-1">Price Per Share:</div>
-                                      <div className="font-bold text-green-600">{formatCurrency(project.unitPrice)}</div>
+                                      <div className="text-sm text-accent6 mb-1">Price Per Share:</div>
+                                      <div className="font-bold text-accent1">{formatCurrency(project.unitPrice)}</div>
                                     </div>
                                     <div>
-                                      <div className="text-sm text-gray-600 mb-1">Available Shares:</div>
-                                      <div className="font-bold text-blue-600">{project.availableUnits.toLocaleString()}</div>
+                                      <div className="text-sm text-accent6 mb-1">Available Shares:</div>
+                                      <div className="font-bold text-primary">{project.availableUnits.toLocaleString()}</div>
                                     </div>
                                     <div>
-                                      <div className="text-sm text-gray-600 mb-1">Ownership per Share:</div>
+                                      <div className="text-sm text-accent6 mb-1">Ownership per Share:</div>
                                       <div className="font-bold text-accent1">{ownershipPerShare}%</div>
                                     </div>
                                   </div>
@@ -1094,11 +1135,11 @@ const InvestmentPage = () => {
                               <div className="grid grid-cols-2 gap-4 mb-6">
                                 <div className="text-center p-3 bg-gradient-to-br from-accent4 to-white rounded-lg border border-accent5">
                                   <p className="text-2xl font-bold text-accent1">{project.roi}%</p>
-                                  <p className="text-xs text-gray-600">Expected ROI</p>
+                                  <p className="text-xs text-accent6">Expected ROI</p>
                                 </div>
                                 <div className="text-center p-3 bg-gradient-to-br from-accent4 to-white rounded-lg border border-accent5">
                                   <p className="text-2xl font-bold text-primary">{project.duration}</p>
-                                  <p className="text-xs text-gray-600">Months Duration</p>
+                                  <p className="text-xs text-accent6">Months Duration</p>
                                 </div>
                               </div>
 
@@ -1109,7 +1150,7 @@ const InvestmentPage = () => {
                                 className={`w-full py-3.5 px-4 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
                                   project.status === "active"
                                     ? "bg-primary hover:bg-accent2 text-white shadow-md hover:shadow-lg"
-                                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-accent4 text-accent3 cursor-not-allowed"
                                 }`}
                               >
                                 {project.status === "active" ? (
@@ -1153,36 +1194,36 @@ const InvestmentPage = () => {
                   <h3 className="text-2xl font-bold text-accent6">My Investments</h3>
                   <button
                     onClick={fetchMyInvestments}
-                    className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    className="px-4 py-2 rounded-lg bg-accent4 text-accent6 hover:bg-accent5"
                   >
                     Refresh
                   </button>
                 </div>
 
-                {loadingMine && <p className="text-gray-600">Loading your investments...</p>}
+                {loadingMine && <p className="text-accent6">Loading your investments...</p>}
 
                 {!loadingMine && myInvestments.length === 0 && (
-                  <p className="text-gray-600">You haven't invested in any projects yet.</p>
+                  <p className="text-accent6">You haven't invested in any projects yet.</p>
                 )}
 
                 {!loadingMine && myInvestments.length > 0 && (
                   <div className="space-y-4">
                     {myInvestments.map((inv) => (
-                      <div key={inv.id} className="border rounded-lg p-4 flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+                      <div key={inv.id} className="border border-accent5 rounded-lg p-4 flex flex-col md:flex-row md:justify-between md:items-start gap-3">
                         <div>
-                          <p className="font-bold text-lg">{inv.project?.title || "Project"}</p>
-                          <p className="text-sm text-gray-600">Location: {inv.project?.location || "-"}</p>
-                          <p className="text-sm text-gray-600">Date: {inv.created_at}</p>
-                          <p className="text-sm text-gray-600">
+                          <p className="font-bold text-lg text-accent6">{inv.project?.title || "Project"}</p>
+                          <p className="text-sm text-accent6">Location: {inv.project?.location || "-"}</p>
+                          <p className="text-sm text-accent6">Date: {inv.created_at}</p>
+                          <p className="text-sm text-accent6">
                             Tx: <span className="font-mono">{inv.transaction_id || "N/A"}</span>
                           </p>
                           {inv.units && inv.total_units && (
                             <div className="mt-2">
-                              <p className="text-sm text-gray-600">
-                                Shares: <span className="font-semibold">{inv.units.toLocaleString()}</span> 
-                                {inv.unit_price && <span className="text-xs text-gray-500"> @ {formatCurrency(inv.unit_price)}/share</span>}
+                              <p className="text-sm text-accent6">
+                                Shares: <span className="font-semibold text-accent6">{inv.units.toLocaleString()}</span> 
+                                {inv.unit_price && <span className="text-xs text-accent3"> @ {formatCurrency(inv.unit_price)}/share</span>}
                               </p>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-accent6">
                                 Ownership: <span className="font-semibold text-accent1">
                                   {((inv.units / inv.total_units) * 100).toFixed(2)}%
                                 </span>
@@ -1192,15 +1233,15 @@ const InvestmentPage = () => {
                         </div>
 
                         <div className="md:text-right">
-                          <p className="font-bold">{formatCurrency(inv.amount)}</p>
-                          <p className="text-sm">
-                            Status: <span className="font-semibold">{inv.status}</span>
+                          <p className="font-bold text-accent6">{formatCurrency(inv.amount)}</p>
+                          <p className="text-sm text-accent6">
+                            Status: <span className="font-semibold text-accent6">{inv.status}</span>
                           </p>
-                          <p className="text-sm">
-                            Payment: <span className="font-semibold">{inv.payment_status || "-"}</span>
+                          <p className="text-sm text-accent6">
+                            Payment: <span className="font-semibold text-accent6">{inv.payment_status || "-"}</span>
                           </p>
                           {inv.investment_type === "unit_purchase" && (
-                            <p className="text-sm text-green-600 font-semibold">Share Investment</p>
+                            <p className="text-sm text-accent1 font-semibold">Share Investment</p>
                           )}
                         </div>
                       </div>
@@ -1215,37 +1256,37 @@ const InvestmentPage = () => {
         {/* Investment Guide */}
         <div className="mt-12 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl p-8 border border-accent5">
           <h3 className="text-3xl font-bold text-accent6 mb-2 text-center">How Investing Works</h3>
-          <p className="text-gray-600 text-center mb-8 max-w-2xl mx-auto">
+          <p className="text-accent6 text-center mb-8 max-w-2xl mx-auto">
             Transparent, secure investment process powered by blockchain smart contracts
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center p-6 bg-white rounded-xl shadow-sm">
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-accent5">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-primary">1</span>
               </div>
               <h4 className="text-xl font-semibold text-accent6 mb-3">Browse & Select</h4>
-              <p className="text-gray-600">
+              <p className="text-accent6">
                 Explore verified coconut industry projects. Review details, ROI projections, and farmer profiles.
               </p>
             </div>
 
-            <div className="text-center p-6 bg-white rounded-xl shadow-sm">
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-accent5">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-primary">2</span>
               </div>
               <h4 className="text-xl font-semibold text-accent6 mb-3">Invest Securely</h4>
-              <p className="text-gray-600">
+              <p className="text-accent6">
                 Choose your investment amount or buy shares. Pay securely via PayHere or Stripe. Get instant confirmation.
               </p>
             </div>
 
-            <div className="text-center p-6 bg-white rounded-xl shadow-sm">
+            <div className="text-center p-6 bg-white rounded-xl shadow-sm border border-accent5">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-primary">3</span>
               </div>
               <h4 className="text-xl font-semibold text-accent6 mb-3">Track & Earn</h4>
-              <p className="text-gray-600">
+              <p className="text-accent6">
                 Monitor project progress. Receive transparent profit sharing via smart contracts. Support grows.
               </p>
             </div>
@@ -1264,7 +1305,7 @@ const InvestmentPage = () => {
         </svg>
         
         {/* Tooltip */}
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-accent6 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
           Create New Project
         </div>
       </button>
@@ -1283,11 +1324,11 @@ const InvestmentPage = () => {
             <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up">
               <div className="p-6">
                 {/* Panel Header */}
-                <div className="flex justify-between items-center mb-6 pb-4 border-b">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b border-accent5">
                   <h3 className="text-2xl font-bold text-accent6">Create New Project</h3>
                   <button 
                     onClick={handleCloseCreatePanel}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-accent3 hover:text-accent6"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1303,14 +1344,14 @@ const InvestmentPage = () => {
                       
                       {/* Project Title */}
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-accent6 mb-2">
                           Project Title *
                         </label>
                         <input
                           type="text"
                           value={newProject.title}
                           onChange={(e) => setNewProject({...newProject, title: e.target.value})}
-                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           placeholder="e.g., Organic Coconut Oil Production Unit"
                           required
                         />
@@ -1318,13 +1359,13 @@ const InvestmentPage = () => {
 
                       {/* Project Description */}
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-accent6 mb-2">
                           Project Description *
                         </label>
                         <textarea
                           value={newProject.description}
                           onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           rows="4"
                           placeholder="Describe your project in detail..."
                           required
@@ -1334,13 +1375,13 @@ const InvestmentPage = () => {
                       {/* Category and Location */}
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Category *
                           </label>
                           <select
                             value={newProject.category}
                             onChange={(e) => setNewProject({...newProject, category: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           >
                             {categories.filter(cat => cat !== "All Categories").map(category => (
                               <option key={category} value={category}>{category}</option>
@@ -1349,13 +1390,13 @@ const InvestmentPage = () => {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Location *
                           </label>
                           <select
                             value={newProject.location}
                             onChange={(e) => setNewProject({...newProject, location: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           >
                             {locations.filter(loc => loc !== "All Locations").map(location => (
                               <option key={location} value={location}>{location}</option>
@@ -1366,14 +1407,14 @@ const InvestmentPage = () => {
 
                       {/* Tags */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-sm font-medium text-accent6 mb-2">
                           Tags (comma separated)
                         </label>
                         <input
                           type="text"
                           value={newProject.tags}
                           onChange={(e) => setNewProject({...newProject, tags: e.target.value})}
-                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           placeholder="e.g., Organic, Sustainable, Export"
                         />
                       </div>
@@ -1382,24 +1423,24 @@ const InvestmentPage = () => {
                     {/* Farmer Information */}
                     <div>
                       <h4 className="font-bold text-accent6 mb-4 text-lg">Farmer/Entrepreneur Information</h4>
-                      <div className="bg-accent4 p-4 rounded-lg">
+                      <div className="bg-accent4 p-4 rounded-lg border border-accent5">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-accent6 mb-2">
                               Name *
                             </label>
                             <input
                               type="text"
                               value={newProject.farmer_name}
                               onChange={(e) => setNewProject({...newProject, farmer_name: e.target.value})}
-                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                               placeholder="Your name"
                               required
                             />
                           </div>
 
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-medium text-accent6 mb-2">
                               Years of Experience *
                             </label>
                             <input
@@ -1407,7 +1448,7 @@ const InvestmentPage = () => {
                               min="0"
                               value={newProject.farmer_experience}
                               onChange={(e) => setNewProject({...newProject, farmer_experience: e.target.value})}
-                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                              className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                               placeholder="e.g., 5"
                               required
                             />
@@ -1425,7 +1466,7 @@ const InvestmentPage = () => {
                       {/* ROI, Duration, Target Amount */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Expected ROI (%) *
                           </label>
                           <input
@@ -1435,13 +1476,13 @@ const InvestmentPage = () => {
                             step="0.5"
                             value={newProject.roi}
                             onChange={(e) => setNewProject({...newProject, roi: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Duration (Months) *
                           </label>
                           <input
@@ -1450,13 +1491,13 @@ const InvestmentPage = () => {
                             max="60"
                             value={newProject.duration}
                             onChange={(e) => setNewProject({...newProject, duration: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Target Amount (LKR) *
                           </label>
                           <input
@@ -1465,7 +1506,7 @@ const InvestmentPage = () => {
                             step="10000"
                             value={newProject.target_amount}
                             onChange={(e) => setNewProject({...newProject, target_amount: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                             placeholder="e.g., 5000000"
                             required
                           />
@@ -1475,7 +1516,7 @@ const InvestmentPage = () => {
                       {/* Total Shares for Equity Projects */}
                       {newProject.investment_type === "equity" && (
                         <div className="mb-6">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Total Number of Shares *
                           </label>
                           <input
@@ -1484,11 +1525,11 @@ const InvestmentPage = () => {
                             step="100"
                             value={newProject.total_units}
                             onChange={(e) => setNewProject({...newProject, total_units: e.target.value})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                             placeholder="e.g., 1000 shares"
                             required
                           />
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-accent3 mt-1">
                             Price per share will be calculated automatically: {newProject.target_amount && newProject.total_units ? 
                               formatCurrency(Math.round(newProject.target_amount / newProject.total_units)) : '0'} per share
                           </p>
@@ -1498,7 +1539,7 @@ const InvestmentPage = () => {
                       {/* Investment Type and Risk Level */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Investment Type *
                           </label>
                           <div className="space-y-2">
@@ -1511,7 +1552,7 @@ const InvestmentPage = () => {
                                 onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
                                 className="mr-2 text-secondary"
                               />
-                              <span>Equity (Share Investment)</span>
+                              <span className="text-accent6">Equity (Share Investment)</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -1522,13 +1563,13 @@ const InvestmentPage = () => {
                                 onChange={(e) => setNewProject({...newProject, investment_type: e.target.value})}
                                 className="mr-2 text-secondary"
                               />
-                              <span>Loan</span>
+                              <span className="text-accent6">Loan</span>
                             </label>
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Risk Level *
                           </label>
                           <div className="flex gap-2">
@@ -1543,7 +1584,7 @@ const InvestmentPage = () => {
                                       : risk === "medium"
                                       ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
                                       : "bg-red-100 text-red-800 border border-red-300"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    : "bg-accent4 text-accent6 hover:bg-accent5"
                                 }`}
                                 onClick={() => setNewProject({...newProject, risk_level: risk})}
                               >
@@ -1557,38 +1598,38 @@ const InvestmentPage = () => {
                       {/* File Uploads */}
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Project Image (Optional)
                           </label>
                           <input
                             type="file"
                             accept="image/*"
                             onChange={(e) => setNewProject({...newProject, image: e.target.files[0]})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Business Plan (PDF/DOC) (Optional)
                           </label>
                           <input
                             type="file"
                             accept=".pdf,.doc,.docx"
                             onChange={(e) => setNewProject({...newProject, business_plan: e.target.files[0]})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-accent6 mb-2">
                             Additional Documents (Optional)
                           </label>
                           <input
                             type="file"
                             accept=".pdf,.doc,.docx,.jpg,.png"
                             onChange={(e) => setNewProject({...newProject, additional_docs: e.target.files[0]})}
-                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                            className="w-full px-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                           />
                         </div>
                       </div>
@@ -1613,7 +1654,7 @@ const InvestmentPage = () => {
                     <div className="flex gap-3 pt-4">
                       <button
                         onClick={handleCloseCreatePanel}
-                        className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                        className="flex-1 py-3 px-4 border border-accent3 text-accent6 rounded-lg hover:bg-accent4 transition-colors font-medium"
                         disabled={creatingProject}
                       >
                         Cancel
@@ -1670,7 +1711,7 @@ const InvestmentPage = () => {
               {/* Modal Header */}
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-accent6">Confirm Investment</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setIsModalOpen(false)} className="text-accent3 hover:text-accent6">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -1678,9 +1719,9 @@ const InvestmentPage = () => {
               </div>
 
               {/* Project Info */}
-              <div className="mb-6 p-4 bg-accent4 rounded-xl">
+              <div className="mb-6 p-4 bg-accent4 rounded-xl border border-accent5">
                 <h4 className="font-bold text-lg text-accent6 mb-2">{selectedProject.title}</h4>
-                <div className="flex items-center text-sm text-gray-600 mb-2">
+                <div className="flex items-center text-sm text-accent6 mb-2">
                   <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
@@ -1690,8 +1731,8 @@ const InvestmentPage = () => {
                   </svg>
                   {selectedProject.location}
                 </div>
-                <div className="text-sm text-gray-600">
-                  Farmer: <span className="font-semibold">{selectedProject.farmerName}</span>
+                <div className="text-sm text-accent6">
+                  Farmer: <span className="font-semibold text-accent6">{selectedProject.farmerName}</span>
                 </div>
               </div>
 
@@ -1706,7 +1747,7 @@ const InvestmentPage = () => {
                       className={`flex-1 py-2 text-sm rounded-lg border ${
                         !groupInvestmentMode
                           ? "bg-primary text-white border-primary"
-                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                          : "border-accent3 text-accent6 hover:bg-accent4"
                       }`}
                     >
                       Fixed Amount
@@ -1717,7 +1758,7 @@ const InvestmentPage = () => {
                       className={`flex-1 py-2 text-sm rounded-lg border ${
                         groupInvestmentMode
                           ? "bg-primary text-white border-primary"
-                          : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                          : "border-accent3 text-accent6 hover:bg-accent4"
                       }`}
                     >
                       Buy Shares
@@ -1728,25 +1769,25 @@ const InvestmentPage = () => {
                 {groupInvestmentMode ? (
                   /* Stock/Unit Investment Mode */
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-accent6 mb-2">
                       Purchase Shares
                     </label>
                     <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <div className="text-xs text-gray-600">Share Price:</div>
-                          <div className="font-bold">{formatCurrency(unitPrice)}</div>
+                          <div className="text-xs text-accent6">Share Price:</div>
+                          <div className="font-bold text-accent6">{formatCurrency(unitPrice)}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600">Available Shares:</div>
-                          <div className="font-bold text-green-600">{availableUnits.toLocaleString()}</div>
+                          <div className="text-xs text-accent6">Available Shares:</div>
+                          <div className="font-bold text-accent1">{availableUnits.toLocaleString()}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600">Total Shares:</div>
-                          <div className="font-bold">{totalUnits.toLocaleString()}</div>
+                          <div className="text-xs text-accent6">Total Shares:</div>
+                          <div className="font-bold text-accent6">{totalUnits.toLocaleString()}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600">Ownership/Share:</div>
+                          <div className="text-xs text-accent6">Ownership/Share:</div>
                           <div className="font-bold text-accent1">
                             {totalUnits ? (100 / totalUnits).toFixed(4) : 0}%
                           </div>
@@ -1762,15 +1803,15 @@ const InvestmentPage = () => {
                           setUnitsToPurchase(newUnits);
                           updateAmountFromUnits(newUnits);
                         }}
-                        className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                        className="w-10 h-10 rounded-full border border-accent3 flex items-center justify-center hover:bg-accent4 text-accent6"
                       >
                         -
                       </button>
                       
                       <div className="flex-1">
                         <div className="text-center mb-2">
-                          <span className="text-2xl font-bold">{unitsToPurchase.toLocaleString()}</span>
-                          <span className="text-gray-600 ml-2">shares</span>
+                          <span className="text-2xl font-bold text-accent6">{unitsToPurchase.toLocaleString()}</span>
+                          <span className="text-accent6 ml-2">shares</span>
                         </div>
                         <input
                           type="range"
@@ -1782,7 +1823,7 @@ const InvestmentPage = () => {
                             setUnitsToPurchase(newUnits);
                             updateAmountFromUnits(newUnits);
                           }}
-                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                          className="w-full h-2 bg-accent3 rounded-lg appearance-none cursor-pointer"
                         />
                       </div>
                       
@@ -1793,14 +1834,14 @@ const InvestmentPage = () => {
                           setUnitsToPurchase(newUnits);
                           updateAmountFromUnits(newUnits);
                         }}
-                        className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                        className="w-10 h-10 rounded-full border border-accent3 flex items-center justify-center hover:bg-accent4 text-accent6"
                       >
                         +
                       </button>
                     </div>
                     
                     <div className="mt-4 text-center">
-                      <div className="text-sm text-gray-600 mb-1">Total Investment:</div>
+                      <div className="text-sm text-accent6 mb-1">Total Investment:</div>
                       <div className="text-2xl font-bold text-primary">
                         {formatCurrency(unitsToPurchase * unitPrice)}
                       </div>
@@ -1813,9 +1854,9 @@ const InvestmentPage = () => {
                   /* Original Fixed Amount Mode */
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Investment Amount (RS.)</label>
+                      <label className="block text-sm font-medium text-accent6 mb-2">Investment Amount (RS.)</label>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">RS.</span>
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-accent3">RS.</span>
                         <input
                           type="number"
                           min="100"
@@ -1828,10 +1869,10 @@ const InvestmentPage = () => {
                               updateUnitsFromAmount(amount);
                             }
                           }}
-                          className="w-full pl-10 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary"
+                          className="w-full pl-10 pr-4 py-3 border border-accent3 rounded-lg focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary text-accent6"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-accent3 mt-1">
                         Minimum: RS.100 • Maximum: {formatCurrency(selectedProject.targetAmount - selectedProject.currentAmount)}
                       </p>
                     </div>
@@ -1850,8 +1891,8 @@ const InvestmentPage = () => {
                           }}
                           className={`py-2 text-sm rounded-lg border ${
                             investmentAmount === amount
-                              ? "bg-secondary text-white border-secondary"
-                              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                              ? "bg-primary text-white border-primary"
+                              : "border-accent3 text-accent6 hover:bg-accent4"
                           }`}
                         >
                           {formatCurrency(amount)}
@@ -1863,25 +1904,25 @@ const InvestmentPage = () => {
               </div>
 
               {/* Investment Summary */}
-              <div className="bg-accent4 rounded-xl p-4 mb-6">
+              <div className="bg-accent4 rounded-xl p-4 mb-6 border border-accent5">
                 <h4 className="font-bold text-accent6 mb-3">Investment Summary</h4>
                 <div className="space-y-2">
                   {groupInvestmentMode ? (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Shares Purchased:</span>
-                        <span className="font-semibold">{unitsToPurchase.toLocaleString()} shares</span>
+                        <span className="text-accent6">Shares Purchased:</span>
+                        <span className="font-semibold text-accent6">{unitsToPurchase.toLocaleString()} shares</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Price Per Share:</span>
-                        <span className="font-semibold">{formatCurrency(unitPrice)}</span>
+                        <span className="text-accent6">Price Per Share:</span>
+                        <span className="font-semibold text-accent6">{formatCurrency(unitPrice)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Total Investment:</span>
-                        <span className="font-semibold">{formatCurrency(unitsToPurchase * unitPrice)}</span>
+                        <span className="text-accent6">Total Investment:</span>
+                        <span className="font-semibold text-accent6">{formatCurrency(unitsToPurchase * unitPrice)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Ownership Percentage:</span>
+                        <span className="text-accent6">Ownership Percentage:</span>
                         <span className="font-semibold text-accent1">
                           {((unitsToPurchase / totalUnits) * 100).toFixed(2)}%
                         </span>
@@ -1889,21 +1930,21 @@ const InvestmentPage = () => {
                     </>
                   ) : (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Investment Amount:</span>
-                      <span className="font-semibold">{formatCurrency(investmentAmount)}</span>
+                      <span className="text-accent6">Investment Amount:</span>
+                      <span className="font-semibold text-accent6">{formatCurrency(investmentAmount)}</span>
                     </div>
                   )}
                   
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Expected ROI:</span>
-                    <span className="font-semibold text-green-600">{selectedProject.roi}%</span>
+                    <span className="text-accent6">Expected ROI:</span>
+                    <span className="font-semibold text-accent1">{selectedProject.roi}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Investment Period:</span>
-                    <span className="font-semibold">{selectedProject.duration} months</span>
+                    <span className="text-accent6">Investment Period:</span>
+                    <span className="font-semibold text-accent6">{selectedProject.duration} months</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Projected Return:</span>
+                    <span className="text-accent6">Projected Return:</span>
                     <span className="font-semibold text-accent1">
                       {formatCurrency(
                         calculateExpectedReturn(
@@ -1914,9 +1955,9 @@ const InvestmentPage = () => {
                       )}
                     </span>
                   </div>
-                  <div className="pt-2 border-t border-gray-300 mt-2">
+                  <div className="pt-2 border-t border-accent5 mt-2">
                     <div className="flex justify-between font-bold">
-                      <span>Total Profit:</span>
+                      <span className="text-accent6">Total Profit:</span>
                       <span className="text-primary">
                         {formatCurrency(
                           parseFloat(
@@ -1935,24 +1976,24 @@ const InvestmentPage = () => {
 
               {/* Payment Method */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">Payment Method</label>
+                <label className="block text-sm font-medium text-accent6 mb-3">Payment Method</label>
                 <div className="space-y-3">
-                  <label className="flex items-center p-3 border border-accent3 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex items-center p-3 border border-accent3 rounded-lg cursor-pointer hover:bg-accent4">
                     <input type="radio" name="paymentMethod" value="payhere" defaultChecked className="mr-3 text-secondary" />
                     <div className="flex-1">
-                      <span className="font-medium">PayHere</span>
-                      <p className="text-sm text-gray-500">Secure Sri Lankan payment gateway</p>
+                      <span className="font-medium text-accent6">PayHere</span>
+                      <p className="text-sm text-accent6">Secure Sri Lankan payment gateway</p>
                     </div>
                     <div className="w-12 h-8 bg-blue-100 rounded flex items-center justify-center">
                       <span className="text-xs font-bold text-blue-800">PH</span>
                     </div>
                   </label>
 
-                  <label className="flex items-center p-3 border border-accent3 rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex items-center p-3 border border-accent3 rounded-lg cursor-pointer hover:bg-accent4">
                     <input type="radio" name="paymentMethod" value="stripe" className="mr-3 text-secondary" />
                     <div className="flex-1">
-                      <span className="font-medium">Credit/Debit Card</span>
-                      <p className="text-sm text-gray-500">Visa, MasterCard, Amex via Stripe</p>
+                      <span className="font-medium text-accent6">Credit/Debit Card</span>
+                      <p className="text-sm text-accent6">Visa, MasterCard, Amex via Stripe</p>
                     </div>
                     <div className="w-12 h-8 bg-purple-100 rounded flex items-center justify-center">
                       <span className="text-xs font-bold text-purple-800">CC</span>
@@ -1965,7 +2006,7 @@ const InvestmentPage = () => {
               <div className="mb-6">
                 <label className="flex items-start">
                   <input type="checkbox" className="mt-1 mr-3 text-secondary" defaultChecked />
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-accent6">
                     I agree to the Terms & Conditions and understand that this investment involves risks. Returns are projected and not guaranteed.
                     {groupInvestmentMode && " Profit distribution will be proportional to share ownership."}
                   </span>
@@ -1976,7 +2017,7 @@ const InvestmentPage = () => {
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  className="flex-1 py-3 px-4 border border-accent3 text-accent6 rounded-lg hover:bg-accent4 transition-colors font-medium"
                 >
                   Cancel
                 </button>
@@ -1993,7 +2034,7 @@ const InvestmentPage = () => {
               </div>
 
               {/* Security Note */}
-              <p className="text-xs text-gray-500 text-center mt-4">
+              <p className="text-xs text-accent3 text-center mt-4">
                 <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
