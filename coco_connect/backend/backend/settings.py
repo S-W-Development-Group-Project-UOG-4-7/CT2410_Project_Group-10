@@ -2,6 +2,7 @@
 Django settings for backend project.
 """
 
+import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -195,3 +196,13 @@ SIMPLE_JWT = {
 # DEFAULT PRIMARY KEY
 # -------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# -------------------------------------------------
+# PAYHERE (ENV)
+# -------------------------------------------------
+PAYHERE_MERCHANT_ID = os.getenv("PAYHERE_MERCHANT_ID", "")
+PAYHERE_MERCHANT_SECRET = os.getenv("PAYHERE_MERCHANT_SECRET", "")
+PAYHERE_CURRENCY = os.getenv("PAYHERE_CURRENCY", "LKR")
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "http://localhost:8000")

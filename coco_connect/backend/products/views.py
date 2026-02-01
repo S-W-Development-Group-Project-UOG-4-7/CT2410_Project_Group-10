@@ -1,9 +1,12 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import traceback
+import time
+import io
 
 from django.contrib.auth.models import Group
 from django.db import transaction
 
+from django.conf import settings
 from rest_framework.generics import ListAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -12,6 +15,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from django.http import HttpResponse
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -186,6 +191,100 @@ class CategoryListAPIView(APIView):
 # ======================================================
 # CHECKOUT (PAYHERE SANDBOX)
 # ======================================================
+def payhere_hash(merchant_id: str, order_id: str, amount: str, currency: str, merchant_secret: str) -> str:
+    secret_md5 = hashlib.md5(merchant_secret.encode("utf-8")).hexdigest().upper()
+    raw = f"{merchant_id}{order_id}{amount}{currency}{secret_md5}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest().upper()
+
+
+class PayHereInitFromCart(APIView):
+    """
+    Initialize PayHere payment for the current user's cart.
+    Returns a signed payment object for payhere.startPayment().
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        items_qs = cart.items.select_related("product")
+
+        if not items_qs.exists():
+            return Response({"detail": "Cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        merchant_id = settings.PAYHERE_MERCHANT_ID
+        merchant_secret = settings.PAYHERE_MERCHANT_SECRET
+        if not merchant_id or not merchant_secret:
+            return Response(
+                {"detail": "PayHere merchant settings are not configured."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        total = Decimal("0.00")
+        item_names = []
+        for it in items_qs:
+            total += (it.product.price * it.quantity)
+            if it.product and it.product.name:
+                item_names.append(it.product.name)
+
+        total = total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        amount_str = f"{total:.2f}"
+
+        order_id = f"CC_{request.user.id}_{int(time.time())}"
+        currency = getattr(settings, "PAYHERE_CURRENCY", "LKR")
+
+        hash_value = payhere_hash(merchant_id, order_id, amount_str, currency, merchant_secret)
+
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=request.user,
+                subtotal=total,
+                tax=Decimal("0.00"),
+                shipping=Decimal("0.00"),
+                total_amount=total,
+                currency=currency,
+                status="pending",
+                payment_provider="payhere",
+                payhere_order_id=order_id,
+                raw_payload={"items_label": ", ".join(item_names)[:255]},
+            )
+
+            OrderItem.objects.bulk_create(
+                [
+                    OrderItem(
+                        order=order,
+                        product=it.product,
+                        product_name=it.product.name,
+                        unit_price=it.product.price,
+                        quantity=it.quantity,
+                        line_total=it.product.price * it.quantity,
+                    )
+                    for it in items_qs
+                ]
+            )
+
+        payment = {
+            "sandbox": True,  # set False in production
+            "merchant_id": merchant_id,
+            "return_url": f"{settings.FRONTEND_URL}/payment/success?order_id={order_id}",
+            "cancel_url": f"{settings.FRONTEND_URL}/payment/cancel?order_id={order_id}",
+            "notify_url": f"{settings.BACKEND_PUBLIC_URL}/api/products/payhere/notify/",
+            "order_id": order_id,
+            "items": ", ".join(item_names)[:255],
+            "amount": amount_str,
+            "currency": currency,
+            "hash": hash_value,
+            "first_name": request.user.first_name or "Coco",
+            "last_name": request.user.last_name or "Customer",
+            "email": request.user.email or "noemail@example.com",
+            "phone": "0770000000",
+            "address": "N/A",
+            "city": "N/A",
+            "country": "Sri Lanka",
+        }
+
+        return Response(payment, status=status.HTTP_200_OK)
+
+
 class CheckoutCreateAPIView(APIView):
     """
     Create an order from the current user's cart after payment
@@ -227,7 +326,7 @@ class CheckoutCreateAPIView(APIView):
             shipping=shipping,
             total_amount=total_amount,
             currency=currency,
-            status="paid",
+            status="pending",
             payment_provider=payment_provider,
             payhere_order_id=payhere_order_id,
             payhere_payment_id=payhere_payment_id,
@@ -248,8 +347,6 @@ class CheckoutCreateAPIView(APIView):
             ]
         )
 
-        items.delete()
-
         return Response(
             {
                 "order_id": order.id,
@@ -258,6 +355,139 @@ class CheckoutCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+# ======================================================
+# PAYHERE MANUAL COMPLETE (CLIENT CONFIRM)
+# ======================================================
+class PayHereManualCompleteAPIView(APIView):
+    """
+    Mark order as paid after client completion (no signature check).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id: str):
+        order = Order.objects.filter(payhere_order_id=order_id, user=request.user).first()
+        if not order:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status != "paid":
+            order.status = "paid"
+            order.save(update_fields=["status", "updated_at"])
+
+        return Response({"detail": "OK", "status": order.status}, status=status.HTTP_200_OK)
+
+
+# ======================================================
+# PAYHERE INVOICE (DOWNLOAD)
+# ======================================================
+class PayHereInvoiceAPIView(APIView):
+    """
+    Download a PDF invoice for a paid order.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, order_id: str):
+        order = (
+            Order.objects.filter(payhere_order_id=order_id, user=request.user)
+            .prefetch_related("items")
+            .first()
+        )
+        if not order:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status != "paid":
+            return Response({"detail": "Invoice available after payment is verified."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from reportlab.pdfgen import canvas
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib import colors
+        except Exception:
+            return Response(
+                {"detail": "PDF generator not installed. Please install reportlab."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+
+        # Header
+        c.setFillColor(colors.HexColor("#0f5132"))
+        c.rect(0, height - 80, width, 80, stroke=0, fill=1)
+        c.setFillColor(colors.white)
+        c.setFont("Helvetica-Bold", 20)
+        c.drawString(40, height - 50, "COCOCONNECT")
+        c.setFont("Helvetica", 10)
+        c.drawString(40, height - 68, "Invoice")
+
+        # Meta
+        c.setFillColor(colors.black)
+        y = height - 110
+        c.setFont("Helvetica", 10)
+        c.drawString(40, y, f"Invoice ID: {order.payhere_order_id}")
+        c.drawString(320, y, f"Date: {order.updated_at.strftime('%Y-%m-%d %H:%M') if order.updated_at else ''}")
+        y -= 16
+        c.drawString(40, y, f"Billed To: {request.user.get_full_name() or request.user.email}")
+
+        # Table header
+        y -= 30
+        c.setFillColor(colors.HexColor("#f3f4f6"))
+        c.rect(40, y, width - 80, 22, stroke=0, fill=1)
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(50, y + 6, "Item")
+        c.drawString(330, y + 6, "Qty")
+        c.drawString(380, y + 6, "Unit Price")
+        c.drawString(480, y + 6, "Total")
+
+        # Table rows
+        y -= 18
+        c.setFont("Helvetica", 10)
+        for item in order.items.all():
+            c.drawString(50, y, item.product_name[:45])
+            c.drawRightString(360, y, str(item.quantity))
+            c.drawRightString(450, y, f"{item.unit_price:.2f}")
+            c.drawRightString(540, y, f"{item.line_total:.2f}")
+            y -= 16
+            if y < 140:
+                c.showPage()
+                y = height - 60
+
+        # Totals
+        y -= 8
+        c.setLineWidth(0.5)
+        c.line(320, y, width - 40, y)
+        y -= 16
+        c.setFont("Helvetica-Bold", 10)
+        c.drawRightString(450, y, "Subtotal:")
+        c.drawRightString(540, y, f"{order.subtotal:.2f}")
+        y -= 14
+        c.drawRightString(450, y, "Tax:")
+        c.drawRightString(540, y, f"{order.tax:.2f}")
+        y -= 14
+        c.drawRightString(450, y, "Shipping:")
+        c.drawRightString(540, y, f"{order.shipping:.2f}")
+        y -= 16
+        c.setFont("Helvetica-Bold", 11)
+        c.drawRightString(450, y, "Total:")
+        c.drawRightString(540, y, f"{order.total_amount:.2f} {order.currency}")
+
+        # Footer
+        c.setFont("Helvetica", 9)
+        c.setFillColor(colors.HexColor("#6b7280"))
+        c.drawString(40, 40, "Thank you for shopping with CocoConnect.")
+
+        c.showPage()
+        c.save()
+
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="invoice_{order.payhere_order_id}.pdf"'
+        return response
 
 
 # ======================================================
@@ -281,7 +511,7 @@ def payhere_notify(request):
     payhere_currency = data.get("payhere_currency")
     md5sig = data.get("md5sig")
 
-    merchant_secret = os.getenv("PAYHERE_MERCHANT_SECRET", "").strip()
+    merchant_secret = settings.PAYHERE_MERCHANT_SECRET or os.getenv("PAYHERE_MERCHANT_SECRET", "").strip()
 
     if merchant_secret:
         # PayHere signature verification
@@ -311,6 +541,11 @@ def payhere_notify(request):
         order.payhere_payment_id = payment_id
     order.raw_payload = data.dict() if hasattr(data, "dict") else dict(data)
     order.save(update_fields=["status", "payhere_payment_id", "raw_payload", "updated_at"])
+
+    if status_code == "2":
+        cart = Cart.objects.filter(user=order.user).first()
+        if cart:
+            cart.items.all().delete()
 
     return JsonResponse({"detail": "OK"}, status=200)
 
@@ -367,6 +602,18 @@ class CartDetailView(APIView):
 
 
 # ======================================================
+# CART – CLEAR ALL ITEMS
+# ======================================================
+class CartClearView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart.items.all().delete()
+        return Response({"detail": "Cart cleared."}, status=status.HTTP_200_OK)
+
+
+# ======================================================
 # CART ITEM – UPDATE / DELETE
 # ======================================================
 class CartItemUpdateDeleteView(UpdateAPIView, DestroyAPIView):
@@ -380,65 +627,78 @@ class CartItemUpdateDeleteView(UpdateAPIView, DestroyAPIView):
 # ======================================================
 # SELLER ORDERS (PRODUCT AUTHORS)
 # ======================================================
-class SellerOrdersAPIView(APIView):
+class MyOrdersAPIView(APIView):
+    """
+    Customer orders list for dashboard.
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        items = (
-            OrderItem.objects.select_related("order", "product", "order__user")
-            .filter(product__author=request.user)
-            .order_by("-order__created_at", "id")
+        qs = (
+            Order.objects.filter(user=request.user, status="paid")
+            .order_by("-created_at")
         )
 
         data = []
-        for item in items:
-            order = item.order
-            buyer = order.user
+        for order in qs:
             data.append(
                 {
-                    "id": item.id,
-                    "order_id": order.id,
-                    "order_status": order.status,
-                    "order_created_at": order.created_at.isoformat(),
-                    "buyer_email": buyer.email,
-                    "product_id": item.product_id,
-                    "product_name": item.product_name,
-                    "unit_price": str(item.unit_price),
-                    "quantity": item.quantity,
-                    "line_total": str(item.line_total),
-                    "supplied": bool(item.supplied),
-                    "supplied_at": item.supplied_at.isoformat() if item.supplied_at else None,
+                    "id": order.id,
+                    "created_at": order.created_at.isoformat(),
+                    "total_amount": float(order.total_amount),
+                    "status": "completed",
                 }
             )
 
         return Response(data, status=status.HTTP_200_OK)
 
-
-class SellerSupplyOrderItemAPIView(APIView):
+# ======================================================
+# ORDER DETAIL (CUSTOMER)
+# ======================================================
+class OrderDetailAPIView(APIView):
+    """
+    Customer order detail (with items).
+    """
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, item_id):
-        try:
-            item = OrderItem.objects.select_related("product").get(pk=item_id)
-        except OrderItem.DoesNotExist:
-            return Response({"detail": "Order item not found"}, status=status.HTTP_404_NOT_FOUND)
+    def get(self, request, order_id: int):
+        order = (
+            Order.objects.filter(id=order_id, user=request.user)
+            .prefetch_related("items")
+            .first()
+        )
+        if not order:
+            return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not item.product or item.product.author_id != request.user.id:
-            raise PermissionDenied("You can supply only your own order items.")
-
-        if not item.supplied:
-            item.supplied = True
-            item.supplied_at = timezone.now()
-            item.save(update_fields=["supplied", "supplied_at"])
+        items = []
+        for item in order.items.all():
+            items.append(
+                {
+                    "id": item.id,
+                    "product_name": item.product_name,
+                    "unit_price": float(item.unit_price),
+                    "quantity": item.quantity,
+                    "line_total": float(item.line_total),
+                }
+            )
 
         return Response(
             {
-                "id": item.id,
-                "supplied": item.supplied,
-                "supplied_at": item.supplied_at.isoformat() if item.supplied_at else None,
+                "id": order.id,
+                "order_id": order.payhere_order_id or f"#{order.id}",
+                "created_at": order.created_at.isoformat(),
+                "status": "completed" if order.status == "paid" else order.status,
+                "currency": order.currency,
+                "subtotal": float(order.subtotal),
+                "tax": float(order.tax),
+                "shipping": float(order.shipping),
+                "total_amount": float(order.total_amount),
+                "items": items,
             },
             status=status.HTTP_200_OK,
         )
+
+
 
 
 # ======================================================

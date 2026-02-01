@@ -53,7 +53,6 @@ const Product = () => {
   // Add Product modal
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isMyProductsOpen, setIsMyProductsOpen] = useState(false);
-  const [isOrdersOpen, setIsOrdersOpen] = useState(false);
 
   // ✅ Login gating popup + modals
   const [showLoginGate, setShowLoginGate] = useState(false);
@@ -407,12 +406,6 @@ const Product = () => {
               className="px-4 py-2 rounded-md bg-white/90 text-green-800 font-semibold shadow hover:bg-white transition"
             >
               My Products
-            </button>
-            <button
-              onClick={() => setIsOrdersOpen(true)}
-              className="px-4 py-2 rounded-md bg-green-700 text-white font-semibold shadow hover:bg-green-800 transition"
-            >
-              Orders
             </button>
           </div>
         )}
@@ -798,13 +791,6 @@ const Product = () => {
         access={access}
         apiBase={API}
         onUpdated={() => setReloadProductsTick((t) => t + 1)}
-      />
-
-      <SellerOrdersModal
-        isOpen={isOrdersOpen}
-        onClose={() => setIsOrdersOpen(false)}
-        access={access}
-        apiBase={API}
       />
 
       <AddProductModal
@@ -1312,185 +1298,6 @@ const MyProductsModal = ({ isOpen, onClose, user, access, apiBase, onUpdated }) 
                 </button>
               </div>
             </form>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SellerOrdersModal = ({ isOpen, onClose, access, apiBase }) => {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [supplyingId, setSupplyingId] = useState(null);
-
-  const fetchOrders = async () => {
-    if (!access) {
-      setError("Please login to view your orders.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`${apiBase}/api/products/seller-orders/`, {
-        headers: { Authorization: `Bearer ${access}` },
-      });
-      if (!res.ok) throw new Error("Failed to load orders.");
-      const data = await res.json();
-      setItems(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setError(String(e.message || e));
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) fetchOrders();
-  }, [isOpen]);
-
-  const handleSupply = async (itemId) => {
-    if (!access) {
-      setError("Please login to supply orders.");
-      return;
-    }
-    setSupplyingId(itemId);
-    setError("");
-    try {
-      const res = await fetch(
-        `${apiBase}/api/products/seller-orders/${itemId}/supply/`,
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${access}` },
-        }
-      );
-      if (!res.ok) {
-        let errDetail = null;
-        try {
-          const body = await res.json();
-          errDetail = body.detail || body.error || JSON.stringify(body);
-        } catch {
-          errDetail = await res.text();
-        }
-        throw new Error(errDetail || "Failed to update item.");
-      }
-      const updated = await res.json();
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === itemId
-            ? { ...it, supplied: updated.supplied, supplied_at: updated.supplied_at }
-            : it
-        )
-      );
-    } catch (e) {
-      setError(String(e.message || e));
-    } finally {
-      setSupplyingId(null);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-
-      <div className="relative w-full max-w-5xl bg-[#fffaf3] rounded-2xl shadow-2xl overflow-hidden border border-black/10">
-        <div className="flex items-center justify-between p-5 border-b border-black/10 bg-white/70">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-[#2b221a]">Orders</h2>
-            <p className="text-sm text-green-800 mt-1">
-              New orders for your products
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={fetchOrders}
-              className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-white"
-            >
-              Refresh
-            </button>
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-red-600 border border-red-700 hover:bg-red-700 transition flex items-center justify-center text-white"
-              aria-label="Close"
-              title="Close"
-            >
-              <span className="text-xl leading-none">x</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="text-center text-gray-600">Loading orders...</div>
-          ) : items.length === 0 ? (
-            <div className="text-center text-gray-600">No orders yet.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-100 text-sm text-gray-600">
-                  <tr>
-                    <th className="px-4 py-3">Order</th>
-                    <th className="px-4 py-3">Product</th>
-                    <th className="px-4 py-3">Qty</th>
-                    <th className="px-4 py-3">Buyer</th>
-                    <th className="px-4 py-3">Total</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="border-t hover:bg-gray-50 transition">
-                      <td className="px-4 py-3 font-medium">#{item.order_id}</td>
-                      <td className="px-4 py-3">{item.product_name}</td>
-                      <td className="px-4 py-3">{item.quantity}</td>
-                      <td className="px-4 py-3">{item.buyer_email}</td>
-                      <td className="px-4 py-3">
-                        LKR {Number(item.line_total || 0).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        {item.supplied ? (
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                            Supplied
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                            Pending
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          disabled={item.supplied || supplyingId === item.id}
-                          onClick={() => handleSupply(item.id)}
-                          className={`px-3 py-1 rounded-md text-sm font-semibold ${
-                            item.supplied
-                              ? "bg-slate-200 text-slate-600 cursor-not-allowed"
-                              : "bg-green-700 text-white hover:bg-green-800"
-                          }`}
-                        >
-                          {supplyingId === item.id
-                            ? "Updating..."
-                            : item.supplied
-                            ? "Supplied"
-                            : "Mark Supplied"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           )}
         </div>
       </div>

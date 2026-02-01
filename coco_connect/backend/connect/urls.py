@@ -18,6 +18,8 @@ from .views import (
     
     # ✅ ADMIN USER ROLES VIEW
     admin_user_roles,
+    payhere_init_idea,
+    my_orders,
 )
 
 router = DefaultRouter()
@@ -30,6 +32,8 @@ urlpatterns = [
     # BASIC
     # =========================
     path("hello/", views.hello_coco, name="hello_coco"),
+    path("payhere/init-idea/", payhere_init_idea, name="payhere-init-idea"),
+    path("orders/", my_orders, name="my-orders"),
 
     # =========================
     # AUTH (SESSION)

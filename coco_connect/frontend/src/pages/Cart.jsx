@@ -3,15 +3,21 @@ import { toast } from "react-toastify";
 import shopBg from "../assets/shopbg.png";
 import { useCart } from "../context/CartContext";
 import PayHerePayment from "../components/PayHerePayment";
+import LoginModal from "../components/LoginModal";
+import RegisterModal from "../components/RegisterModal";
+import { useNavigate } from "react-router-dom";
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showPayment, setShowPayment] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   const { setCartCount } = useCart();
+  const navigate = useNavigate();
 
-  const token = localStorage.getItem("access");
+  const [token, setToken] = useState(() => localStorage.getItem("access"));
 
   const shipping = 12;
   const taxRate = 0.08;
@@ -22,6 +28,14 @@ const Cart = () => {
   const errorShown = React.useRef(false);
 
   const fetchCart = async () => {
+    if (!token) {
+      setCartItems([]);
+      setCartCount(0);
+      setLoading(false);
+      setIsLoginOpen(true);
+      return;
+    }
+
     try {
       const res = await fetch("http://localhost:8000/api/products/cart/", {
         headers: {
@@ -30,7 +44,10 @@ const Cart = () => {
       });
 
       if (res.status === 401) {
+        setCartItems([]);
+        setCartCount(0);
         setLoading(false);
+        setIsLoginOpen(true);
         return;
       }
 
@@ -56,7 +73,28 @@ const Cart = () => {
 
   useEffect(() => {
     fetchCart();
-  }, []);
+  }, [token]);
+
+  useEffect(() => {
+    const syncAuth = () => {
+      const nextToken = localStorage.getItem("access");
+      setToken(nextToken);
+      if (!nextToken) {
+        setCartItems([]);
+        setCartCount(0);
+        setLoading(false);
+        setIsLoginOpen(true);
+      }
+    };
+
+    window.addEventListener("auth:changed", syncAuth);
+    window.addEventListener("storage", syncAuth);
+
+    return () => {
+      window.removeEventListener("auth:changed", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, [setCartCount]);
 
   // =========================
   // UPDATE QUANTITY
@@ -119,15 +157,38 @@ const Cart = () => {
   }
 
   return (
-    <div
-      className="relative min-h-screen"
-      style={{
-        backgroundImage: `url(${shopBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
-    >
+    <>
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onOpenRegister={() => {
+          setIsLoginOpen(false);
+          setIsRegisterOpen(true);
+        }}
+        onAuthSuccess={() => {
+          setIsLoginOpen(false);
+          setToken(localStorage.getItem("access"));
+          fetchCart();
+        }}
+      />
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onOpenLogin={() => {
+          setIsRegisterOpen(false);
+          setIsLoginOpen(true);
+        }}
+      />
+
+      <div
+        className="relative min-h-screen"
+        style={{
+          backgroundImage: `url(${shopBg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+        }}
+      >
       {/* ===== GRADIENT VEIL ===== */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -265,11 +326,14 @@ const Cart = () => {
           authToken={token}
           onClose={() => setShowPayment(false)}
           onSuccess={() => {
-            fetchCart();
+            setCartItems([]);
+            setCartCount(0);
+            navigate("/customer/orders");
           }}
         />
       )}
     </div>
+    </>
   );
 };
 

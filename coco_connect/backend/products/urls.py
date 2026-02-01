@@ -10,12 +10,16 @@ from .views import (
     NewsListAPIView,
     CategoryListAPIView,
     CheckoutCreateAPIView,
+    PayHereInitFromCart,
+    PayHereManualCompleteAPIView,
+    PayHereInvoiceAPIView,
     payhere_notify,
     AddToCartView,
     CartDetailView,
+    CartClearView,
     CartItemUpdateDeleteView,
-    SellerOrdersAPIView,
-    SellerSupplyOrderItemAPIView,
+    MyOrdersAPIView,
+    OrderDetailAPIView,
 )
 
 app_name = "products"
@@ -59,24 +63,24 @@ urlpatterns = [
     path("news/", NewsListAPIView.as_view(), name="news-list"),
     path("categories/", CategoryListAPIView.as_view(), name="category-list"),
     path("checkout/", CheckoutCreateAPIView.as_view(), name="checkout-create"),
+    path("payhere/init-cart/", PayHereInitFromCart.as_view(), name="payhere-init-cart"),
+    path("payhere/complete/<str:order_id>/", PayHereManualCompleteAPIView.as_view(), name="payhere-complete"),
+    path("payhere/invoice/<str:order_id>/", PayHereInvoiceAPIView.as_view(), name="payhere-invoice"),
     path("payhere/notify/", payhere_notify, name="payhere-notify"),
 
     # ----- Cart (AUTH REQUIRED) -----
     path("cart/add/", AddToCartView.as_view(), name="cart-add"),
     path("cart/", CartDetailView.as_view(), name="cart-detail"),
+    path("cart/clear/", CartClearView.as_view(), name="cart-clear"),
     path(
         "cart/item/<int:pk>/",
         CartItemUpdateDeleteView.as_view(),
         name="cart-item-update-delete",
     ),
 
-    # ----- Seller Orders -----
-    path("seller-orders/", SellerOrdersAPIView.as_view(), name="seller-orders"),
-    path(
-        "seller-orders/<int:item_id>/supply/",
-        SellerSupplyOrderItemAPIView.as_view(),
-        name="seller-order-supply",
-    ),
+    # ----- Customer Orders -----
+    path("orders/", MyOrdersAPIView.as_view(), name="my-orders"),
+    path("orders/<int:order_id>/", OrderDetailAPIView.as_view(), name="order-detail"),
 
     # ----- Health -----
     path("health/", health_check, name="health-check"),

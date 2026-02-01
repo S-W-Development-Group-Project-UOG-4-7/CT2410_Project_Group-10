@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.db.models import Q, Sum
 from django.utils import timezone
+from django.conf import settings
 from django.db import transaction
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -18,6 +19,8 @@ import json
 import decimal
 import random
 import string
+import hashlib
+import time
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import (
@@ -45,6 +48,7 @@ from .models import (
     News,
     SimilarityAlert,
 )
+from products.models import Order
 from .serializers import (
     IdeaSerializer,
     NewsSerializer,
@@ -91,11 +95,101 @@ def check_auth(request):
     return None
 
 # =================================================
+# PAYHERE HELPERS
+# =================================================
+def payhere_hash(merchant_id: str, order_id: str, amount: str, currency: str, merchant_secret: str) -> str:
+    secret_md5 = hashlib.md5(merchant_secret.encode("utf-8")).hexdigest().upper()
+    raw = f"{merchant_id}{order_id}{amount}{currency}{secret_md5}"
+    return hashlib.md5(raw.encode("utf-8")).hexdigest().upper()
+
+# =================================================
 # BASIC API
 # =================================================
 @csrf_exempt
 def hello_coco(request):
     return JsonResponse({"message": "CocoConnect API is running"})
+
+# =================================================
+# PAYHERE INIT (IDEA PURCHASE)
+# =================================================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def payhere_init_idea(request):
+    data = request.data or {}
+    idea_id = data.get("idea_id")
+
+    if not idea_id:
+        return Response({"detail": "idea_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        idea = Idea.objects.get(pk=idea_id)
+    except Idea.DoesNotExist:
+        return Response({"detail": "Idea not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if not idea.is_paid or not idea.price or decimal.Decimal(idea.price) <= decimal.Decimal("0"):
+        return Response({"detail": "This idea does not require payment."}, status=status.HTTP_400_BAD_REQUEST)
+
+    merchant_id = settings.PAYHERE_MERCHANT_ID
+    merchant_secret = settings.PAYHERE_MERCHANT_SECRET
+    if not merchant_id or not merchant_secret:
+        return Response(
+            {"detail": "PayHere merchant settings are not configured."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    amount = decimal.Decimal(idea.price).quantize(decimal.Decimal("0.01"))
+    amount_str = f"{amount:.2f}"
+    currency = getattr(settings, "PAYHERE_CURRENCY", "LKR")
+
+    order_id = f"IDEA_{idea.id}_{int(time.time())}"
+    hash_value = payhere_hash(merchant_id, order_id, amount_str, currency, merchant_secret)
+
+    payment = {
+        "sandbox": True,  # set False in production
+        "merchant_id": merchant_id,
+        "return_url": f"{settings.FRONTEND_URL}/payment/success?order_id={order_id}",
+        "cancel_url": f"{settings.FRONTEND_URL}/payment/cancel?order_id={order_id}",
+        "notify_url": f"{settings.BACKEND_PUBLIC_URL}/api/products/payhere/notify/",
+        "order_id": order_id,
+        "items": (idea.title or "Idea Purchase")[:255],
+        "amount": amount_str,
+        "currency": currency,
+        "hash": hash_value,
+        "first_name": request.user.first_name or "Coco",
+        "last_name": request.user.last_name or "Customer",
+        "email": request.user.email or "noemail@example.com",
+        "phone": "0770000000",
+        "address": "N/A",
+        "city": "N/A",
+        "country": "Sri Lanka",
+    }
+
+    return Response(payment, status=status.HTTP_200_OK)
+
+# =================================================
+# ORDERS (CUSTOMER DASHBOARD)
+# =================================================
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_orders(request):
+    qs = (
+        Order.objects.filter(user=request.user)
+        .order_by("-created_at")
+    )
+
+    data = []
+    for order in qs:
+        status_label = "completed" if order.status == "paid" else order.status
+        data.append(
+            {
+                "id": order.id,
+                "created_at": order.created_at.isoformat(),
+                "total_amount": float(order.total_amount),
+                "status": status_label,
+            }
+        )
+
+    return Response(data, status=status.HTTP_200_OK)
 
 # =================================================
 # REGISTER

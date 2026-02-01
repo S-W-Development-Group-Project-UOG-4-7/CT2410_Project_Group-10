@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 
 const PAYHERE_SCRIPT = "https://www.payhere.lk/lib/payhere.js";
+const API_BASE = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE) || "http://127.0.0.1:8000/api";
 
 export default function PayHerePayment({
   idea,
@@ -16,7 +17,6 @@ export default function PayHerePayment({
 }) {
   const [loading, setLoading] = useState(false);
   const [payhereReady, setPayhereReady] = useState(false);
-  const [merchantIdInput, setMerchantIdInput] = useState("");
   const isCartCheckout = Array.isArray(cartItems) && cartItems.length > 0;
   const amount = isCartCheckout
     ? Number(totalAmount || 0)
@@ -36,55 +36,58 @@ export default function PayHerePayment({
     }
     return idea?.title || "Purchase";
   }, [cartItems, idea, isCartCheckout]);
-  const envMerchantId =
-    (typeof import.meta !== "undefined" && import.meta.env?.VITE_PAYHERE_MERCHANT_ID) ||
-    "";
-  const merchantId = (envMerchantId || merchantIdInput || "").trim();
-  const checkoutSubtotal = Number(subtotal || 0);
-  const checkoutTax = Number(tax || 0);
-  const checkoutShipping = Number(shipping || 0);
 
-  useEffect(() => {
-    if (envMerchantId) return;
-    const saved = localStorage.getItem("payhere_merchant_id") || "";
-    if (saved) setMerchantIdInput(saved);
-  }, [envMerchantId]);
-
-  const finalizeCheckout = async (orderId) => {
-    const token = authToken || localStorage.getItem("access");
-    if (!token) {
-      toast.error("Please sign in to complete checkout.");
-      return;
-    }
-
+  const downloadInvoice = async (orderId, token) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/products/checkout/", {
-        method: "POST",
+      const res = await fetch(`${API_BASE}/products/payhere/invoice/${orderId}/`, {
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          payment_provider: "payhere",
-          payhere_order_id: orderId,
-          total_amount: amount,
-          currency: "LKR",
-          subtotal: checkoutSubtotal,
-          tax: checkoutTax,
-          shipping: checkoutShipping,
-          items_label: itemsLabel,
-        }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to save checkout details.");
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "Invoice download failed.");
       }
 
-      return await response.json();
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice_${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("Checkout save error:", err);
-      toast.error("Payment received, but checkout save failed.");
-      return null;
+      console.error("Invoice download error:", err);
+      toast.error(err?.message || "Invoice download failed.");
+    }
+  };
+
+  const clearCart = async (token) => {
+    try {
+      await fetch(`${API_BASE}/products/cart/clear/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (err) {
+      console.error("Cart clear error:", err);
+    }
+  };
+
+  const markPaid = async (orderId, token) => {
+    try {
+      await fetch(`${API_BASE}/products/payhere/complete/${orderId}/`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (err) {
+      console.error("Mark paid error:", err);
     }
   };
 
@@ -107,7 +110,7 @@ export default function PayHerePayment({
     };
   }, []);
 
-  const startPayment = () => {
+  const startPayment = async () => {
     if (!window.payhere) {
       toast.info("PayHere is still loading. Please try again in a moment.");
       return;
@@ -118,48 +121,59 @@ export default function PayHerePayment({
       return;
     }
 
-    if (!merchantId || merchantId === "YOUR_MERCHANT_ID") {
-      toast.error("Please set your PayHere merchant ID to continue.");
+    setLoading(true);
+
+    const token = authToken || localStorage.getItem("access");
+    if (!token) {
+      setLoading(false);
+      toast.error("Please sign in to continue.");
       return;
     }
 
-    setLoading(true);
+    const endpoint = isCartCheckout
+      ? `${API_BASE}/products/payhere/init-cart/`
+      : `${API_BASE}/payhere/init-idea/`;
 
-    const payment = {
-      sandbox: true, // 🔴 set false for LIVE
-      merchant_id: merchantId,
+    const payload = isCartCheckout ? {} : { idea_id: idea?.id };
 
-      return_url: undefined,
-      cancel_url: undefined,
-      notify_url: "http://127.0.0.1:8000/api/payhere/notify/",
+    let payment = null;
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-      order_id: isCartCheckout
-        ? `CART_${Date.now()}`
-        : `IDEA_${idea?.id || "NA"}_${Date.now()}`,
-      items: itemsLabel,
-      amount,
-      currency: "LKR",
+      if (!response.ok) {
+        const err = await response.json().catch(() => null);
+        throw new Error(err?.detail || "Payment init failed.");
+      }
 
-      first_name: "Buyer",
-      last_name: "User",
-      email: "buyer@example.com",
-      phone: "0771234567",
-      address: "Sri Lanka",
-      city: "Colombo",
-      country: "Sri Lanka",
-    };
+      payment = await response.json();
+    } catch (err) {
+      console.error("PayHere init error:", err);
+      toast.error(err?.message || "Payment init failed.");
+      setLoading(false);
+      return;
+    }
 
     // -------------------------
     // PayHere event handlers
     // -------------------------
     window.payhere.onCompleted = async function (orderId) {
       setLoading(false);
-      toast.success("Payment successful.");
+      toast.info("Payment completed. Verifying...");
 
       // callback for backend unlock / confirmation
       if (isCartCheckout) {
-        const saved = await finalizeCheckout(orderId);
-        onSuccess?.(saved || orderId);
+        toast.success("Payment completed.");
+        await markPaid(orderId, token);
+        await clearCart(token);
+        await downloadInvoice(orderId, token);
+        onSuccess?.(orderId);
         onClose();
         return;
       }
@@ -214,25 +228,6 @@ export default function PayHerePayment({
             LKR {amount.toFixed(2)}
           </p>
         </div>
-
-        {!envMerchantId && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              PayHere Merchant ID (Sandbox)
-            </label>
-            <input
-              type="text"
-              value={merchantIdInput}
-              onChange={(e) => {
-                const value = e.target.value;
-                setMerchantIdInput(value);
-                localStorage.setItem("payhere_merchant_id", value);
-              }}
-              placeholder="Enter your PayHere merchant ID"
-              className="w-full rounded-lg px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-600"
-            />
-          </div>
-        )}
 
         {/* PAY BUTTON */}
         <button

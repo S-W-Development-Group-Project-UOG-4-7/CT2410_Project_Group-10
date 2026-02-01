@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+const API_BASE =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE) ||
+  "http://127.0.0.1:8000/api";
+
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +23,7 @@ export default function Orders() {
         return;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/orders/", {
+      const response = await fetch(`${API_BASE}/products/orders/`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -80,19 +84,13 @@ export default function Orders() {
     <div className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">My Orders</h1>
-        <Link
-          to="/dashboard"
-          className="text-sm text-gray-600 hover:underline"
-        >
-          ← Back to Dashboard
-        </Link>
       </div>
 
       {orders.length === 0 ? (
         <div className="bg-white p-6 rounded shadow text-center">
           <p className="text-gray-600 mb-4">You haven’t placed any orders yet.</p>
           <Link
-            to="/products"
+            to="/shop"
             className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
           >
             Start Shopping

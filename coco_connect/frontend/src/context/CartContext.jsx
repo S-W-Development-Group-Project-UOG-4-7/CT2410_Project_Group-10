@@ -54,6 +54,27 @@ export const CartProvider = ({ children }) => {
     loadCart();
   }, [loadCart]);
 
+  // Keep cart count in sync on login/logout (same tab + cross-tab)
+  useEffect(() => {
+    const syncAuth = () => {
+      const token = getToken();
+      if (!token) {
+        setCartCount(0);
+        setLoading(false);
+        return;
+      }
+      loadCart();
+    };
+
+    window.addEventListener("auth:changed", syncAuth);
+    window.addEventListener("storage", syncAuth);
+
+    return () => {
+      window.removeEventListener("auth:changed", syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, [loadCart]);
+
   // =========================
   // ADD TO CART
   // =========================
@@ -67,7 +88,7 @@ export const CartProvider = ({ children }) => {
     const token = getToken();
 
     if (!token) {
-      toast.info("Please login to add items to cart 🔐");
+      toast.info("Please login to add items to cart ");
       return;
     }
 
@@ -99,7 +120,7 @@ export const CartProvider = ({ children }) => {
 
       const data = await res.json();
       setCartCount(Number(data.cart_count || 0));
-      toast.success("Product added to cart 🛒");
+      toast.success("Product added to cart successfully");
 
     } catch (err) {
       console.error("Add to cart error:", err);
