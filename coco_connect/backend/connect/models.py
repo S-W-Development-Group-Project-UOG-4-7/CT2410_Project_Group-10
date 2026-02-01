@@ -497,3 +497,104 @@ class AuthLog(models.Model):
     def __str__(self):
         username = self.user.username if self.user else "UnknownUser"
         return f"{self.created_at:%Y-%m-%d %H:%M:%S} | {username} | {self.action} | {self.status}"
+
+# ----------------------------
+# PROJECT DRAFT (USED BY REACT)
+# ----------------------------
+class ProjectDraft(models.Model):
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="project_drafts",
+    )
+
+    idea = models.ForeignKey(
+        Idea,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_projects",
+    )
+
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+
+    location = models.CharField(max_length=100, default="Colombo")
+    duration_months = models.PositiveIntegerField(default=12)
+
+    # Investment toggle
+    needs_investment = models.BooleanField(default=False)
+
+    # Investment planning
+    target_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+
+    expected_roi = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    investment_type = models.CharField(
+        max_length=10,
+        choices=[
+            ("equity", "Equity"),
+            ("loan", "Loan"),
+        ],
+        null=True,
+        blank=True,
+        default="loan",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("draft", "Draft"),
+            ("submitted", "Submitted"),
+            ("approved", "Approved"),
+        ],
+        default="draft",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Draft: {self.title}"
+
+
+# ----------------------------
+# PROJECT DRAFT MATERIAL
+# ----------------------------
+class ProjectDraftMaterial(models.Model):
+    draft = models.ForeignKey(          # ✅ FIXED NAME
+        ProjectDraft,
+        on_delete=models.CASCADE,
+        related_name="materials",       # ✅ REQUIRED for React
+    )
+
+    name = models.CharField(max_length=100)
+    quantity = models.FloatField(default=0)
+
+    unit_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def total_cost(self):
+        try:
+            return float(self.quantity) * float(self.unit_cost)
+        except Exception:
+            return 0
+
+    def __str__(self):
+        return f"{self.name} × {self.quantity}"
