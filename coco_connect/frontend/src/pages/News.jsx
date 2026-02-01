@@ -17,7 +17,7 @@ export default function NewsCorner() {
     },
     {
       id: 2,
-      title: "Smart Farming Technology for Coconut Trees",
+      title: "Advanced and Smart Farming Technology for Coconut Trees",
       shortDescription:
         "IoT and AI technologies are transforming coconut plantations.",
       fullDescription:
