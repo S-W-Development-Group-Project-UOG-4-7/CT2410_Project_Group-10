@@ -2,14 +2,11 @@ import subprocess
 import os
 
 def record_investment_on_chain(investment_id: int, amount: int) -> str:
-    # backend/ folder
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # coco_connect/blockchain folder
     blockchain_dir = os.path.abspath(os.path.join(backend_dir, "..", "blockchain"))
 
-    # IMPORTANT: use relative script path for hardhat
     cmd = [
-        "npx.cmd",
+        "npx.cmd",   # windows
         "hardhat",
         "run",
         "scripts/call.js",
@@ -17,17 +14,17 @@ def record_investment_on_chain(investment_id: int, amount: int) -> str:
         "localhost",
     ]
 
-
     result = subprocess.run(
         cmd,
         cwd=blockchain_dir,
         capture_output=True,
         text=True,
-        env={**os.environ, "INVESTMENT_ID": str(investment_id), "AMOUNT": str(amount)}
+        encoding="utf-8",     # ✅ FIX: force utf-8 decode
+        errors="replace",     # ✅ FIX: never crash on bad bytes
+        env={**os.environ, "INVESTMENT_ID": str(investment_id), "AMOUNT": str(amount)},
     )
 
-
-    combined_output = (result.stdout or "") + "\n" + (result.stderr or "")
+    combined_output = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
 
     if result.returncode != 0:
         raise Exception(f"Hardhat failed:\n{combined_output}")
@@ -35,7 +32,6 @@ def record_investment_on_chain(investment_id: int, amount: int) -> str:
     # Find any 0x... (tx hashes start with 0x)
     for line in combined_output.splitlines():
         if "0x" in line:
-            # pick the first token that starts with 0x
             for token in line.replace(",", " ").split():
                 if token.startswith("0x") and len(token) >= 10:
                     return token.strip()

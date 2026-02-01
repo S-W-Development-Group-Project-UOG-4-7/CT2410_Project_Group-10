@@ -12,7 +12,11 @@ from .models import (
 # -----------------------------
 # Profile
 # -----------------------------
-admin.site.register(Profile)
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "role", "city", "phone", "created_at")
+    list_filter = ("role",)
+    search_fields = ("user__username", "user__email")
 
 
 # -----------------------------
@@ -31,6 +35,7 @@ class NewsAdmin(admin.ModelAdmin):
 @admin.register(InvestmentCategory)
 class InvestmentCategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "created_at")
+    search_fields = ("name",)
 
 
 # -----------------------------
@@ -38,10 +43,19 @@ class InvestmentCategoryAdmin(admin.ModelAdmin):
 # -----------------------------
 @admin.register(InvestmentProject)
 class InvestmentProjectAdmin(admin.ModelAdmin):
-    list_display = ("title", "farmer", "category", "status", "target_amount", "current_amount")
-    list_filter = ("status", "category", "risk_level")
-    search_fields = ("title", "description", "location")
-
+    list_display = (
+        "title",
+        "farmer",
+        "category",
+        "status",
+        "target_amount",
+        "current_amount",
+        "expected_roi",
+        "duration_months",
+        "created_at",
+    )
+    list_filter = ("status", "category", "risk_level", "investment_type")
+    search_fields = ("title", "description", "location", "farmer__username")
 
 # -----------------------------
 # Investment
@@ -62,4 +76,3 @@ class AuthLogAdmin(admin.ModelAdmin):
     list_filter = ("action", "status", "created_at")
     search_fields = ("user__username", "user__email", "message")
     ordering = ("-created_at",)
-

@@ -1,6 +1,7 @@
+# connect/models.py
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone  # needed for Investment.save()
+from django.utils import timezone
 from django.conf import settings
 # =================================================
 # NOTE ABOUT MERGE CLASH (IMPORTANT)
@@ -141,7 +142,7 @@ class InvestmentCategory(models.Model):
 
 
 # ----------------------------
-# INVESTMENT PROJECT
+# INVESTMENT PROJECT (UPDATED with new fields)
 # ----------------------------
 class InvestmentProject(models.Model):
     TYPE_CHOICES = [
@@ -156,9 +157,11 @@ class InvestmentProject(models.Model):
     ]
 
     STATUS_CHOICES = [
+        ("pending", "Pending Approval"),
         ("active", "Active"),
         ("funded", "Funded"),
         ("completed", "Completed"),
+        ("rejected", "Rejected"),
     ]
 
     title = models.CharField(max_length=255)
@@ -178,6 +181,11 @@ class InvestmentProject(models.Model):
         on_delete=models.CASCADE,
         related_name="investment_projects",
     )
+    
+    # New farmer fields for frontend display
+    #farmer_name = models.CharField(max_length=255, blank=True)
+    #farmer_experience = models.IntegerField(default=0)
+    #farmer_rating = models.DecimalField(max_digits=3, decimal_places=2, default=4.5)
 
     target_amount = models.DecimalField(max_digits=12, decimal_places=2, default=100000)
     current_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -186,11 +194,26 @@ class InvestmentProject(models.Model):
 
     investment_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="equity")
     risk_level = models.CharField(max_length=10, choices=RISK_CHOICES, default="medium")
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
 
     tags = models.TextField(blank=True, default="", help_text="Comma-separated tags")
     days_left = models.IntegerField(default=30)
     investors_count = models.PositiveIntegerField(default=0)
+
+    # NEW FIELDS for share-based investment
+    total_units = models.IntegerField(default=1000)
+    available_units = models.IntegerField(default=1000)
+    unit_price = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    investment_structure = models.CharField(
+        max_length=20, 
+        choices=[('fixed', 'Fixed Amount'), ('units', 'Share/Unit Based')], 
+        default='fixed'
+    )
+    
+    # File fields
+    image = models.ImageField(upload_to='project_images/', null=True, blank=True)
+    business_plan = models.FileField(upload_to='business_plans/', null=True, blank=True)
+    additional_docs = models.FileField(upload_to='additional_docs/', null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -213,6 +236,147 @@ class InvestmentProject(models.Model):
 
     def funding_needed(self):
         return self.target_amount - self.current_amount
+    
+    def save(self, *args, **kwargs):
+        # Auto-calculate unit price for equity projects
+        if self.investment_type == 'equity' and self.total_units > 0:
+            if not self.unit_price or self.unit_price == 0:
+                self.unit_price = self.target_amount / self.total_units
+            if self.available_units == 1000:  # Default value
+                self.available_units = self.total_units
+            self.investment_structure = 'units'
+        
+        # Set farmer name if not provided
+        #if not self.farmer_name and self.farmer:
+        #    self.farmer_name = f"{self.farmer.first_name} {self.farmer.last_name}".strip()
+        
+        super().save(*args, **kwargs)
+
+# ----------------------------
+# INVESTMENT (FINAL – KEEP THIS ONE)
+# ----------------------------
+class Investment(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+        ("refunded", "Refunded"),
+    ]
+
+    PAYMENT_METHOD_CHOICES = [
+        ("payhere", "PayHere"),
+        ("stripe", "Stripe/Card"),
+        ("bank", "Bank Transfer"),
+    ]
+
+    INVESTMENT_TYPE_CHOICES = [
+        ("fixed_amount", "Fixed Amount"),
+        ("unit_purchase", "Share / Unit Purchase"),
+    ]
+
+    INVESTMENT_STRUCTURE_CHOICES = [
+        ("fixed", "Fixed Amount"),
+        ("units", "Share / Unit Based"),
+    ]
+
+    investor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="investments",
+    )
+
+    project = models.ForeignKey(
+        InvestmentProject,
+        on_delete=models.CASCADE,
+        related_name="project_investments",
+    )
+
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=100)
+
+    # Unit-based investment fields
+    units = models.IntegerField(null=True, blank=True)
+    unit_price = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    total_units = models.IntegerField(null=True, blank=True)
+    ownership_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    investment_type = models.CharField(
+        max_length=20,
+        choices=INVESTMENT_TYPE_CHOICES,
+        default="fixed_amount",
+    )
+
+    investment_structure = models.CharField(
+        max_length=20,
+        choices=INVESTMENT_STRUCTURE_CHOICES,
+        default="fixed",
+    )
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default="payhere",
+    )
+
+    transaction_id = models.CharField(max_length=100, blank=True, default="")
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    notes = models.TextField(blank=True, default="")
+    payment_status = models.CharField(max_length=20, default="pending")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.investor.username} → {self.project.title} → Rs.{self.amount}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_status = None
+
+        if not is_new:
+            old_status = (
+                Investment.objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+
+        super().save(*args, **kwargs)
+
+        became_completed = (
+            (is_new and self.status == "completed")
+            or (old_status != "completed" and self.status == "completed")
+        )
+
+        if became_completed:
+            project = self.project
+
+            # Update funding
+            project.current_amount += self.amount
+            project.investors_count += 1
+
+            # Update units if unit-based
+            if self.units and self.investment_type == "unit_purchase":
+                project.available_units -= self.units
+
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+                super().save(update_fields=["completed_at"])
+
+            if project.current_amount >= project.target_amount:
+                project.status = "funded"
+                project.days_left = 0
+
+            project.save()
 
 
 # ----------------------------
@@ -299,79 +463,6 @@ class SimilarityAlert(models.Model):
         )
 
 
-# ----------------------------
-# INVESTMENT
-# ----------------------------
-class Investment(models.Model):
-    STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("completed", "Completed"),
-        ("failed", "Failed"),
-        ("refunded", "Refunded"),
-    ]
-
-    PAYMENT_METHOD_CHOICES = [
-        ("payhere", "PayHere"),
-        ("stripe", "Stripe/Card"),
-        ("bank", "Bank Transfer"),
-    ]
-
-    investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="investments")
-    project = models.ForeignKey(
-        InvestmentProject,
-        on_delete=models.CASCADE,
-        related_name="project_investments",
-    )
-
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=100)
-
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="payhere")
-    transaction_id = models.CharField(max_length=100, blank=True, default="")
-
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    notes = models.TextField(blank=True, default="")
-    payment_status = models.CharField(max_length=20, default="pending")
-
-    def __str__(self):
-        return f"{self.investor.username} - {self.project.title} - RS.{self.amount}"
-
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        old_status = None
-
-        if not is_new:
-            old_status = (
-                Investment.objects.filter(pk=self.pk)
-                .values_list("status", flat=True)
-                .first()
-            )
-
-        super().save(*args, **kwargs)
-
-        became_completed = (
-            (is_new and self.status == "completed")
-            or (old_status != "completed" and self.status == "completed")
-        )
-
-        if became_completed:
-            self.project.current_amount += self.amount
-            self.project.investors_count += 1
-
-            if not self.completed_at:
-                self.completed_at = timezone.now()
-                super().save(update_fields=["completed_at"])
-
-            if self.project.current_amount >= self.project.target_amount:
-                self.project.status = "funded"
-                self.project.days_left = 0
-
-            self.project.save()
-
 #---------------------------------
 #   Auth Log
 #---------------------------------
@@ -406,3 +497,108 @@ class AuthLog(models.Model):
     def __str__(self):
         username = self.user.username if self.user else "UnknownUser"
         return f"{self.created_at:%Y-%m-%d %H:%M:%S} | {username} | {self.action} | {self.status}"
+    
+    
+# ----------------------------
+# PROJECT DRAFT (USED BY REACT)
+# ----------------------------
+class ProjectDraft(models.Model):
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="project_drafts",
+    )
+
+    idea = models.ForeignKey(
+        Idea,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="draft_projects",
+    )
+
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+
+    location = models.CharField(max_length=100, default="Colombo")
+    duration_months = models.PositiveIntegerField(default=12)
+
+    # Investment toggle
+    needs_investment = models.BooleanField(default=False)
+
+    # Investment planning
+    target_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+
+    expected_roi = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    investment_type = models.CharField(
+        max_length=10,
+        choices=[
+            ("equity", "Equity"),
+            ("loan", "Loan"),
+        ],
+        null=True,
+        blank=True,
+        default="loan",
+    )
+
+    total_units = models.IntegerField(null=True, blank=True)  # ✅ ADD THIS
+
+
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("draft", "Draft"),
+            ("submitted", "Submitted"),
+            ("approved", "Approved"),
+        ],
+        default="draft",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Draft: {self.title}"
+
+
+# ----------------------------
+# PROJECT DRAFT MATERIAL
+# ----------------------------
+class ProjectDraftMaterial(models.Model):
+    draft = models.ForeignKey(          # ✅ FIXED NAME
+        ProjectDraft,
+        on_delete=models.CASCADE,
+        related_name="materials",       # ✅ REQUIRED for React
+    )
+
+    name = models.CharField(max_length=100)
+    quantity = models.FloatField(default=0)
+
+    unit_cost = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def total_cost(self):
+        try:
+            return float(self.quantity) * float(self.unit_cost)
+        except Exception:
+            return 0
+
+    def __str__(self):
+        return f"{self.name} × {self.quantity}"

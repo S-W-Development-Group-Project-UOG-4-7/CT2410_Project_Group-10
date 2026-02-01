@@ -29,6 +29,19 @@ export default function AdminNews() {
     status: "Draft",
   });
 
+  // ✅ Auth headers helper
+  const authHeaders = () => {
+    const token = localStorage.getItem("access");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  // ✅ Optional: common JSON headers
+  const jsonHeaders = () => ({
+    ...authHeaders(),
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  });
+
   const sortedNews = useMemo(() => {
     return [...newsList].sort((a, b) => {
       const da = a?.date ? new Date(a.date).getTime() : 0;
@@ -42,11 +55,16 @@ export default function AdminNews() {
     setLoading(true);
     setErrMsg("");
     try {
-      const res = await fetch(API_BASE);
+      // GET can be public, but adding token is harmless + future-proof
+      const res = await fetch(API_BASE, {
+        headers: { ...authHeaders() },
+      });
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`GET failed (${res.status}) ${text}`);
       }
+
       const data = await res.json();
       setNewsList(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -64,11 +82,16 @@ export default function AdminNews() {
     if (!window.confirm("Are you sure you want to delete this news?")) return;
 
     try {
-      const res = await fetch(`${API_BASE}${id}/`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}${id}/`, {
+        method: "DELETE",
+        headers: { ...authHeaders() }, // ✅ IMPORTANT
+      });
+
       if (!res.ok && res.status !== 204) {
         const text = await res.text();
         throw new Error(`DELETE failed (${res.status}) ${text}`);
       }
+
       setNewsList((prev) => prev.filter((n) => n.id !== id));
       if (viewItem?.id === id) setViewItem(null);
       if (editId === id) {
@@ -91,7 +114,7 @@ export default function AdminNews() {
     try {
       const res = await fetch(API_BASE, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: jsonHeaders(), // ✅ IMPORTANT
         body: JSON.stringify({
           title: form.title.trim(),
           content: form.content?.trim() || "",
@@ -118,11 +141,15 @@ export default function AdminNews() {
   const handleView = async (id) => {
     setErrMsg("");
     try {
-      const res = await fetch(`${API_BASE}${id}/`);
+      const res = await fetch(`${API_BASE}${id}/`, {
+        headers: { ...authHeaders() }, // ✅ safe
+      });
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`VIEW failed (${res.status}) ${text}`);
       }
+
       const item = await res.json();
       setViewItem(item);
     } catch (e) {
@@ -137,11 +164,15 @@ export default function AdminNews() {
     setEditId(id);
 
     try {
-      const res = await fetch(`${API_BASE}${id}/`);
+      const res = await fetch(`${API_BASE}${id}/`, {
+        headers: { ...authHeaders() }, // ✅ safe
+      });
+
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`EDIT load failed (${res.status}) ${text}`);
       }
+
       const item = await res.json();
       setEditForm({
         title: item?.title || "",
@@ -166,7 +197,7 @@ export default function AdminNews() {
     try {
       const res = await fetch(`${API_BASE}${editId}/`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: jsonHeaders(), // ✅ IMPORTANT
         body: JSON.stringify({
           title: editForm.title.trim(),
           content: editForm.content?.trim() || "",

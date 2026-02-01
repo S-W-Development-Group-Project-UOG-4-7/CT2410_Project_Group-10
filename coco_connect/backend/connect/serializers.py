@@ -1,8 +1,30 @@
+# connect/serializers.py
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .models import ProjectDraftMaterial
+
 
 # Keep everything from both branches
+from .models import Idea, SimilarityAlert, News, InvestmentProject, Investment, Profile, ProjectDraft
+
+# ==================================================
+# PROFILE SERIALIZER
+# ==================================================
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['role', 'address', 'phone', 'city', 'bio', 'created_at']
+
+# ==================================================
+# USER SERIALIZER
+# ==================================================
+class UserSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
 from .models import Idea, SimilarityAlert, News, AuthLog
 
 # ==================================================
@@ -99,6 +121,22 @@ class NewsSerializer(serializers.ModelSerializer):
 
 
 # ==================================================
+# INVESTMENT PROJECT SIMPLE SERIALIZER
+# ==================================================
+class InvestmentProjectSimpleSerializer(serializers.ModelSerializer):
+    progress_percentage = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = InvestmentProject
+        fields = ['id', 'title', 'location', 'status', 'progress_percentage']
+    
+    def get_progress_percentage(self, obj):
+        if obj.target_amount > 0:
+            return float((obj.current_amount / obj.target_amount) * 100)
+        return 0
+
+
+# ==================================================
 # JWT LOGIN WITH EMAIL (IMPORTANT FIX)
 # ==================================================
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -124,8 +162,7 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Map email -> username for JWT (SimpleJWT expects username)
         attrs["username"] = user.username
         attrs["password"] = password
-        return super().validate(attrs)
-    
+        return super().validate(attrs)    
 
 # ===================================================
 # Auth Log
@@ -156,3 +193,88 @@ class AuthLogSerializer(serializers.ModelSerializer):
     def get_email(self, obj):
         return obj.user.email if obj.user else None
 
+
+# ==================================================
+# PROJECT DRAFT MATERIAL SERIALIZER
+# ==================================================
+class ProjectDraftMaterialSerializer(serializers.ModelSerializer):
+    unit_cost = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, default=0
+    )
+
+    class Meta:
+        model = ProjectDraftMaterial
+        fields = ["id", "name", "quantity", "unit_cost"]
+        read_only_fields = ["id"]
+
+
+
+# ==================================================
+# PROJECT DRAFT SERIALIZER (FINAL - SAFE)
+# ==================================================
+class ProjectDraftSerializer(serializers.ModelSerializer):
+    materials = ProjectDraftMaterialSerializer(many=True, required=False)
+    duration_months = serializers.IntegerField(required=False, default=12)
+
+    class Meta:
+        model = ProjectDraft
+        fields = [
+            "id",
+            "idea",
+            "title",
+            "description",
+            "location",
+            "duration_months",
+
+            "needs_investment",
+
+            "target_amount",
+            "expected_roi",
+            "investment_type",
+            "total_units",
+
+            "status",
+            "materials",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "created_at",
+            "target_amount",
+        ]
+
+    def create(self, validated_data):
+        materials_data = validated_data.pop("materials", [])
+        request = self.context.get("request")
+
+        draft = ProjectDraft.objects.create(
+            owner=request.user if request else None,
+            **validated_data
+        )
+
+        for m in materials_data:
+            ProjectDraftMaterial.objects.create(
+                draft=draft,
+                name=m.get("name", ""),
+                quantity=m.get("quantity", 0),
+                unit_cost=m.get("unit_cost", 0),
+            )
+
+        if not draft.needs_investment:
+            draft.expected_roi = None
+            draft.investment_type = None
+            draft.total_units = None
+            draft.target_amount = 0
+            draft.save(update_fields=[
+                "expected_roi",
+                "investment_type",
+                "total_units",
+                "target_amount",
+            ])
+        else:
+            # only if you actually implemented this method in ProjectDraft model
+            if hasattr(draft, "recalculate_target_amount"):
+                draft.recalculate_target_amount()
+
+        return draft

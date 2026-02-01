@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Chart from "chart.js/auto";
-import { 
-  Search, 
-  Download, 
-  UserPlus, 
-  Eye, 
-  EyeOff, 
+import {
+  Search,
+  Download,
+  UserPlus,
+  Eye,
+  EyeOff,
   Users as UsersIcon,
-  Shield, 
+  Shield,
   BarChart3,
   PieChart,
   TrendingUp,
@@ -24,7 +24,7 @@ import {
   ChevronUp,
   Mail,
   Calendar,
-  Clock
+  Clock,
 } from "lucide-react";
 
 const API_BASE = "http://localhost:8000/api";
@@ -32,51 +32,67 @@ const API_BASE = "http://localhost:8000/api";
 /* -----------------------------
    Toast Notification Component
 ------------------------------ */
-function ToastNotification({ message, type = 'success', onClose }) {
+function ToastNotification({ message, type = "success", onClose }) {
   const bgColor = {
-    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-amber-50 border-amber-200 text-amber-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800'
+    success: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    error: "bg-red-50 border-red-200 text-red-800",
+    warning: "bg-amber-50 border-amber-200 text-amber-800",
+    info: "bg-blue-50 border-blue-200 text-blue-800",
   };
 
   const iconColor = {
-    success: 'text-emerald-600',
-    error: 'text-red-600',
-    warning: 'text-amber-600',
-    info: 'text-blue-600'
+    success: "text-emerald-600",
+    error: "text-red-600",
+    warning: "text-amber-600",
+    info: "text-blue-600",
   };
 
   const icons = {
     success: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
     error: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
     warning: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+          clipRule="evenodd"
+        />
       </svg>
     ),
     info: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        <path
+          fillRule="evenodd"
+          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+          clipRule="evenodd"
+        />
       </svg>
-    )
+    ),
   };
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
-      <div className={`pointer-events-auto max-w-md w-full rounded-xl border p-4 shadow-lg ${bgColor[type]}`}>
+      <div
+        className={`pointer-events-auto max-w-md w-full rounded-xl border p-4 shadow-lg ${bgColor[type]}`}
+      >
         <div className="flex items-start">
-          <div className={`flex-shrink-0 ${iconColor[type]}`}>
-            {icons[type]}
-          </div>
+          <div className={`flex-shrink-0 ${iconColor[type]}`}>{icons[type]}</div>
           <div className="ml-3 flex-1">
             <p className="text-sm font-medium">{message}</p>
           </div>
@@ -85,7 +101,11 @@ function ToastNotification({ message, type = 'success', onClose }) {
             className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-500"
           >
             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
             </svg>
           </button>
         </div>
@@ -101,13 +121,13 @@ function useToast() {
   const [toast, setToast] = useState(null);
   const timeoutRef = useRef(null);
 
-  const showToast = (message, type = 'success', duration = 3000) => {
+  const showToast = (message, type = "success", duration = 3000) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
     setToast({ message, type });
-    
+
     timeoutRef.current = setTimeout(() => {
       setToast(null);
     }, duration);
@@ -256,8 +276,11 @@ function StatCard({ icon: Icon, label, value, color = "neutral", trend = null })
       </div>
       {trend && (
         <div className="mt-2 text-xs flex items-center">
-          <span className={`${trend.value > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-            {trend.value > 0 ? '+' : ''}{trend.value}%
+          <span
+            className={`${trend.value > 0 ? "text-emerald-600" : "text-red-600"}`}
+          >
+            {trend.value > 0 ? "+" : ""}
+            {trend.value}%
           </span>
           <span className="text-gray-500 ml-2">vs last month</span>
         </div>
@@ -268,16 +291,18 @@ function StatCard({ icon: Icon, label, value, color = "neutral", trend = null })
 
 /* -----------------------------
    User Table Component
+   ✅ UPDATED: removed 3-dots menu + delete
+   ✅ kept only the small icons (manage roles + activate/deactivate)
 ------------------------------ */
 function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast }) {
   const [showActions, setShowActions] = useState(false);
-  
+
   const handleDelete = async (id) => {
     if (window.confirm(`Delete user "${user.name || user.email}"?`)) {
       try {
         await onDelete(id);
       } catch (error) {
-        showToast(`Error: ${error.message}`, 'error');
+        showToast(`Error: ${error.message}`, "error");
       }
       setShowActions(false);
     }
@@ -289,11 +314,13 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast
         <div className="flex items-center">
           <div className="h-10 w-10 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-xl flex items-center justify-center mr-3">
             <span className="font-bold text-emerald-700 text-sm">
-              {user.name?.charAt(0) || user.email?.charAt(0) || 'U'}
+              {user.name?.charAt(0) || user.email?.charAt(0) || "U"}
             </span>
           </div>
           <div>
-            <div className="font-medium text-gray-900">{user.name || 'No Name'}</div>
+            <div className="font-medium text-gray-900">
+              {user.name || "No Name"}
+            </div>
             <div className="text-sm text-gray-500 flex items-center mt-1">
               <Mail className="h-3 w-3 mr-1" />
               {user.email}
@@ -321,9 +348,17 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast
       </td>
       <td className="py-4">
         <div className="flex items-center">
-          <div className={`h-2 w-2 rounded-full mr-2 ${user.is_active ? 'bg-emerald-500' : 'bg-red-500'}`} />
-          <span className={`font-medium ${user.is_active ? 'text-emerald-700' : 'text-red-700'}`}>
-            {user.is_active ? 'Active' : 'Inactive'}
+          <div
+            className={`h-2 w-2 rounded-full mr-2 ${
+              user.is_active ? "bg-emerald-500" : "bg-red-500"
+            }`}
+          />
+          <span
+            className={`font-medium ${
+              user.is_active ? "text-emerald-700" : "text-red-700"
+            }`}
+          >
+            {user.is_active ? "Active" : "Inactive"}
           </span>
         </div>
       </td>
@@ -338,66 +373,19 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast
           </button>
           <button
             onClick={() => onToggleActive(user.id, !user.is_active)}
-            className={`p-2 rounded-lg transition-colors ${user.is_active 
-              ? 'text-amber-600 hover:bg-amber-50' 
-              : 'text-emerald-600 hover:bg-emerald-50'}`}
-            title={user.is_active ? 'Deactivate' : 'Activate'}
+            className={`p-2 rounded-lg transition-colors ${
+              user.is_active
+                ? "text-amber-600 hover:bg-amber-50"
+                : "text-emerald-600 hover:bg-emerald-50"
+            }`}
+            title={user.is_active ? "Deactivate" : "Activate"}
           >
-            {user.is_active ? <XCircle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
-          </button>
-          <div className="relative">
-            <button
-              onClick={() => setShowActions(!showActions)}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              title="More actions"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-            
-            {showActions && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowActions(false)} />
-                <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-20 py-2">
-                  <button
-                    onClick={() => {
-                      onManageRoles(user);
-                      setShowActions(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 flex items-center"
-                  >
-                    <Edit3 className="h-4 w-4 mr-2 text-gray-500" />
-                    Manage Roles
-                  </button>
-                  <button
-                    onClick={() => {
-                      onToggleActive(user.id, !user.is_active);
-                      setShowActions(false);
-                    }}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 flex items-center"
-                  >
-                    {user.is_active ? (
-                      <>
-                        <XCircle className="h-4 w-4 mr-2 text-amber-500" />
-                        Deactivate User
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2 text-emerald-500" />
-                        Activate User
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-red-50 text-red-600 flex items-center"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete User
-                  </button>
-                </div>
-              </>
+            {user.is_active ? (
+              <XCircle className="h-4 w-4" />
+            ) : (
+              <CheckCircle className="h-4 w-4" />
             )}
-          </div>
+          </button>
         </div>
       </td>
     </tr>
@@ -409,7 +397,7 @@ function UserTableRow({ user, onManageRoles, onToggleActive, onDelete, showToast
 ------------------------------ */
 function FilterPanel({ filters, setFilters, availableRoles }) {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   return (
     <div className="bg-white border border-[#ece7e1] rounded-2xl p-4">
       <button
@@ -420,12 +408,17 @@ function FilterPanel({ filters, setFilters, availableRoles }) {
           <Filter className="h-5 w-5 mr-2 text-gray-500" />
           <span className="font-medium text-[#6b3f23]">Filters</span>
           <span className="ml-2 text-sm text-gray-500">
-            ({Object.values(filters).filter(v => v !== '' && v !== 'all').length} active)
+            ({Object.values(filters).filter((v) => v !== "" && v !== "all").length}{" "}
+            active)
           </span>
         </div>
-        {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+        {isOpen ? (
+          <ChevronUp className="h-5 w-5" />
+        ) : (
+          <ChevronDown className="h-5 w-5" />
+        )}
       </button>
-      
+
       {isOpen && (
         <div className="mt-4 space-y-4">
           <div>
@@ -433,18 +426,26 @@ function FilterPanel({ filters, setFilters, availableRoles }) {
               Status
             </label>
             <div className="flex space-x-2">
-              {['all', 'active', 'inactive'].map((status) => (
+              {["all", "active", "inactive"].map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilters({ ...filters, status })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium ${filters.status === status ? 'bg-[#6b3f23] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                    filters.status === status
+                      ? "bg-[#6b3f23] text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
-                  {status === 'all' ? 'All' : status === 'active' ? 'Active' : 'Inactive'}
+                  {status === "all"
+                    ? "All"
+                    : status === "active"
+                    ? "Active"
+                    : "Inactive"}
                 </button>
               ))}
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Role
@@ -455,15 +456,17 @@ function FilterPanel({ filters, setFilters, availableRoles }) {
               className="w-full rounded-xl border border-[#ece7e1] bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
             >
               <option value="all">All Roles</option>
-              {availableRoles.map(role => (
-                <option key={role} value={role}>{role}</option>
+              {availableRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
               ))}
             </select>
           </div>
-          
+
           <div className="flex justify-end space-x-2 pt-2">
             <button
-              onClick={() => setFilters({ status: 'all', role: 'all' })}
+              onClick={() => setFilters({ status: "all", role: "all" })}
               className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
             >
               Reset Filters
@@ -477,6 +480,7 @@ function FilterPanel({ filters, setFilters, availableRoles }) {
 
 /* -----------------------------
    Roles Manager (updated to use groups endpoint)
+   ✅ UPDATED: remove description field from create role form (frontend description part)
 ------------------------------ */
 function RolesManager({ onAnyRoleChange, showToast }) {
   const [groups, setGroups] = useState([]);
@@ -509,7 +513,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
         { id: 3, name: "Idea-creator", description: "Idea creator role", permission_ids: [] },
         { id: 4, name: "Customer", description: "Customer role", permission_ids: [] },
         { id: 5, name: "Project-owner", description: "Project owner role", permission_ids: [] },
-        { id: 6, name: "Farmer", description: "Farmer role", permission_ids: [] }
+        { id: 6, name: "Farmer", description: "Farmer role", permission_ids: [] },
       ];
       setGroups(fallbackGroups);
     } finally {
@@ -558,12 +562,12 @@ function RolesManager({ onAnyRoleChange, showToast }) {
         headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           name: newGroup.name,
-          description: newGroup.description
+          description: newGroup.description,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
-      
+
       if (!res.ok) {
         throw new Error(data?.error || data?.detail || "Failed to create role");
       }
@@ -591,9 +595,9 @@ function RolesManager({ onAnyRoleChange, showToast }) {
         method: "DELETE",
         headers: authHeaders(),
       });
-      
+
       const data = await res.json().catch(() => ({}));
-      
+
       if (!res.ok) {
         throw new Error(data?.error || data?.detail || "Failed to delete role");
       }
@@ -610,11 +614,11 @@ function RolesManager({ onAnyRoleChange, showToast }) {
     }
   };
 
-    const togglePerm = (permId) => {
-      setGroupPermIds((prev) =>
-        prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
-      );
-    };
+  const togglePerm = (permId) => {
+    setGroupPermIds((prev) =>
+      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
+    );
+  };
 
   const onSaveGroupPermissions = async () => {
     if (!selectedGroup) return;
@@ -625,14 +629,14 @@ function RolesManager({ onAnyRoleChange, showToast }) {
       const res = await fetch(`${API_BASE}/roles/${selectedGroup.id}/`, {
         method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           permission_ids: groupPermIds,
-          name: selectedGroup.name
+          name: selectedGroup.name,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
-      
+
       if (!res.ok) {
         throw new Error(data?.error || data?.detail || "Failed to update role permissions");
       }
@@ -663,7 +667,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
             disabled={loading}
             className="flex items-center px-4 py-2 bg-white border border-[#ece7e1] rounded-xl hover:bg-gray-50"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
@@ -685,19 +689,10 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <input
-                  value={newGroup.description}
-                  onChange={(e) =>
-                    setNewGroup((s) => ({ ...s, description: e.target.value }))
-                  }
-                  placeholder="What this role can do"
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500/30"
-                />
-              </div>
+
+              {/* ✅ Description field REMOVED (frontend description part) */}
+              <div />
+
               <div className="flex items-end">
                 <button
                   type="submit"
@@ -705,7 +700,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                   className="w-full flex items-center justify-center px-4 py-2 bg-[#6b3f23] text-white rounded-xl hover:bg-[#5a3620] disabled:opacity-50"
                 >
                   <UserPlus className="h-4 w-4 mr-2" />
-                  {saving ? 'Creating...' : 'Create Role'}
+                  {saving ? "Creating..." : "Create Role"}
                 </button>
               </div>
             </div>
@@ -717,21 +712,22 @@ function RolesManager({ onAnyRoleChange, showToast }) {
           {/* Groups list */}
           <div className="lg:col-span-1">
             <div className="sticky top-6">
-              <h4 className="font-semibold text-[#6b3f23] mb-4">All Roles ({groups.length})</h4>
+              <h4 className="font-semibold text-[#6b3f23] mb-4">
+                All Roles ({groups.length})
+              </h4>
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                 {groups.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    No roles created yet
-                  </div>
+                  <div className="text-center py-8 text-gray-500">No roles created yet</div>
                 ) : (
                   groups.map((g) => (
                     <button
                       key={g.id}
                       onClick={() => setSelectedGroupId(g.id)}
-                      className={`w-full text-left p-4 rounded-xl border transition-all ${selectedGroupId === g.id
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                        }`}
+                      className={`w-full text-left p-4 rounded-xl border transition-all ${
+                        selectedGroupId === g.id
+                          ? "border-emerald-500 bg-emerald-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
@@ -779,7 +775,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                       disabled={saving}
                       className="flex items-center px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50"
                     >
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      {saving ? "Saving..." : "Save Changes"}
                     </button>
                     <button
                       onClick={() => onDeleteGroup(selectedGroup)}
@@ -796,7 +792,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                   <h5 className="font-semibold text-[#6b3f23] mb-4">
                     Permissions ({groupPermIds.length} selected)
                   </h5>
-                  
+
                   {permissions.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <Shield className="h-12 w-12 mx-auto mb-4 text-gray-400" />
@@ -810,10 +806,11 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                         return (
                           <label
                             key={p.id}
-                            className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${checked
-                                ? 'border-emerald-500 bg-emerald-50'
-                                : 'border-gray-200 hover:bg-white'
-                              }`}
+                            className={`flex items-center p-3 rounded-xl border cursor-pointer transition-all ${
+                              checked
+                                ? "border-emerald-500 bg-emerald-50"
+                                : "border-gray-200 hover:bg-white"
+                            }`}
                           >
                             <input
                               type="checkbox"
@@ -825,9 +822,7 @@ function RolesManager({ onAnyRoleChange, showToast }) {
                               <div className="font-medium text-gray-900">
                                 {p.name || p.code}
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {p.code}
-                              </div>
+                              <div className="text-xs text-gray-500">{p.code}</div>
                             </div>
                           </label>
                         );
@@ -865,12 +860,12 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
       const groupsRes = await fetch(`${API_BASE}/groups/`, { headers: authHeaders() });
       if (!groupsRes.ok) throw new Error("Failed to fetch groups");
       const groupsData = await groupsRes.json();
-      
+
       // Fetch user's current groups
-      const userGroupsRes = await fetch(`${API_BASE}/users/${userId}/roles/`, { 
-        headers: authHeaders() 
+      const userGroupsRes = await fetch(`${API_BASE}/users/${userId}/roles/`, {
+        headers: authHeaders(),
       });
-      
+
       let assignedGroupIds = [];
       if (userGroupsRes.ok) {
         const userGroupsData = await userGroupsRes.json();
@@ -903,17 +898,17 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
       const res = await fetch(`${API_BASE}/users/${userId}/update/`, {
         method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           add_role_ids: [groupId],
-          add_roles: [groups.find(g => g.id === groupId)?.name || ""].filter(Boolean)
+          add_roles: [groups.find((g) => g.id === groupId)?.name || ""].filter(Boolean),
         }),
       });
-      
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || "Failed to assign role");
       }
-      
+
       setUserGroupIds((prev) => (prev.includes(groupId) ? prev : [...prev, groupId]));
       onChanged?.();
       showToast("Role assigned successfully!", "success");
@@ -932,17 +927,17 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
       const res = await fetch(`${API_BASE}/users/${userId}/update/`, {
         method: "PATCH",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           remove_role_ids: [groupId],
-          remove_roles: [groups.find(g => g.id === groupId)?.name || ""].filter(Boolean)
+          remove_roles: [groups.find((g) => g.id === groupId)?.name || ""].filter(Boolean),
         }),
       });
-      
+
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || "Failed to remove role");
       }
-      
+
       setUserGroupIds((prev) => prev.filter((id) => id !== groupId));
       onChanged?.();
       showToast("Role removed successfully!", "success");
@@ -981,17 +976,14 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
             <div>
               <h3 className="text-xl font-bold text-[#6b3f23]">Manage User Roles</h3>
               <p className="text-sm text-gray-600 mt-1">
-                {user?.name || 'User'} • {user?.email || 'No email'}
+                {user?.name || "User"} • {user?.email || "No email"}
               </p>
               <div className="mt-2 text-sm">
                 <span className="font-medium">Current roles:</span>{" "}
                 {user?.roles?.join(", ") || safeRole(user)}
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
               <XCircle className="h-5 w-5 text-gray-500" />
             </button>
           </div>
@@ -1022,10 +1014,9 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
                       key={g.id}
                       onClick={() => toggleGroup(g.id)}
                       disabled={saving}
-                      className={`p-4 rounded-xl border text-left transition-all ${active
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                        } ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`p-4 rounded-xl border text-left transition-all ${
+                        active ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:bg-gray-50"
+                      } ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -1034,16 +1025,20 @@ function UserRolesModal({ isOpen, onClose, user, onChanged, showToast }) {
                             <div className="text-sm text-gray-600 mt-1">{g.description}</div>
                           )}
                         </div>
-                        <div className={`h-4 w-4 rounded-full border ${active ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-gray-300'}`} />
+                        <div
+                          className={`h-4 w-4 rounded-full border ${
+                            active ? "bg-emerald-500 border-emerald-500" : "bg-white border-gray-300"
+                          }`}
+                        />
                       </div>
                       <div className="text-xs text-gray-500 mt-2">
-                        {active ? '✓ Currently assigned' : 'Click to assign'}
+                        {active ? "✓ Currently assigned" : "Click to assign"}
                       </div>
                     </button>
                   );
                 })}
               </div>
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6">
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
@@ -1098,7 +1093,7 @@ export default function UsersPage() {
   const [tab, setTab] = useState("users");
   const [isRolesModalOpen, setIsRolesModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [filters, setFilters] = useState({ status: 'all', role: 'all' });
+  const [filters, setFilters] = useState({ status: "all", role: "all" });
   const [availableRoles, setAvailableRoles] = useState(["Admin", "User"]);
 
   const [form, setForm] = useState({
@@ -1121,9 +1116,7 @@ export default function UsersPage() {
   const fetchUsers = async (query = "") => {
     setLoading(true);
     try {
-      const url = `${API_BASE}/users/${
-        query ? `?q=${encodeURIComponent(query)}` : ""
-      }`;
+      const url = `${API_BASE}/users/${query ? `?q=${encodeURIComponent(query)}` : ""}`;
 
       const res = await fetch(url, { headers: authHeaders() });
       const data = await res.json().catch(() => ({}));
@@ -1139,12 +1132,12 @@ export default function UsersPage() {
       }
 
       setUsers(data.users || []);
-      
+
       // Extract unique roles from users for filter dropdown
       const roles = new Set();
-      (data.users || []).forEach(user => {
+      (data.users || []).forEach((user) => {
         if (user.roles && Array.isArray(user.roles)) {
-          user.roles.forEach(role => roles.add(role));
+          user.roles.forEach((role) => roles.add(role));
         } else if (user.role) {
           roles.add(user.role);
         }
@@ -1181,10 +1174,10 @@ export default function UsersPage() {
 
       setForm({ name: "", email: "", password: "", role: "User" });
       fetchUsers(q);
-      showToast('User added successfully!', 'success');
+      showToast("User added successfully!", "success");
     } catch (err) {
       console.error(err);
-      showToast(err.message, 'error');
+      showToast(err.message, "error");
     }
   };
 
@@ -1197,10 +1190,10 @@ export default function UsersPage() {
 
       if (!res.ok) throw new Error("Failed to delete user");
       fetchUsers(q);
-      showToast('User deleted successfully!', 'success');
+      showToast("User deleted successfully!", "success");
     } catch (err) {
       console.error(err);
-      showToast(err.message, 'error');
+      showToast(err.message, "error");
     }
   };
 
@@ -1214,13 +1207,10 @@ export default function UsersPage() {
 
       if (!res.ok) throw new Error("Failed to update status");
       fetchUsers(q);
-      showToast(
-        `User ${is_active ? 'activated' : 'deactivated'} successfully!`,
-        'success'
-      );
+      showToast(`User ${is_active ? "activated" : "deactivated"} successfully!`, "success");
     } catch (err) {
       console.error(err);
-      showToast(err.message, 'error');
+      showToast(err.message, "error");
     }
   };
 
@@ -1264,9 +1254,7 @@ export default function UsersPage() {
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
-    const byDayEntries = Object.entries(byDay).sort((a, b) =>
-      a[0].localeCompare(b[0])
-    );
+    const byDayEntries = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0]));
 
     const last7 = [];
     const today = new Date();
@@ -1298,16 +1286,14 @@ export default function UsersPage() {
       return name.includes(searchTerm) || email.includes(searchTerm);
     });
 
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(u => 
-        filters.status === 'active' ? u.is_active : !u.is_active
-      );
+    if (filters.status !== "all") {
+      filtered = filtered.filter((u) => (filters.status === "active" ? u.is_active : !u.is_active));
     }
 
-    if (filters.role !== 'all') {
-      filtered = filtered.filter(u => {
+    if (filters.role !== "all") {
+      filtered = filtered.filter((u) => {
         if (u.roles && Array.isArray(u.roles)) {
-          return u.roles.some(role => role === filters.role);
+          return u.roles.some((role) => role === filters.role);
         }
         return safeRole(u).includes(filters.role);
       });
@@ -1328,26 +1314,28 @@ export default function UsersPage() {
         type: "doughnut",
         data: {
           labels: ["Active", "Inactive"],
-          datasets: [{
-            data: [analytics.active, analytics.inactive],
-            backgroundColor: ['#10b981', '#ef4444'],
-            borderWidth: 0
-          }]
+          datasets: [
+            {
+              data: [analytics.active, analytics.inactive],
+              backgroundColor: ["#10b981", "#ef4444"],
+              borderWidth: 0,
+            },
+          ],
         },
         options: {
-          plugins: { 
-            legend: { position: 'bottom' },
+          plugins: {
+            legend: { position: "bottom" },
             tooltip: {
               callbacks: {
                 label: (context) => {
                   const total = analytics.active + analytics.inactive;
                   const percentage = Math.round((context.parsed / total) * 100);
                   return `${context.label}: ${context.parsed} (${percentage}%)`;
-                }
-              }
-            }
+                },
+              },
+            },
           },
-          cutout: '65%',
+          cutout: "65%",
           responsive: true,
           maintainAspectRatio: false,
         },
@@ -1357,41 +1345,41 @@ export default function UsersPage() {
     if (barCanvasRef.current) {
       if (barChartRef.current) barChartRef.current.destroy();
 
-      const entries = Object.entries(analytics.roleCounts || {}).sort(
-        (a, b) => b[1] - a[1]
-      );
+      const entries = Object.entries(analytics.roleCounts || {}).sort((a, b) => b[1] - a[1]);
       const labels = entries.map(([k]) => k);
       const data = entries.map(([, v]) => v);
 
       const ctx = barCanvasRef.current.getContext("2d");
       barChartRef.current = new Chart(ctx, {
         type: "bar",
-        data: { 
-          labels, 
-          datasets: [{ 
-            label: "Users", 
-            data,
-            backgroundColor: '#6b3f23',
-            borderRadius: 6
-          }] 
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Users",
+              data,
+              backgroundColor: "#6b3f23",
+              borderRadius: 6,
+            },
+          ],
         },
         options: {
           plugins: { legend: { display: false } },
           responsive: true,
           maintainAspectRatio: false,
-          scales: { 
-            y: { 
-              beginAtZero: true, 
+          scales: {
+            y: {
+              beginAtZero: true,
               ticks: { precision: 0 },
               grid: {
-                color: 'rgba(0,0,0,0.05)'
-              }
+                color: "rgba(0,0,0,0.05)",
+              },
             },
             x: {
               grid: {
-                display: false
-              }
-            }
+                display: false,
+              },
+            },
           },
         },
       });
@@ -1402,7 +1390,7 @@ export default function UsersPage() {
 
       const labels = analytics.last7.map((x) => {
         const date = new Date(x.key);
-        return date.toLocaleDateString('en-US', { weekday: 'short' });
+        return date.toLocaleDateString("en-US", { weekday: "short" });
       });
       const data = analytics.last7.map((x) => x.count);
 
@@ -1411,35 +1399,37 @@ export default function UsersPage() {
         type: "line",
         data: {
           labels,
-          datasets: [{ 
-            label: "Registrations", 
-            data, 
-            tension: 0.3,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 2
-          }],
+          datasets: [
+            {
+              label: "Registrations",
+              data,
+              tension: 0.3,
+              borderColor: "#10b981",
+              backgroundColor: "rgba(16, 185, 129, 0.1)",
+              fill: true,
+              pointBackgroundColor: "#10b981",
+              pointBorderColor: "#ffffff",
+              pointBorderWidth: 2,
+            },
+          ],
         },
         options: {
           plugins: { legend: { display: false } },
           responsive: true,
           maintainAspectRatio: false,
-          scales: { 
-            y: { 
-              beginAtZero: true, 
+          scales: {
+            y: {
+              beginAtZero: true,
               ticks: { precision: 0 },
               grid: {
-                color: 'rgba(0,0,0,0.05)'
-              }
+                color: "rgba(0,0,0,0.05)",
+              },
             },
             x: {
               grid: {
-                display: false
-              }
-            }
+                display: false,
+              },
+            },
           },
         },
       });
@@ -1517,12 +1507,9 @@ export default function UsersPage() {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(120, 120, 120);
-        doc.text(
-          `Page ${pageNum} of ${totalPages}`,
-          pageW - margin,
-          pageH - 18,
-          { align: "right" }
-        );
+        doc.text(`Page ${pageNum} of ${totalPages}`, pageW - margin, pageH - 18, {
+          align: "right",
+        });
         doc.setTextColor(0, 0, 0);
       };
 
@@ -1551,18 +1538,8 @@ export default function UsersPage() {
       };
 
       card(margin, "Active Users", analytics.active, `${analytics.activePct}%`);
-      card(
-        margin + cardW + gap,
-        "Inactive Users",
-        analytics.inactive,
-        `${analytics.inactivePct}%`
-      );
-      card(
-        margin + (cardW + gap) * 2,
-        "Admins",
-        analytics.admins,
-        `Total: ${analytics.total}`
-      );
+      card(margin + cardW + gap, "Inactive Users", analytics.inactive, `${analytics.inactivePct}%`);
+      card(margin + (cardW + gap) * 2, "Admins", analytics.admins, `Total: ${analytics.total}`);
 
       const chartsY = y0 + cardH + 18;
 
@@ -1575,9 +1552,7 @@ export default function UsersPage() {
         options: { plugins: { legend: { position: "bottom" } } },
       });
 
-      const roleEntries = Object.entries(analytics.roleCounts || {}).sort(
-        (a, b) => b[1] - a[1]
-      );
+      const roleEntries = Object.entries(analytics.roleCounts || {}).sort((a, b) => b[1] - a[1]);
       const roleLabels = roleEntries.map(([k]) => k);
       const roleData = roleEntries.map(([, v]) => v);
 
@@ -1629,20 +1604,11 @@ export default function UsersPage() {
 
       addChartBox(margin, "Active vs Inactive", pieImg);
       addChartBox(margin + boxW + boxGap, "Role Distribution", barImg);
-      addChartBox(
-        margin + (boxW + boxGap) * 2,
-        "Registrations (7 days)",
-        lineImg
-      );
+      addChartBox(margin + (boxW + boxGap) * 2, "Registrations (7 days)", lineImg);
 
       const startTableY = chartBoxY + boxH + 18;
 
-      const rows = users.map((u) => [
-        u.name || "",
-        u.email || "",
-        statusLabel(u),
-        safeRole(u),
-      ]);
+      const rows = users.map((u) => [u.name || "", u.email || "", statusLabel(u), safeRole(u)]);
 
       autoTable(doc, {
         head: [["Name", "Email", "Status", "Role(s)"]],
@@ -1681,14 +1647,8 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
-      {toast && (
-        <ToastNotification
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-        />
-      )}
-      
+      {toast && <ToastNotification message={toast.message} type={toast.type} onClose={hideToast} />}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -1702,39 +1662,17 @@ export default function UsersPage() {
           disabled={loading}
           className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          icon={UsersIcon}
-          label="Total Users" 
-          value={analytics.total} 
-          color="primary"
-        />
-        <StatCard 
-          icon={CheckCircle} 
-          label="Active Users" 
-          value={analytics.active} 
-          color="success"
-          trend={{ value: 12 }}
-        />
-        <StatCard 
-          icon={XCircle} 
-          label="Inactive Users" 
-          value={analytics.inactive} 
-          color="danger"
-          trend={{ value: -5 }}
-        />
-        <StatCard 
-          icon={Shield} 
-          label="Administrators" 
-          value={analytics.admins} 
-          color="warning"
-        />
+        <StatCard icon={UsersIcon} label="Total Users" value={analytics.total} color="primary" />
+        <StatCard icon={CheckCircle} label="Active Users" value={analytics.active} color="success" trend={{ value: 12 }} />
+        <StatCard icon={XCircle} label="Inactive Users" value={analytics.inactive} color="danger" trend={{ value: -5 }} />
+        <StatCard icon={Shield} label="Administrators" value={analytics.admins} color="warning" />
       </div>
 
       {/* Tabs */}
@@ -1743,10 +1681,11 @@ export default function UsersPage() {
           <nav className="flex space-x-8 px-6">
             <button
               onClick={() => setTab("users")}
-              className={`py-4 border-b-2 font-medium text-sm ${tab === "users"
+              className={`py-4 border-b-2 font-medium text-sm ${
+                tab === "users"
                   ? "border-emerald-500 text-emerald-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
+              }`}
             >
               <div className="flex items-center">
                 <UsersIcon className="h-5 w-5 mr-2" />
@@ -1758,10 +1697,11 @@ export default function UsersPage() {
             </button>
             <button
               onClick={() => setTab("roles")}
-              className={`py-4 border-b-2 font-medium text-sm ${tab === "roles"
+              className={`py-4 border-b-2 font-medium text-sm ${
+                tab === "roles"
                   ? "border-emerald-500 text-emerald-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
-                }`}
+              }`}
             >
               <div className="flex items-center">
                 <Shield className="h-5 w-5 mr-2" />
@@ -1788,7 +1728,7 @@ export default function UsersPage() {
                     />
                   </div>
                 </form>
-                
+
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => setShowAnalytics(!showAnalytics)}
@@ -1812,7 +1752,7 @@ export default function UsersPage() {
                     className="flex items-center px-4 py-2 bg-[#6b3f23] text-white rounded-xl hover:bg-[#5a3620] disabled:opacity-50"
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    {exporting ? 'Exporting...' : 'Export PDF'}
+                    {exporting ? "Exporting..." : "Export PDF"}
                   </button>
                 </div>
               </div>
@@ -1826,7 +1766,7 @@ export default function UsersPage() {
                       Last updated: {new Date().toLocaleTimeString()}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="bg-white rounded-xl p-4 border border-gray-200">
                       <div className="flex items-center mb-4">
@@ -1837,7 +1777,7 @@ export default function UsersPage() {
                         <canvas ref={pieCanvasRef} />
                       </div>
                     </div>
-                    
+
                     <div className="bg-white rounded-xl p-4 border border-gray-200">
                       <div className="flex items-center mb-4">
                         <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
@@ -1847,7 +1787,7 @@ export default function UsersPage() {
                         <canvas ref={barCanvasRef} />
                       </div>
                     </div>
-                    
+
                     <div className="bg-white rounded-xl p-4 border border-gray-200">
                       <div className="flex items-center mb-4">
                         <TrendingUp className="h-5 w-5 mr-2 text-purple-600" />
@@ -1864,9 +1804,13 @@ export default function UsersPage() {
               {/* Filters and Add User */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
-                  <FilterPanel filters={filters} setFilters={setFilters} availableRoles={availableRoles} />
+                  <FilterPanel
+                    filters={filters}
+                    setFilters={setFilters}
+                    availableRoles={availableRoles}
+                  />
                 </div>
-                
+
                 <div className="lg:col-span-2">
                   <div className="bg-white border border-gray-200 rounded-2xl p-6">
                     <h4 className="font-semibold text-gray-900 mb-4">Add New User</h4>
@@ -1921,9 +1865,13 @@ export default function UsersPage() {
                           >
                             <option>User</option>
                             <option>Admin</option>
-                            {availableRoles.filter(r => !['Admin', 'User'].includes(r)).map(role => (
-                              <option key={role} value={role}>{role}</option>
-                            ))}
+                            {availableRoles
+                              .filter((r) => !["Admin", "User"].includes(r))
+                              .map((role) => (
+                                <option key={role} value={role}>
+                                  {role}
+                                </option>
+                              ))}
                           </select>
                         </div>
                       </div>
@@ -1946,10 +1894,10 @@ export default function UsersPage() {
                     Users ({filteredUsers.length} found)
                   </h3>
                   <div className="text-sm text-gray-500">
-                    {loading ? 'Loading...' : `Showing ${filteredUsers.length} of ${users.length} users`}
+                    {loading ? "Loading..." : `Showing ${filteredUsers.length} of ${users.length} users`}
                   </div>
                 </div>
-                
+
                 {loading ? (
                   <div className="text-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
@@ -1960,9 +1908,9 @@ export default function UsersPage() {
                     <UsersIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                     <p className="text-gray-700 font-medium">No users found</p>
                     <p className="text-gray-500 text-sm mt-2">
-                      {q || Object.values(filters).some(v => v !== 'all') 
-                        ? 'Try adjusting your search or filters' 
-                        : 'Add your first user to get started'}
+                      {q || Object.values(filters).some((v) => v !== "all")
+                        ? "Try adjusting your search or filters"
+                        : "Add your first user to get started"}
                     </p>
                   </div>
                 ) : (
@@ -1971,21 +1919,11 @@ export default function UsersPage() {
                       <table className="w-full">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="text-left py-4 pl-6 text-sm font-semibold text-gray-700">
-                              User
-                            </th>
-                            <th className="text-left py-4 text-sm font-semibold text-gray-700">
-                              Role(s)
-                            </th>
-                            <th className="text-left py-4 text-sm font-semibold text-gray-700">
-                              Joined
-                            </th>
-                            <th className="text-left py-4 text-sm font-semibold text-gray-700">
-                              Status
-                            </th>
-                            <th className="text-right py-4 pr-6 text-sm font-semibold text-gray-700">
-                              Actions
-                            </th>
+                            <th className="text-left py-4 pl-6 text-sm font-semibold text-gray-700">User</th>
+                            <th className="text-left py-4 text-sm font-semibold text-gray-700">Role(s)</th>
+                            <th className="text-left py-4 text-sm font-semibold text-gray-700">Joined</th>
+                            <th className="text-left py-4 text-sm font-semibold text-gray-700">Status</th>
+                            <th className="text-right py-4 pr-6 text-sm font-semibold text-gray-700">Actions</th>
                           </tr>
                         </thead>
                         <tbody>

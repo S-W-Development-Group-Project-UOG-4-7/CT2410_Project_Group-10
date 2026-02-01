@@ -5,16 +5,18 @@ export default function Footer() {
 
   const quickLinks = [
     { name: "Home", href: "/" },
-    { name: "Marketplace", href: "/marketplace" },
-    { name: "Investment", href: "/investment" },
     { name: "About Us", href: "/about" },
+    { name: "Shop", href: "/shop" },
+    { name: "Investment", href: "/investment" },
+    { name: "Idea Sharing", href: "/ideas" },
+    { name: "Create Project", href: "/projects/create" },
   ];
 
   const resources = [
     { name: "Help Center", href: "/help" },
     { name: "Privacy Policy", href: "/privacy" },
     { name: "Terms & Conditions", href: "/terms" },
-    { name: "FAQ", href: "/faq" },
+
   ];
 
   const socialLinks = [

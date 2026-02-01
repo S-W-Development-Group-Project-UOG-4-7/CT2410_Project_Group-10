@@ -1,5 +1,9 @@
-// 1. IMPORTS 
+// src/pages/Home.jsx
+
+// 1. IMPORTS
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
 import aboutVideo from "../assets/about-video.mp4";
 import directImg from "../assets/feature_1.png";
 import investImg from "../assets/feature_2.png";
@@ -23,6 +27,7 @@ const slides = [
       "Bringing farmers, investors, and innovators together on one trusted digital platform.",
     buttonLabel: "Explore Ecosystem",
     image: "/hero_1.jpg",
+    route: "/about",
   },
   {
     id: 2,
@@ -31,10 +36,13 @@ const slides = [
       "Invest in coconut projects, discover new products, and grow with the CocoConnect community.",
     buttonLabel: "Discover Opportunities",
     image: "/hero_2.jpg",
+    route: "/investment",
   },
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
+
   // HERO CAROUSEL STATE
   const [current, setCurrent] = useState(0);
 
@@ -145,7 +153,9 @@ export default function Home() {
   };
 
   const prevProducts = () => {
-    setProductIndex((prev) => (prev - visibleCount + totalProducts) % totalProducts);
+    setProductIndex(
+      (prev) => (prev - visibleCount + totalProducts) % totalProducts
+    );
   };
 
   const FloatingByproducts = () => {
@@ -154,12 +164,12 @@ export default function Home() {
     const [shapes, setShapes] = useState(() =>
       Array.from({ length: 12 }, (_, i) => {
         const baseSpeed = 0.06 + Math.random() * 0.09; // overall movement speed
-        const angle = Math.random() * Math.PI * 2;     // random direction
+        const angle = Math.random() * Math.PI * 2; // random direction
 
         return {
           id: i,
-          x: Math.random() * 100,        // percentage
-          y: Math.random() * 100,        // percentage
+          x: Math.random() * 100, // percentage
+          y: Math.random() * 100, // percentage
           vx: Math.cos(angle) * baseSpeed,
           vy: Math.sin(angle) * baseSpeed,
           size: 20 + Math.random() * 26, // px
@@ -230,7 +240,6 @@ export default function Home() {
     );
   };
 
-
   return (
     <div className="home-page bg-[#f9faf7]">
       {/* Hero-Section CAROUSEL */}
@@ -258,7 +267,10 @@ export default function Home() {
                 <p className="font-mont text-white/90 text-sm sm:text-base md:text-lg mb-6">
                   {slide.subtitle}
                 </p>
-                <button className="px-7 py-3 rounded-full bg-[#4caf50] text-white text-sm font-medium shadow hover:bg-[#66bb6a] transition">
+                <button
+                  onClick={() => navigate(slide.route)}
+                  className="px-7 py-3 rounded-full bg-[#4caf50] text-white text-sm font-medium shadow hover:bg-[#66bb6a] transition"
+                >
                   {slide.buttonLabel}
                 </button>
               </div>
@@ -330,7 +342,10 @@ export default function Home() {
               </li>
             </ul>
 
-            <button className="mt-8 px-7 py-3 rounded-full bg-[#4caf50] text-white font-mont font-medium hover:bg-[#66bb6a] transition shadow">
+            <button
+              onClick={() => navigate("/about")}
+              className="mt-8 px-7 py-3 rounded-full bg-[#4caf50] text-white font-mont font-medium hover:bg-[#66bb6a] transition shadow"
+            >
               Learn More
             </button>
           </div>
@@ -474,21 +489,19 @@ export default function Home() {
             <div className="text-center md:text-left mb-6 md:mb-0">
               <h2 className="font-mont font-bold text-3xl md:text-4xl text-[#5d4037] mb-4">
                 Best Selling{" "}
-                <span className="text-[#66bb6a]">
-                  Products
-                </span>
+                <span className="text-[#66bb6a]">Products</span>
               </h2>
             </div>
 
-            <a
-              href="/shop"
+            <button
+              onClick={() => navigate("/shop")}
               className="px-8 py-3 bg-[#4caf50] text-white font-mont font-semibold rounded-xl hover:bg-[#66bb6a] active:scale-95 transition-all duration-300 flex items-center gap-2 group shadow-md"
             >
               View All Products
               <span className="group-hover:translate-x-1 transition-transform duration-300">
                 →
               </span>
-            </a>
+            </button>
           </div>
 
           {/* Carousel Wrapper */}
@@ -531,12 +544,12 @@ export default function Home() {
                       {product.price}
                     </p>
 
-                    <a
-                      href="/shop"
+                    <button
+                      onClick={() => navigate("/shop")}
                       className="inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-[#4caf50] text-white font-mont text-sm font-semibold hover:bg-[#66bb6a] transition"
                     >
                       View in Shop
-                    </a>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -573,19 +586,15 @@ export default function Home() {
                 Investment Highlights{" "}
                 <span className="text-[#66bb6a]">&amp; Community Innovation</span>
               </h2>
-              {/*<p className="font-mont text-[#5d4037] text-base md:text-lg mt-2">
-                Support coconut projects, discover new opportunities, and share your own
-                ideas with the CocoConnect community.
-              </p>*/}
             </div>
 
-            <a
-              href="/investments"
+            <button
+              onClick={() => navigate("/investment")}
               className="font-mont text-sm px-6 py-2.5 rounded-full bg-[#4caf50] text-white hover:bg-[#66bb6a] transition shadow-md flex items-center gap-2 self-start md:self-auto"
             >
               View All Projects
               <span className="text-lg leading-none">↗</span>
-            </a>
+            </button>
           </div>
 
           {/* Content Grid */}
@@ -671,7 +680,10 @@ export default function Home() {
               </div>
 
               <div className="space-y-3">
-                <button className="w-full px-5 py-3 rounded-xl bg-[#4caf50] text-white font-mont font-semibold hover:bg-[#66bb6a] transition shadow-md">
+                <button
+                  onClick={() => navigate("/ideas")}
+                  className="w-full px-5 py-3 rounded-xl bg-[#4caf50] text-white font-mont font-semibold hover:bg-[#66bb6a] transition shadow-md"
+                >
                   Share Your Idea
                 </button>
                 <p className="font-mont text-[11px] text-[#9e9e9e] text-center">
@@ -704,7 +716,10 @@ export default function Home() {
             </div>
 
             {/* View All Button */}
-            <button className="font-mont text-sm px-6 py-2.5 rounded-full bg-[#4caf50] text-white hover:bg-[#66bb6a] transition shadow-md flex items-center gap-2 self-start md:self-auto">
+            <button
+              onClick={() => navigate("/news")}
+              className="font-mont text-sm px-6 py-2.5 rounded-full bg-[#4caf50] text-white hover:bg-[#66bb6a] transition shadow-md flex items-center gap-2 self-start md:self-auto"
+            >
               View All News
               <span className="text-lg leading-none">↗</span>
             </button>
@@ -734,7 +749,10 @@ export default function Home() {
                   try investment simulations inside the platform.
                 </p>
               </div>
-              <button className="mt-4 font-mont text-xs md:text-sm text-[#4caf50] hover:text-[#66bb6a] inline-flex items-center gap-1">
+              <button
+                onClick={() => navigate("/news")}
+                className="mt-4 font-mont text-xs md:text-sm text-[#4caf50] hover:text-[#66bb6a] inline-flex items-center gap-1"
+              >
                 Read more <span className="text-base leading-none">→</span>
               </button>
             </article>
@@ -753,7 +771,10 @@ export default function Home() {
                   products is creating new export pathways.
                 </p>
               </div>
-              <button className="mt-4 font-mont text-xs md:text-sm text-[#4caf50] hover:text-[#66bb6a] inline-flex items-center gap-1">
+              <button
+                onClick={() => navigate("/news")}
+                className="mt-4 font-mont text-xs md:text-sm text-[#4caf50] hover:text-[#66bb6a] inline-flex items-center gap-1"
+              >
                 Read more <span className="text-base leading-none">→</span>
               </button>
             </article>
@@ -772,7 +793,10 @@ export default function Home() {
                   support sustainable coconut farming.
                 </p>
               </div>
-              <button className="mt-4 font-mont text-xs md:text-sm text-[#4caf50] hover:text-[#66bb6a] inline-flex items-center gap-1">
+              <button
+                onClick={() => navigate("/news")}
+                className="mt-4 font-mont text-xs md:text-sm text-[#4caf50] hover:text-[#66bb6a] inline-flex items-center gap-1"
+              >
                 Read more <span className="text-base leading-none">→</span>
               </button>
             </article>

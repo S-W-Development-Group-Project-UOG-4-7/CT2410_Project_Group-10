@@ -71,7 +71,7 @@ export default function CustomerLayout() {
     return u ? safeParse(u, {}) : {};
   });
 
-  const token = useMemo(() => localStorage.getItem("access"), []);
+  const token = localStorage.getItem("access");
 
   // ✅ Keep localStorage.user consistent with backend and avoid "undefined undefined"
   const syncUserFromMe = (me) => {
@@ -152,7 +152,7 @@ export default function CustomerLayout() {
     { path: "/customer/profile", label: "My Profile", icon: <User size={20} /> },
     { path: "/customer/products", label: "My Products", icon: <Package size={20} /> },
     { path: "/customer/orders", label: "My Orders", icon: <Package size={20} /> },
-    {
+    {/*{
       path: "/customer/notifications",
       label: "Notifications",
       icon: <Bell size={20} />,
@@ -161,7 +161,7 @@ export default function CustomerLayout() {
       path: "/customer/support",
       label: "Help & Support",
       icon: <HelpCircle size={20} />,
-    },
+    },*/}
   ];
 
   const isActivePath = (itemPath) =>
@@ -185,19 +185,39 @@ export default function CustomerLayout() {
 
   const handleLogout = () => setShowLogoutModal(true);
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
     setShowLogoutModal(false);
 
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
-    localStorage.removeItem("name");
-    localStorage.removeItem("email");
+    const access = localStorage.getItem("access");
 
-    setUserState({}); // ✅ immediately reset UI
-    navigate("/");
+    try {
+      if (access) {
+        await fetch(`${API}/logout/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("Customer logout API failed:", e);
+    } finally {
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("name");
+      localStorage.removeItem("email");
+
+      setUserState({}); // ✅ instantly reset UI
+
+      // ✅ if you have Navbar listening to this event
+      window.dispatchEvent(new Event("auth:changed"));
+
+      navigate("/");
+    }
   };
+
 
   const getCurrentPageTitle = () => {
     const currentItem = navItems.find(

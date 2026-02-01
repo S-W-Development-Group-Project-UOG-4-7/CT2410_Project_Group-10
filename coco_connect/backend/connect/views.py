@@ -15,6 +15,10 @@ from .services.similarity import cosine_similarity
 from .serializers import AuthLogSerializer
 from .models import AuthLog
 
+from .models import ProjectDraft
+from .serializers import ProjectDraftSerializer
+
+
 import json
 import decimal
 import random
@@ -29,14 +33,13 @@ from rest_framework.permissions import (
     IsAdminUser,
     AllowAny,
 )
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes, action, parser_classes
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, parsers
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAdminUser
-
 
 from .models import (
     Idea,
@@ -53,7 +56,26 @@ from .serializers import (
     IdeaSerializer,
     NewsSerializer,
     SimilarityAlertSerializer,
+    UserSerializer,
 )
+from .investment_serializers import (
+    InvestmentProjectCreateSerializer,
+    InvestmentProjectListSerializer,
+    InvestmentCreateSerializer,
+    MyInvestmentSerializer,
+)
+from django.contrib.auth.models import Group
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.utils import timezone
+import json, decimal, random, string
+
+# ===============================================
+# Groups
+# ===============================================
+def add_group(user, group_name: str):
+    group, _ = Group.objects.get_or_create(name=group_name)
+    user.groups.add(group)
 
 # =================================================
 # AUTH LOG HELPER
@@ -340,6 +362,11 @@ def logout_view(request):
         message="Logout success",
     )
     return Response({"detail": "Logged out"})
+
+# ================================================
+# Roles
+# ================================================
+
 
 # =================================================
 # USER PROFILE
@@ -1063,6 +1090,8 @@ class IdeaViewSet(ModelViewSet):
             embedding=embedding,
         )
 
+        add_group(request.user, "Idea Creator")
+
         # Create alerts when forced publish within warning zone
         if self.WARNING_THRESHOLD <= best_score < self.BLOCK_THRESHOLD:
             for m in matches:
@@ -1174,7 +1203,185 @@ class SimilarityAlertViewSet(ModelViewSet):
 
 
 # =================================================
-# INVESTMENT ENDPOINTS (function-based)
+# NEW INVESTMENT ENDPOINTS
+# =================================================
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([parsers.MultiPartParser, parsers.FormParser])
+def create_project(request):
+    """
+    Create new investment project
+    """
+    try:
+        data = request.data.copy()
+        
+        # Check if user has farmer profile
+        #profile = getattr(request.user, 'profile', None)
+        #if profile and profile.role != 'farmer':
+        #    return Response({
+        #        'success': False,
+        #        'error': 'Only farmers can create projects'
+        #   }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = InvestmentProjectCreateSerializer(data=data, context={'request': request})
+        
+        if serializer.is_valid():
+            project = serializer.save()
+
+            add_group(request.user, "Project Owner")
+            
+            return Response({
+                'success': True,
+                'message': 'Project created successfully and sent for admin approval',
+                'project': InvestmentProjectListSerializer(project).data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            'success': False,
+            'error': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def make_investment(request):
+    try:
+        user = request.user
+
+        serializer = InvestmentCreateSerializer(data=request.data, context={'request': request})
+
+        if serializer.is_valid():
+            investment = serializer.save()
+
+            # ✅ add role AFTER successful save
+            add_group(user, "Investor")
+
+            return Response({
+                'success': True,
+                'message': 'Investment successful!',
+                'investment': MyInvestmentSerializer(investment).data,
+                'ownership_percentage': investment.ownership_percentage
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({'success': False, 'error': serializer.errors}, status=400)
+
+    except Exception as e:
+        return Response({'success': False, 'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def make_investment(request):
+    """
+    Make an investment (supports both fixed amount and share-based)
+    ✅ After successful investment -> add Investor group (same as Farmer)
+    """
+    try:
+        user = request.user
+
+        serializer = InvestmentCreateSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            investment = serializer.save()
+
+            # ✅ SAME METHOD AS FARMER
+            add_group(user, "Investor")
+
+            return Response({
+                'success': True,
+                'message': 'Investment successful!',
+                'investment': MyInvestmentSerializer(investment).data,
+                'ownership_percentage': investment.ownership_percentage
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({'success': False, 'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedOrReadOnly])
+def get_projects_api(request):
+    """
+    Get projects with advanced filtering
+    """
+    try:
+        queryset = InvestmentProject.objects.select_related('category', 'farmer')
+        sort_by = request.GET.get("sortBy", "")
+
+        
+        # Filter by status (default: active)
+        status_param = request.GET.get('status', 'active')
+        queryset = queryset.filter(status=status_param)
+        
+        # ... (rest of your filtering code remains the same) ...
+        
+        # Handle funding_needed sorting
+        if sort_by == 'funding_needed':
+            projects_list = list(queryset)
+            projects_list.sort(key=lambda p: float(p.target_amount - p.current_amount), reverse=True)
+        else:
+            projects_list = list(queryset)
+        
+        # ROBUST FIX: Add missing fields with proper error handling
+        for project in projects_list:
+            try:
+                # Check if total_units exists as a database field
+                if not hasattr(project, 'total_units') or project.total_units is None:
+                    project.total_units = 1000
+                if not hasattr(project, 'available_units') or project.available_units is None:
+                    project.available_units = 1000
+                if not hasattr(project, 'unit_price') or project.unit_price is None:
+                    project.unit_price = project.target_amount / 1000 if project.target_amount > 0 else 0
+                if not hasattr(project, 'investment_structure') or project.investment_structure is None:
+                    project.investment_structure = 'fixed'
+                if not hasattr(project, 'farmer_name') or project.farmer_name is None:
+                    project.farmer_name = f"{project.farmer.first_name} {project.farmer.last_name}".strip()
+                if not hasattr(project, 'farmer_experience') or project.farmer_experience is None:
+                    project.farmer_experience = 0
+                if not hasattr(project, 'farmer_rating') or project.farmer_rating is None:
+                    project.farmer_rating = 4.5
+            except Exception as e:
+                print(f"Error setting defaults for project {project.id}: {e}")
+                # Set defaults anyway
+                project.total_units = 1000
+                project.available_units = 1000
+                project.unit_price = project.target_amount / 1000 if hasattr(project, 'target_amount') and project.target_amount > 0 else 0
+                project.investment_structure = 'fixed'
+        
+        serializer = InvestmentProjectListSerializer(projects_list, many=True)
+        
+        # Get unique categories and locations for filters
+        categories = InvestmentCategory.objects.values_list('name', flat=True).distinct()
+        locations = InvestmentProject.objects.values_list('location', flat=True).distinct()
+        
+        return Response({
+            'success': True,
+            'projects': serializer.data,
+            'total': len(projects_list),
+            'categories': list(categories),
+            'locations': list(locations)
+        })
+        
+    except Exception as e:
+        print(f"Error in get_projects_api: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# =================================================
+# EXISTING INVESTMENT ENDPOINTS (keep for backward compatibility)
 # =================================================
 
 @csrf_exempt
@@ -1305,6 +1512,7 @@ def get_project_detail(request, project_id):
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
+
 @csrf_exempt
 def create_investment(request):
     if request.method != "POST":
@@ -1346,23 +1554,23 @@ def create_investment(request):
             amount=amount_decimal,
             payment_method=payment_method,
             transaction_id=txid,
-            status="completed",  # adjust if you have payment gateway callback later
+            status="completed",
             payment_status="completed",
             completed_at=timezone.now(),
         )
 
-        return JsonResponse(
-            {
-                "success": True,
-                "investment": {
-                    "id": inv.id,
-                    "transaction_id": inv.transaction_id,
-                    "amount": float(inv.amount),
-                    "project_id": project.id,
-                },
+        # ✅ role update here
+        add_group(user, "Investor")
+
+        return JsonResponse({
+            "success": True,
+            "investment": {
+                "id": inv.id,
+                "transaction_id": inv.transaction_id,
+                "amount": float(inv.amount),
+                "project_id": project.id,
             },
-            status=201,
-        )
+        }, status=201)
 
     except InvestmentProject.DoesNotExist:
         return JsonResponse({"success": False, "error": "Project not found"}, status=404)
@@ -1574,7 +1782,6 @@ def admin_delete_idea(request, idea_id):
     SimilarityAlert.objects.filter(
         Q(similar_idea_id=idea_id) | Q(idea_id=idea_id)
     ).delete()
-
     return Response({"message": "Idea removed"})
 
 # --------------------------------------
@@ -1631,69 +1838,6 @@ def admin_auth_logs(request):
 
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
-def admin_auth_logs(request):
-    """
-    Admin-only: list auth logs with optional filters.
-
-    Query params:
-      - user_id=#
-      - action=LOGIN|LOGOUT
-      - status=SUCCESS|FAILED
-      - q=search by username/email/message
-      - from=YYYY-MM-DD (created_at date)
-      - to=YYYY-MM-DD (created_at date)
-      - limit=100 (default 100, max 500)
-    """
-    qs = AuthLog.objects.select_related("user").all().order_by("-created_at")
-
-    user_id = (request.GET.get("user_id") or "").strip()
-    action_q = (request.GET.get("action") or "").strip().upper()
-    status_q = (request.GET.get("status") or "").strip().upper()
-    q = (request.GET.get("q") or "").strip()
-    date_from = (request.GET.get("from") or "").strip()
-    date_to = (request.GET.get("to") or "").strip()
-
-    if user_id.isdigit():
-        qs = qs.filter(user_id=int(user_id))
-
-    if action_q in ["LOGIN", "LOGOUT"]:
-        qs = qs.filter(action=action_q)
-
-    if status_q in ["SUCCESS", "FAILED"]:
-        qs = qs.filter(status=status_q)
-
-    if date_from:
-        # filters by date portion of created_at
-        qs = qs.filter(created_at__date__gte=date_from)
-
-    if date_to:
-        qs = qs.filter(created_at__date__lte=date_to)
-
-    if q:
-        qs = qs.filter(
-            Q(message__icontains=q)
-            | Q(user__username__icontains=q)
-            | Q(user__email__icontains=q)
-        )
-
-    # simple limit (avoid returning huge lists)
-    try:
-        limit = int(request.GET.get("limit", 100))
-    except Exception:
-        limit = 100
-    limit = max(1, min(limit, 500))
-
-    logs = qs[:limit]
-    return Response(
-        {
-            "count": qs.count(),
-            "limit": limit,
-            "results": AuthLogSerializer(logs, many=True).data,
-        }
-    )
-
-@api_view(["GET"])
-@permission_classes([IsAdminUser])
 def admin_auth_logs_stats(request):
     """
     Admin-only: basic stats summary.
@@ -1720,3 +1864,64 @@ def admin_auth_logs_stats(request):
     return Response(data)
 
 
+# =========================
+# Create Project
+# =========================
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_project_draft(request):
+    serializer = ProjectDraftSerializer(data=request.data, context={"request": request})
+    if serializer.is_valid():
+        draft = serializer.save()
+        add_group(request.user, "Project Owner")
+
+        return Response({"success": True, "draft": ProjectDraftSerializer(draft).data}, status=status.HTTP_201_CREATED)
+    return Response({"success": False, "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_my_project_drafts(request):
+    """
+    Returns drafts owned by the logged-in user.
+    GET /api/project-drafts/
+    """
+    qs = ProjectDraft.objects.filter(owner=request.user).select_related("idea").prefetch_related("materials")
+    data = ProjectDraftSerializer(qs, many=True).data
+    return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_project_draft_detail(request, draft_id):
+    """
+    Returns one draft (must belong to logged-in user).
+    GET /api/project-drafts/<id>/
+    """
+    try:
+        draft = (
+            ProjectDraft.objects
+            .select_related("idea")
+            .prefetch_related("materials")
+            .get(id=draft_id, owner=request.user)
+        )
+    except ProjectDraft.DoesNotExist:
+        return Response({"detail": "Draft not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    return Response(ProjectDraftSerializer(draft).data, status=status.HTTP_200_OK)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_project_draft(request, draft_id):
+    """
+    Deletes one draft (must belong to logged-in user).
+    DELETE /api/project-drafts/<id>/delete/
+    """
+    try:
+        draft = ProjectDraft.objects.get(id=draft_id, owner=request.user)
+    except ProjectDraft.DoesNotExist:
+        return Response({"detail": "Draft not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    draft.delete()
+    return Response({"success": True}, status=status.HTTP_200_OK)

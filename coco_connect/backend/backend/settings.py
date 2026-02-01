@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 
 load_dotenv(".env.local")
 
-
 # -------------------------------------------------
 # BASE DIR
 # -------------------------------------------------
@@ -27,6 +26,15 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "0.0.0.0",
 ]
+
+# -------------------------------------------------
+# STATIC & MEDIA FILES
+# -------------------------------------------------
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 # -------------------------------------------------

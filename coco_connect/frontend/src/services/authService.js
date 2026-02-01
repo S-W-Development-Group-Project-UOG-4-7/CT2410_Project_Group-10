@@ -26,3 +26,19 @@ export const registerUser = async (data) => {
   const response = await API.post("register/", data);
   return response.data;
 };
+
+export async function logoutUser() {
+  const token = localStorage.getItem("access");
+  try {
+    if (token) {
+      await axios.post(`${API_BASE}/logout/`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+  } catch (e) {
+    console.warn("logout api failed", e?.response?.data || e.message);
+  } finally {
+    localStorage.clear();
+    window.dispatchEvent(new Event("auth:changed"));
+  }
+}

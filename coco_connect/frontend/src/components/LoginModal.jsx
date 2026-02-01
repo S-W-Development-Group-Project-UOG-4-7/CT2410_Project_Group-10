@@ -122,33 +122,48 @@ export default function LoginModal({
         }
       }
 
-      const apiUser = data?.user ?? data ?? {};
       const access = data?.access;
       const refresh = data?.refresh;
 
       if (!access) throw new Error("Missing access token from backend response");
 
+      // ✅ store tokens first
       localStorage.setItem("access", access);
       if (refresh) localStorage.setItem("refresh", refresh);
 
+      // ✅ NOW fetch real user info (includes roles/role)
+      const meRes = await axios.get(`${API_BASE}/me/`, {
+        headers: { Authorization: `Bearer ${access}` },
+      });
+
+      const me = meRes?.data || {};
+      const roles = Array.isArray(me.roles) ? me.roles : [];
+
+      const isAdmin =
+        roles.map((r) => String(r).toLowerCase()).includes("admin") ||
+        String(me.role || "").toLowerCase() === "admin" ||
+        me.is_staff === true ||
+        me.is_superuser === true;
+
       const userObj = {
-        id: apiUser?.id ?? null,
-        name: apiUser?.name || apiUser?.first_name || formData.email,
-        email: apiUser?.email || formData.email,
-        role: apiUser?.role || (apiUser?.is_staff ? "admin" : "user"),
+        id: me?.id ?? null,
+        name: me?.full_name || me?.name || me?.first_name || formData.email,
+        email: me?.email || formData.email,
+        role: isAdmin ? "admin" : "user",
+        roles, // optional: keep all roles if you want
         rememberMe,
       };
 
       localStorage.setItem("user", JSON.stringify(userObj));
-      window.dispatchEvent(new Event("auth:changed"));
-
       localStorage.setItem("role", userObj.role || "");
       localStorage.setItem("name", userObj.name || "");
       localStorage.setItem("email", userObj.email || "");
 
+      window.dispatchEvent(new Event("auth:changed"));
+
       onAuthSuccess?.(userObj);
 
-      // ✅ key change: go to saved page (or home)
+      // ✅ admin -> /admin, others -> saved or /
       redirectAfterLogin(userObj.role);
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
@@ -156,6 +171,7 @@ export default function LoginModal({
       setIsSubmitting(false);
     }
   };
+
 
   const handleChange = (e) => {
     const { id, value } = e.target;

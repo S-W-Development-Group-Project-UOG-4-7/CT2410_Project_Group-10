@@ -15,6 +15,7 @@ import Product from "./pages/Product-pg";
 import Cart from "./pages/Cart";
 import Investment from "./pages/Investment";
 import News from "./pages/News";
+import CreateProject from "./pages/CreateProject";
 
 // ADMIN PAGES
 import AdminLayout from "./admin/layout/AdminLayout";
@@ -23,10 +24,9 @@ import Users from "./admin/pages/Users";
 import Blockchain from "./admin/pages/Blockchain";
 import AdminNews from "./admin/pages/AdminNews";
 import AdminProducts from "./admin/pages/AdminProducts";
-import AdminIdea from "./admin/pages/AdminIdea"; 
+import AdminIdea from "./admin/pages/AdminIdea";
 import ProtectedAdminRoute from "./admin/ProtectedAdminRoute";
 import AdminAuthLogs from "./admin/pages/AdminAuthLogs";
-
 
 // CUSTOMER PAGES
 import CustomerLayout from "./customer/layout/CustomerLayout";
@@ -50,7 +50,6 @@ function LayoutWrapper({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-gray-200">
-      {/* Toasts for public pages */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -86,12 +85,13 @@ export default function App() {
       <Route path="/about" element={W(About)} />
       <Route path="/investment" element={W(Investment)} />
 
-      {/* ✅ Ideas list / create */}
-      <Route path="/ideas" element={W(IdeaSharing)} />
+      <Route path="/projects/create" element={W(CreateProject)} />
 
-      {/* ✅ View single idea (used by BLOCK modal) */}
+      {/* IDEAS */}
+      <Route path="/ideas" element={W(IdeaSharing)} />
       <Route path="/ideas/:id" element={W(IdeaSharing)} />
 
+      {/* SHOP */}
       <Route path="/shop" element={W(Product)} />
       <Route path="/cart" element={W(Cart)} />
       <Route path="/news" element={W(News)} />
