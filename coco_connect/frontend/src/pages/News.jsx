@@ -68,7 +68,9 @@ export default function NewsCorner() {
       image:
         "https://images.unsplash.com/photo-1599785209798-7b0b2e5b4c2b",
     },
-    {id: 6,},
+    {id: 6,
+    title: "Coconut Water Gains Popularity as a Natural Health Drink",
+    },
   ];
 
   return (
