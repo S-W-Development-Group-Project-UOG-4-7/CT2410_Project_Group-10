@@ -42,7 +42,7 @@ export default function NewsCorner() {
     {
       id: 4,
       title: "Export Demand for Coconut Products Increases",
-      source: "International Trade Review",
+      source: "International Coco Demand",
       shortDescription:
         "Global demand for Sri Lankan coconut-based products continues to rise.",
       fullDescription:
