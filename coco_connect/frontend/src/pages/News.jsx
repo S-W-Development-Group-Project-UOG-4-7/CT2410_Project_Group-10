@@ -75,7 +75,9 @@ export default function NewsCorner() {
     location: "Global",
     readTime: "3 min",
     shortDescription:
-    "Coconut water is becoming a popular natural beverage due to its hydration and health benefits.",
+      "Coconut water is becoming a popular natural beverage due to its hydration and health benefits.",
+    fullDescription:
+    "Coconut water has gained global popularity as a natural and refreshing health drink rich in electrolytes.\n\nHealth experts highlight its ability to improve hydration, support digestion, and provide essential minerals without artificial additives. As consumers shift toward natural beverages, coconut water continues to grow in demand worldwide.",
     },
   ];
 
