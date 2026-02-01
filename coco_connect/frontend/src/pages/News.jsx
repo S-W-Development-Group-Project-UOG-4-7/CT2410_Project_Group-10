@@ -49,7 +49,18 @@ export default function NewsCorner() {
       image:
         "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2",
     },
-
+    {
+      id: 5,
+      title: "How Coconut Ice Cream Is Made Using Natural Ingredients",
+      source: "Coconut Food Lab",
+      shortDescription:
+        "A step-by-step look at producing creamy coconut ice cream without artificial additives.",
+      fullDescription:
+        "Coconut ice cream is made using fresh coconut milk extracted from mature coconuts, combined with natural sweeteners and stabilizers.\n\nThe mixture is slowly churned at low temperatures to achieve a smooth and creamy texture. This dairy-free dessert has gained popularity due to its rich taste and health benefits.",
+      date: "2025-12-05",
+      image:
+        "https://images.unsplash.com/photo-1599785209798-7b0b2e5b4c2b",
+    },
   ];
 
   return (
