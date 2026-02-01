@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-
+from django.conf import settings
 # =================================================
 # NOTE ABOUT MERGE CLASH (IMPORTANT)
 # =================================================
@@ -431,3 +431,112 @@ class SimilarityAlert(models.Model):
             f"{self.idea.title} ~ {self.similar_idea.title} | "
             f"{round(self.similarity_score * 100)}%"
         )
+
+
+# ----------------------------
+# INVESTMENT
+# ----------------------------
+class Investment(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+        ("refunded", "Refunded"),
+    ]
+
+    PAYMENT_METHOD_CHOICES = [
+        ("payhere", "PayHere"),
+        ("stripe", "Stripe/Card"),
+        ("bank", "Bank Transfer"),
+    ]
+
+    investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="investments")
+    project = models.ForeignKey(
+        InvestmentProject,
+        on_delete=models.CASCADE,
+        related_name="project_investments",
+    )
+
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=100)
+
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="payhere")
+    transaction_id = models.CharField(max_length=100, blank=True, default="")
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    notes = models.TextField(blank=True, default="")
+    payment_status = models.CharField(max_length=20, default="pending")
+
+    def __str__(self):
+        return f"{self.investor.username} - {self.project.title} - RS.{self.amount}"
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_status = None
+
+        if not is_new:
+            old_status = (
+                Investment.objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
+
+        super().save(*args, **kwargs)
+
+        became_completed = (
+            (is_new and self.status == "completed")
+            or (old_status != "completed" and self.status == "completed")
+        )
+
+        if became_completed:
+            self.project.current_amount += self.amount
+            self.project.investors_count += 1
+
+            if not self.completed_at:
+                self.completed_at = timezone.now()
+                super().save(update_fields=["completed_at"])
+
+            if self.project.current_amount >= self.project.target_amount:
+                self.project.status = "funded"
+                self.project.days_left = 0
+
+            self.project.save()
+
+#---------------------------------
+#   Auth Log
+#---------------------------------
+class AuthLog(models.Model):
+    class Action(models.TextChoices):
+        LOGIN = "LOGIN", "Login"
+        LOGOUT = "LOGOUT", "Logout"
+
+    class Status(models.TextChoices):
+        SUCCESS = "SUCCESS", "Success"
+        FAILED = "FAILED", "Failed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="auth_logs",
+    )
+    action = models.CharField(max_length=10, choices=Action.choices)
+    status = models.CharField(max_length=10, choices=Status.choices)
+    message = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["action", "status"]),
+        ]
+
+    def __str__(self):
+        username = self.user.username if self.user else "UnknownUser"
+        return f"{self.created_at:%Y-%m-%d %H:%M:%S} | {username} | {self.action} | {self.status}"

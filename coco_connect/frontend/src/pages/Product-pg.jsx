@@ -1,15 +1,23 @@
 // src/pages/Product-pg.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 import shopBg from "../assets/shopbg.png";
 import shopheroBg from "../assets/cocoshopherobg.png";
+import coconutImg from "../assets/FloatingCoco.png";
 import { useCart } from "../context/CartContext";
 
 import AddProductModal from "../components/AddProductModal";
 import ProductDetailsModal from "../components/ProductDetailsModal";
 
+// ✅ Use existing auth modals (no changes to other files)
+import LoginModal from "../components/LoginModal";
+import RegisterModal from "../components/RegisterModal";
+
 const API = "http://127.0.0.1:8000";
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+const MAX_IMAGE_SIZE_MB = 5;
 
 const Product = () => {
   const [filters, setFilters] = useState({
@@ -32,18 +40,25 @@ const Product = () => {
 
   const hasSetMaxPrice = useRef(false);
 
-  // ✅ Logged-in user (null if not logged in)
-  const user = useMemo(() => {
+  // ✅ Logged-in user + access token (reactive)
+  const [user, setUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
     } catch {
       return null;
     }
-  }, []);
-  const access = localStorage.getItem("access");
+  });
+  const [access, setAccess] = useState(() => localStorage.getItem("access"));
 
   // Add Product modal
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isMyProductsOpen, setIsMyProductsOpen] = useState(false);
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+
+  // ✅ Login gating popup + modals
+  const [showLoginGate, setShowLoginGate] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   // News
   const [newsItems, setNewsItems] = useState([]);
@@ -56,6 +71,39 @@ const Product = () => {
   // Product details modal
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+
+  // ✅ Helper: refresh auth state from localStorage
+  const refreshAuth = () => {
+    let u = null;
+    try {
+      u = JSON.parse(localStorage.getItem("user") || "null");
+    } catch {
+      u = null;
+    }
+    setUser(u);
+    setAccess(localStorage.getItem("access"));
+  };
+
+  // ✅ Helper: open Add Product (login-gated)
+  const requestAddProduct = (e) => {
+    if (e) e.stopPropagation();
+
+    const token = localStorage.getItem("access");
+    const u = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("user") || "null");
+      } catch {
+        return null;
+      }
+    })();
+
+    if (!token || !u) {
+      setShowLoginGate(true);
+      return;
+    }
+
+    setIsAddProductOpen(true);
+  };
 
   useEffect(() => {
     if (!newsItems.length) return;
@@ -352,6 +400,22 @@ const Product = () => {
             `,
           }}
         />
+        {user && (
+          <div className="absolute top-24 left-6 sm:left-10 z-20 flex flex-col gap-3">
+            <button
+              onClick={() => setIsMyProductsOpen(true)}
+              className="px-4 py-2 rounded-md bg-white/90 text-green-800 font-semibold shadow hover:bg-white transition"
+            >
+              My Products
+            </button>
+            <button
+              onClick={() => setIsOrdersOpen(true)}
+              className="px-4 py-2 rounded-md bg-green-700 text-white font-semibold shadow hover:bg-green-800 transition"
+            >
+              Orders
+            </button>
+          </div>
+        )}
         <div className="relative z-10 w-full px-6">
           <div className="max-w-xl ml-24 mt-20 text-white">
             <h1 className="text-4xl md:text-6xl font-bold leading-tight mb-6">
@@ -586,18 +650,14 @@ const Product = () => {
                             <div className="flex items-center gap-2 mt-1">
                               <p className="text-xs text-green-700">By {authorName}</p>
 
-                              {user && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsAddProductOpen(true);
-                                  }}
-                                  className="text-green-600 font-bold hover:scale-110 transition"
-                                  title="Add your product"
-                                >
-                                  +
-                                </button>
-                              )}
+                              {/* ✅ Plus is ALWAYS visible */}
+                              <button
+                                onClick={(e) => requestAddProduct(e)}
+                                className="text-green-600 font-bold hover:scale-110 transition"
+                                title="Add your product"
+                              >
+                                +
+                              </button>
                             </div>
 
                             <p className="text-xs text-gray-600 mt-2 line-clamp-2">
@@ -672,18 +732,80 @@ const Product = () => {
         </div>
       </div>
 
-      {/* Floating Add Product Button */}
-      {user && (
-        <button
-          onClick={() => setIsAddProductOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-green-600 text-white text-3xl
-            font-bold flex items-center justify-center shadow-lg hover:bg-green-700 hover:scale-105
-            transition z-50"
-          title="Add your product"
+      {/* ✅ Floating Add Product Button (ALWAYS visible) */}
+      <button
+        onClick={(e) => requestAddProduct(e)}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-green-600 text-white text-3xl
+          font-bold flex items-center justify-center shadow-lg hover:bg-green-700 hover:scale-105
+          transition z-50"
+        title="Add your product"
+      >
+        +
+      </button>
+
+
+
+      {/* ✅ Custom popup (only when not logged in) */}
+      {showLoginGate && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowLoginGate(false)}
         >
-          +
-        </button>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative w-[92%] max-w-sm rounded-2xl bg-white shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-[#2f3e46]">Login required</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              You need to login first to add your product.
+            </p>
+
+            <div className="mt-4 flex gap-2 justify-end">
+              <button
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                onClick={() => setShowLoginGate(false)}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                onClick={() => {
+                  // ✅ Save current page so after login it returns here (shop page / whatever page)
+                  localStorage.setItem(
+                    "redirectAfterLogin",
+                    window.location.pathname + window.location.search
+                  );
+
+                  setShowLoginGate(false);
+                  setIsLoginOpen(true);
+                }}
+              >
+                Login
+              </button>
+            </div>
+          </div>
+        </div>
       )}
+
+      <MyProductsModal
+        isOpen={isMyProductsOpen}
+        onClose={() => setIsMyProductsOpen(false)}
+        user={user}
+        access={access}
+        apiBase={API}
+        onUpdated={() => setReloadProductsTick((t) => t + 1)}
+      />
+
+      <SellerOrdersModal
+        isOpen={isOrdersOpen}
+        onClose={() => setIsOrdersOpen(false)}
+        access={access}
+        apiBase={API}
+      />
 
       <AddProductModal
         isOpen={isAddProductOpen}
@@ -705,6 +827,673 @@ const Product = () => {
         onAddToCart={(id) => handleAddToCart(id)}
         onVerify={(id) => handleVerify(id)}
       />
+
+      {/* ✅ Login/Register modals (opens from the popup) */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onOpenRegister={() => {
+          setIsLoginOpen(false);
+          setIsRegisterOpen(true);
+        }}
+        onAuthSuccess={() => {
+          refreshAuth();
+          setIsLoginOpen(false);
+        }}
+      />
+
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onOpenLogin={() => {
+          setIsRegisterOpen(false);
+          setIsLoginOpen(true);
+        }}
+        onAuthSuccess={() => {
+          refreshAuth();
+          setIsRegisterOpen(false);
+        }}
+      />
+    </div>
+  );
+};
+
+const MyProductsModal = ({ isOpen, onClose, user, access, apiBase, onUpdated }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [showCrack, setShowCrack] = useState(false);
+  const crackTimerRef = useRef(null);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    price: "",
+    category: "",
+    type: "",
+    image: null,
+  });
+
+  useEffect(() => {
+    if (!isOpen) {
+      setItems([]);
+      setError("");
+      setCategories([]);
+      setEditId(null);
+      setSaving(false);
+      setShowCrack(false);
+      if (crackTimerRef.current) {
+        clearTimeout(crackTimerRef.current);
+        crackTimerRef.current = null;
+      }
+      setForm({
+        name: "",
+        description: "",
+        price: "",
+        category: "",
+        type: "",
+        image: null,
+      });
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (crackTimerRef.current) {
+        clearTimeout(crackTimerRef.current);
+        crackTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchAll = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [productsRes, categoriesRes] = await Promise.all([
+          fetch(`${apiBase}/api/products/`, {
+            headers: { "Content-Type": "application/json" },
+          }),
+          fetch(`${apiBase}/api/products/categories/`, {
+            headers: { "Content-Type": "application/json" },
+          }),
+        ]);
+
+        if (!productsRes.ok) throw new Error("Failed to load products.");
+        const productsData = await productsRes.json();
+        setItems(Array.isArray(productsData) ? productsData : []);
+
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json();
+          setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        } else {
+          setCategories([]);
+        }
+      } catch (e) {
+        setError(String(e.message || e));
+        setItems([]);
+        setCategories([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAll();
+  }, [isOpen, apiBase]);
+
+  const myProducts = useMemo(() => {
+    if (!user?.id) return [];
+    return items.filter((p) => Number(p?.author?.id) === Number(user.id));
+  }, [items, user]);
+
+  const startEdit = (product) => {
+    setEditId(product.id);
+    setForm({
+      name: product.name || "",
+      description: product.description || "",
+      price: product.price ?? "",
+      category: product.category || "",
+      type: product.type || "",
+      image: null,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setSaving(false);
+    setForm({
+      name: "",
+      description: "",
+      price: "",
+      category: "",
+      type: "",
+      image: null,
+    });
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!editId) return;
+
+    if (!access) {
+      setError("Please login to update your products.");
+      return;
+    }
+
+    if (form.name.trim().length < 3) {
+      setError("Product name must be at least 3 characters long.");
+      return;
+    }
+    if (form.description.trim().length < 10) {
+      setError("Description must be at least 10 characters long.");
+      return;
+    }
+    if (!form.price || Number(form.price) <= 0) {
+      setError("Price is required and must be greater than 0.");
+      return;
+    }
+    if (!form.category) {
+      setError("Category is required.");
+      return;
+    }
+    if (!form.type) {
+      setError("Product type is required.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setShowCrack(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("description", form.description);
+      formData.append("price", form.price);
+      formData.append("category", form.category);
+      formData.append("type", form.type);
+      if (form.image) formData.append("image", form.image);
+
+      const res = await fetch(`${apiBase}/api/products/${editId}/`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${access}`,
+        },
+        body: formData,
+      });
+
+      if (res.status === 401) {
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
+        throw new Error("Session expired. Please login again.");
+      }
+
+      if (!res.ok) {
+        let errDetail = null;
+        try {
+          const body = await res.json();
+          errDetail = body.detail || body.error || JSON.stringify(body);
+        } catch {
+          errDetail = await res.text();
+        }
+        const safeMsg =
+          errDetail && String(errDetail).toLowerCase().includes("token")
+            ? "Session expired. Please login again."
+            : errDetail || "Failed to update product.";
+        throw new Error(safeMsg);
+      }
+
+      toast.success("Product updated successfully.");
+      cancelEdit();
+      onUpdated?.();
+      if (isOpen) {
+        const fresh = await fetch(`${apiBase}/api/products/`, {
+          headers: { "Content-Type": "application/json" },
+        });
+        if (fresh.ok) {
+          const data = await fresh.json();
+          setItems(Array.isArray(data) ? data : []);
+        }
+      }
+      if (crackTimerRef.current) clearTimeout(crackTimerRef.current);
+      crackTimerRef.current = setTimeout(() => setShowCrack(false), 900);
+    } catch (e) {
+      setError(String(e.message || e));
+      setShowCrack(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+
+      <div className="relative w-full max-w-5xl bg-[#fffaf3] rounded-2xl shadow-2xl overflow-hidden border border-black/10">
+        {showCrack && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70">
+            <div className="relative w-40 h-40">
+              <div className="absolute left-0 top-0 h-full w-1/2 overflow-hidden">
+                <img
+                  src={coconutImg}
+                  alt="coconut"
+                  className="absolute left-0 top-0 h-full w-auto object-cover crack-left"
+                />
+              </div>
+              <div className="absolute right-0 top-0 h-full w-1/2 overflow-hidden">
+                <img
+                  src={coconutImg}
+                  alt="coconut"
+                  className="absolute right-0 top-0 h-full w-auto object-cover crack-right"
+                />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-semibold text-black">Updating...</span>
+              </div>
+            </div>
+          </div>
+        )}
+        <style>{`
+          @keyframes crackLeft {
+            0% { transform: translateX(0) rotate(0deg) scale(1); }
+            60% { transform: translateX(-8px) rotate(-6deg) scale(1.02); }
+            100% { transform: translateX(-16px) rotate(-10deg) scale(1.02); }
+          }
+          @keyframes crackRight {
+            0% { transform: translateX(0) rotate(0deg) scale(1); }
+            60% { transform: translateX(8px) rotate(6deg) scale(1.02); }
+            100% { transform: translateX(16px) rotate(10deg) scale(1.02); }
+          }
+          .crack-left { animation: crackLeft 0.9s ease-in-out forwards; }
+          .crack-right { animation: crackRight 0.9s ease-in-out forwards; }
+        `}</style>
+        <div className="flex items-center justify-between p-5 border-b border-black/10 bg-white/70">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#2b221a]">My Products</h2>
+            <p className="text-sm text-green-800 mt-1">
+              Manage products you created
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-red-600 border border-red-700 hover:bg-red-700 transition flex items-center justify-center text-white"
+            aria-label="Close"
+            title="Close"
+          >
+            <span className="text-xl leading-none">x</span>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-6 max-h-[75vh] overflow-y-auto">
+          {!user && (
+            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-800">
+              Please login to view your products.
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-center text-slate-800">Loading your products...</div>
+          ) : myProducts.length === 0 ? (
+            <div className="text-center text-slate-800">You have no products yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-100 text-sm text-black">
+                  <tr>
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3">Category</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Price</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myProducts.map((p) => (
+                    <tr key={p.id} className="border-t hover:bg-gray-50 transition">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {p.image ? (
+                            <img
+                              src={p.image}
+                              alt={p.name}
+                              className="w-10 h-10 rounded-xl object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-slate-100 grid place-items-center font-bold text-slate-700">
+                              {String(p.name || "P").slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-black">{p.name}</div>
+                            <div className="text-xs text-slate-800 line-clamp-1">
+                              {p.description}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-black">
+                        {String(p.category || "-").replace(/-/g, " ")}
+                      </td>
+                      <td className="px-4 py-3 text-black">{p.type || "-"}</td>
+                      <td className="px-4 py-3 font-semibold text-black">
+                        LKR {Number(p.price || 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => startEdit(p)}
+                          className="text-green-700 font-semibold hover:underline"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {editId && (
+            <form
+              onSubmit={handleSave}
+              className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4"
+            >
+              <h3 className="text-lg font-semibold text-slate-900">Update Product</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-lg px-4 py-3 border border-slate-300 text-black placeholder-black/50"
+                  placeholder="Product name"
+                  required
+                />
+
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.price}
+                  onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+                  className="w-full rounded-lg px-4 py-3 border border-slate-300 text-black placeholder-black/50"
+                  placeholder="Price"
+                  required
+                />
+              </div>
+
+              <textarea
+                rows={3}
+                value={form.description}
+                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-lg px-4 py-3 border border-slate-300 text-black placeholder-black/50"
+                placeholder="Product description"
+                required
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                  className="w-full rounded-lg px-4 py-3 border border-slate-300 text-black"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.slug}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))}
+                  className="w-full rounded-lg px-4 py-3 border border-slate-300 text-black"
+                  required
+                >
+                  <option value="">Select Product Type</option>
+                  <option value="Raw Materials">Raw Materials</option>
+                  <option value="Processed Goods">Processed Goods</option>
+                  <option value="Equipment">Equipment</option>
+                </select>
+              </div>
+
+              <input
+                type="file"
+                className="text-sm text-black"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                    setError("Only JPG, PNG, and WEBP images are allowed.");
+                    e.target.value = "";
+                    return;
+                  }
+                  const sizeMB = file.size / (1024 * 1024);
+                  if (sizeMB > MAX_IMAGE_SIZE_MB) {
+                    setError("Image size must be under 5MB.");
+                    e.target.value = "";
+                    return;
+                  }
+                  setForm((prev) => ({ ...prev, image: file }));
+                }}
+              />
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="px-5 py-2 rounded-lg border border-slate-300 text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className={`px-6 py-2 rounded-lg text-white font-semibold ${
+                    saving ? "bg-slate-400" : "bg-green-700 hover:bg-green-800"
+                  }`}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SellerOrdersModal = ({ isOpen, onClose, access, apiBase }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [supplyingId, setSupplyingId] = useState(null);
+
+  const fetchOrders = async () => {
+    if (!access) {
+      setError("Please login to view your orders.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${apiBase}/api/products/seller-orders/`, {
+        headers: { Authorization: `Bearer ${access}` },
+      });
+      if (!res.ok) throw new Error("Failed to load orders.");
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(String(e.message || e));
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) fetchOrders();
+  }, [isOpen]);
+
+  const handleSupply = async (itemId) => {
+    if (!access) {
+      setError("Please login to supply orders.");
+      return;
+    }
+    setSupplyingId(itemId);
+    setError("");
+    try {
+      const res = await fetch(
+        `${apiBase}/api/products/seller-orders/${itemId}/supply/`,
+        {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${access}` },
+        }
+      );
+      if (!res.ok) {
+        let errDetail = null;
+        try {
+          const body = await res.json();
+          errDetail = body.detail || body.error || JSON.stringify(body);
+        } catch {
+          errDetail = await res.text();
+        }
+        throw new Error(errDetail || "Failed to update item.");
+      }
+      const updated = await res.json();
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === itemId
+            ? { ...it, supplied: updated.supplied, supplied_at: updated.supplied_at }
+            : it
+        )
+      );
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setSupplyingId(null);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+
+      <div className="relative w-full max-w-5xl bg-[#fffaf3] rounded-2xl shadow-2xl overflow-hidden border border-black/10">
+        <div className="flex items-center justify-between p-5 border-b border-black/10 bg-white/70">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#2b221a]">Orders</h2>
+            <p className="text-sm text-green-800 mt-1">
+              New orders for your products
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchOrders}
+              className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 hover:bg-white"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-red-600 border border-red-700 hover:bg-red-700 transition flex items-center justify-center text-white"
+              aria-label="Close"
+              title="Close"
+            >
+              <span className="text-xl leading-none">x</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+          {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="text-center text-gray-600">Loading orders...</div>
+          ) : items.length === 0 ? (
+            <div className="text-center text-gray-600">No orders yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-100 text-sm text-gray-600">
+                  <tr>
+                    <th className="px-4 py-3">Order</th>
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3">Qty</th>
+                    <th className="px-4 py-3">Buyer</th>
+                    <th className="px-4 py-3">Total</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 font-medium">#{item.order_id}</td>
+                      <td className="px-4 py-3">{item.product_name}</td>
+                      <td className="px-4 py-3">{item.quantity}</td>
+                      <td className="px-4 py-3">{item.buyer_email}</td>
+                      <td className="px-4 py-3">
+                        LKR {Number(item.line_total || 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.supplied ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            Supplied
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          disabled={item.supplied || supplyingId === item.id}
+                          onClick={() => handleSupply(item.id)}
+                          className={`px-3 py-1 rounded-md text-sm font-semibold ${
+                            item.supplied
+                              ? "bg-slate-200 text-slate-600 cursor-not-allowed"
+                              : "bg-green-700 text-white hover:bg-green-800"
+                          }`}
+                        >
+                          {supplyingId === item.id
+                            ? "Updating..."
+                            : item.supplied
+                            ? "Supplied"
+                            : "Mark Supplied"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

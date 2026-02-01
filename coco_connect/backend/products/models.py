@@ -178,3 +178,85 @@ class CartItem(models.Model):
     @property
     def total_price(self):
         return self.quantity * self.product.price
+
+
+# =========================
+# ORDER
+# =========================
+class Order(models.Model):
+    """
+    Order record for completed checkouts
+    """
+    STATUS_CHOICES = (
+        ("paid", "Paid"),
+        ("pending", "Pending"),
+        ("failed", "Failed"),
+        ("cancelled", "Cancelled"),
+    )
+
+    PAYMENT_PROVIDERS = (
+        ("payhere", "PayHere"),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="orders",
+    )
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    shipping = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=8, default="LKR")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="paid")
+
+    payment_provider = models.CharField(
+        max_length=20,
+        choices=PAYMENT_PROVIDERS,
+        default="payhere",
+    )
+    payhere_order_id = models.CharField(max_length=100, blank=True, null=True)
+    payhere_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    raw_payload = models.JSONField(blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.user.email}"
+
+
+# =========================
+# ORDER ITEM
+# =========================
+class OrderItem(models.Model):
+    """
+    Order line item snapshot
+    """
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
+    product_name = models.CharField(max_length=200)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField(default=1)
+    line_total = models.DecimalField(max_digits=10, decimal_places=2)
+    supplied = models.BooleanField(default=False)
+    supplied_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.product_name} x {self.quantity}"

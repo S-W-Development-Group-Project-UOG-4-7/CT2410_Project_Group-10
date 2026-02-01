@@ -259,7 +259,14 @@ const Cart = () => {
         <PayHerePayment
           cartItems={cartItems}
           totalAmount={total}
+          subtotal={subtotal}
+          tax={tax}
+          shipping={shipping}
+          authToken={token}
           onClose={() => setShowPayment(false)}
+          onSuccess={() => {
+            fetchCart();
+          }}
         />
       )}
     </div>

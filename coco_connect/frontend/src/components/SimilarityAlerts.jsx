@@ -13,6 +13,10 @@ export default function SimilarityAlerts({ onClose }) {
   const [ideaLoading, setIdeaLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // ✅ STEP 1 — Add 2 new states
+  const [showConfirmReport, setShowConfirmReport] = useState(false);
+  const [toastMsg, setToastMsg] = useState(null); // { type: "success" | "error", text: "" }
+
   // =========================
   // LOAD ALERTS
   // =========================
@@ -73,7 +77,7 @@ export default function SimilarityAlerts({ onClose }) {
   };
 
   // =========================
-  // REPORT IDEA
+  // REPORT IDEA - UPDATED VERSION
   // =========================
   const reportIdea = async () => {
     if (!selectedAlert) return;
@@ -88,16 +92,27 @@ export default function SimilarityAlerts({ onClose }) {
 
       if (!res.ok) throw new Error("Report failed");
 
-      alert("✅ Idea reported successfully");
+      // ✅ close confirm modal
+      setShowConfirmReport(false);
 
+      // ✅ show UI message (not browser alert)
+      setToastMsg({ type: "success", text: "✅ Idea reported successfully" });
+
+      // clear selection
       setSelectedAlert(null);
       setOpenIdea(null);
 
-      // Reload alerts list (it will still show, unless you hide it)
+      // reload list
       loadAlerts();
+
+      // auto hide message after 2.5s
+      setTimeout(() => setToastMsg(null), 2500);
     } catch (err) {
       console.error(err);
-      alert("❌ Failed to report idea");
+
+      setShowConfirmReport(false);
+      setToastMsg({ type: "error", text: "❌ Failed to report idea" });
+      setTimeout(() => setToastMsg(null), 2500);
     }
   };
 
@@ -173,6 +188,19 @@ export default function SimilarityAlerts({ onClose }) {
             )}
           </div>
         </div>
+
+        {/* ✅ STEP 4 — Add the success/error message UI (Toast-like) */}
+        {toastMsg && (
+          <div
+            className={`px-8 py-3 border-b flex items-center gap-3 ${
+              toastMsg.type === "success"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            <span className="text-sm font-semibold">{toastMsg.text}</span>
+          </div>
+        )}
 
         {/* ERROR MESSAGE */}
         {error && (
@@ -368,8 +396,9 @@ export default function SimilarityAlerts({ onClose }) {
                   </div>
 
                   <div className="border-t border-slate-200 bg-white p-6 flex gap-3">
+                    {/* ✅ STEP 2 — Replace the Report button click */}
                     <button
-                      onClick={reportIdea}
+                      onClick={() => setShowConfirmReport(true)}
                       className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm"
                     >
                       <svg
@@ -403,6 +432,44 @@ export default function SimilarityAlerts({ onClose }) {
             </div>
           </div>
         </div>
+
+        {/* ✅ STEP 5 — Add the Confirmation Modal */}
+        {showConfirmReport && (
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+            onClick={() => setShowConfirmReport(false)}
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+
+            <div
+              className="relative z-[10001] w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-slate-900">
+                Confirm Report
+              </h3>
+              <p className="text-sm text-slate-600 mt-2">
+                Are you sure you want to report this idea?
+              </p>
+
+              <div className="mt-6 flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowConfirmReport(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={reportIdea}
+                  className="px-4 py-2 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700"
+                >
+                  Yes, Report
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

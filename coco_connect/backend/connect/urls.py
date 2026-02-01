@@ -16,6 +16,9 @@ from .views import (
     admin_reported_ideas,
     admin_keep_idea,
     admin_delete_idea,
+    
+    # ✅ ADMIN USER ROLES VIEW
+    admin_user_roles,
 )
 
 router = DefaultRouter()
@@ -34,6 +37,13 @@ urlpatterns = [
     # =========================
     path("register/", views.register, name="register"),
     path("login/", views.login, name="login"),
+    path("logout/", views.logout_view, name="logout"),
+
+    # ========================
+    # Admin AuthLog
+    # ========================
+    path("admin/auth-logs/", views.admin_auth_logs, name="admin_auth_logs"),
+    path("admin/auth-logs/stats/", views.admin_auth_logs_stats, name="admin_auth_logs_stats"),
 
     # =========================
     # AUTH (JWT)
@@ -53,6 +63,19 @@ urlpatterns = [
     path("users/", views.users_list, name="users_list"),
     path("users/<int:user_id>/", views.users_delete, name="users_delete"),
     path("users/<int:user_id>/update/", views.users_update, name="users_update"),
+    
+    # =========================
+    # ADMIN – USER ROLES (GROUPS)
+    # =========================
+    path("roles/", views.roles_list, name="roles_list"),
+    path('roles/<int:group_id>/', views.roles_update, name='roles_update'),  # PATCH update
+    path('roles/<int:group_id>/delete/', views.roles_delete, name='roles_delete'),  # DELETE
+    path("users/<int:user_id>/roles/", admin_user_roles, name="admin_user_roles"),  # CHANGED HERE
+    path("permissions/", views.permissions_list, name="permissions_list"),
+
+    path("groups/", views.groups_list, name="groups_list"),
+    path('groups/create/', views.groups_create, name='groups_create'),  # POST create
+
 
     # =========================
     # ADMIN – IDEA MODERATION  ✅ NEW

@@ -27,7 +27,7 @@ function buildDisplayName(me) {
   return full || me?.name || me?.username || me?.email || "User";
 }
 
-/** ✅ Critical: this prevents "undefined undefined" after refresh */
+/** ✅ Critical: prevents "undefined undefined" after refresh */
 function syncLocalUserFromMe(me) {
   const stored = safeJsonParse(localStorage.getItem("user") || "{}", {});
   const displayName = buildDisplayName(me);
@@ -39,12 +39,28 @@ function syncLocalUserFromMe(me) {
     username: me?.username ?? stored?.username,
     first_name: me?.first_name ?? stored?.first_name,
     last_name: me?.last_name ?? stored?.last_name,
+
+    // ✅ keep legacy role if you still use it elsewhere
     role: me?.role ?? stored?.role,
+
+    // ✅ NEW: persist roles array too (optional but helpful)
+    roles: Array.isArray(me?.roles) ? me.roles : stored?.roles || [],
+
     name: displayName, // ✅ Navbar/Topbar should always use this
   };
 
   localStorage.setItem("user", JSON.stringify(updated));
   return updated;
+}
+
+function normalizeRoles(me) {
+  // Preferred: backend sends roles: ["Farmer", "Investor"]
+  if (Array.isArray(me?.roles) && me.roles.length) return me.roles;
+
+  // Fallback: backend only sends role: "buyer" / "user"
+  if (me?.role) return [me.role];
+
+  return ["Customer"]; // default label
 }
 
 export default function Profile() {
@@ -107,7 +123,9 @@ export default function Profile() {
 
   const displayName = buildDisplayName(me);
   const initials = getInitials(displayName || me?.email);
-  const roleLabel = me?.role || "buyer";
+
+  // ✅ THIS is what you want to show: roles from groups
+  const roles = normalizeRoles(me);
 
   const handleLogout = () => {
     localStorage.removeItem("access");
@@ -168,7 +186,6 @@ export default function Profile() {
       setNewPassword("");
       setConfirmPassword("");
 
-      // optional: logout after change
       setTimeout(() => handleLogout(), 900);
     } catch {
       setPwError("Password update failed");
@@ -187,31 +204,6 @@ export default function Profile() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Account</h1>
-          <p className="text-sm text-gray-500">
-            Manage your personal details and security settings.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => setEditOpen(true)}
-            className="px-4 py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 transition"
-          >
-            Edit Profile
-          </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition"
-          >
-            Logout
-          </button>
-        </div>
-      </div>*/}
-
       {pageError && (
         <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl">
           {pageError}
@@ -228,9 +220,16 @@ export default function Profile() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-bold text-gray-900">{displayName}</h2>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                  {roleLabel}
-                </span>
+
+                {/* ✅ MULTI-ROLE BADGES */}
+                {roles.map((r) => (
+                  <span
+                    key={r}
+                    className="px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700"
+                  >
+                    {r}
+                  </span>
+                ))}
               </div>
               <p className="text-sm text-gray-600 mt-0.5">{me?.email || "-"}</p>
             </div>
@@ -257,7 +256,9 @@ export default function Profile() {
             <DetailRow label="Full Name" value={buildDisplayName(me)} />
             <DetailRow label="Email" value={me?.email || "-"} />
             <DetailRow label="Username" value={me?.username || "-"} />
-            <DetailRow label="Role" value={me?.role || "-"} />
+
+            {/* ✅ Show roles nicely */}
+            <DetailRow label="Roles" value={roles.join(", ")} />
           </div>
 
           <div className="mt-6">

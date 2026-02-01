@@ -1,14 +1,18 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
+import axios from "axios";
+
+const API_BASE = "http://localhost:8000/api";
 
 const menuItems = [
   { name: "Dashboard", path: "/admin" },
-  { name: "Products", path: "/admin/products" },
-  { name: "Ideas", path: "/admin/ideas", badge: "New" },
-  { name: "Investments", path: "/admin/investments" },
   { name: "Users", path: "/admin/users" },
+  { name: "Products", path: "/admin/products" },
+  { name: "Investments", path: "/admin/investments" },
+  { name: "Ideas", path: "/admin/ideas", badge: "New" },
   { name: "News", path: "/admin/news" },
   { name: "Blockchain", path: "/admin/blockchain" },
+  { name: "Auth Logs", path: "/admin/auth-logs" },
 ];
 
 // ✅ Small logout modal (custom message)
@@ -103,17 +107,33 @@ export default function Sidebar({
     }
   }, []);
 
-  const doLogout = () => {
-    // clear tokens/session keys you already use
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
-    localStorage.removeItem("name");
-    localStorage.removeItem("email");
+  const doLogout = async () => {
+    const access = localStorage.getItem("access");
 
-    setShowLogout(false);
-    navigate("/"); // or "/login" if you have a route
+    try {
+      if (access) {
+        await axios.post(
+          `${API_BASE}/logout/`,
+          {},
+          { headers: { Authorization: `Bearer ${access}` } }
+        );
+      }
+    } catch (e) {
+      console.warn("Admin logout API failed:", e?.response?.data || e?.message);
+    } finally {
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("name");
+      localStorage.removeItem("email");
+
+      // ✅ keep navbar + other components in sync
+      window.dispatchEvent(new Event("auth:changed"));
+
+      setShowLogout(false);
+      navigate("/"); // or "/login"
+    }
   };
 
   return (

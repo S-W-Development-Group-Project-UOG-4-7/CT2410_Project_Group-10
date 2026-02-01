@@ -6,6 +6,7 @@ import axios from "axios";
 import { loginUser } from "../services/authService";
 
 const API_BASE = "http://localhost:8000/api";
+const REDIRECT_KEY = "redirectAfterLogin";
 
 export default function LoginModal({
   isOpen,
@@ -58,7 +59,6 @@ export default function LoginModal({
       status === 400 &&
       (d.includes("username") || d.includes("field is required"))
     ) {
-      // keep it user-friendly, but still accurate
       return "Login payload mismatch. Please try again.";
     }
 
@@ -88,9 +88,15 @@ export default function LoginModal({
     return res.data;
   }
 
+  // ✅ Redirect back to the page where login was triggered
   const redirectAfterLogin = (role) => {
     const isAdmin = String(role || "").toLowerCase().trim() === "admin";
-    const target = isAdmin ? "/admin" : "/";
+
+    const saved = localStorage.getItem(REDIRECT_KEY);
+    if (saved) localStorage.removeItem(REDIRECT_KEY);
+
+    // if admin -> always go admin (ignore saved)
+    const target = isAdmin ? "/admin" : saved || "/";
 
     onClose?.();
     setTimeout(() => navigate(target), 0);
@@ -107,10 +113,8 @@ export default function LoginModal({
       let data;
 
       try {
-        // preferred (your authService)
         data = await loginUser(formData.email, formData.password);
       } catch (err1) {
-        // fallback when token endpoint expects `username`
         if (err1?.response?.status === 400) {
           data = await loginFallbackUsername(formData.email, formData.password);
         } else {
@@ -118,20 +122,35 @@ export default function LoginModal({
         }
       }
 
-      const apiUser = data?.user ?? data ?? {};
       const access = data?.access;
       const refresh = data?.refresh;
 
       if (!access) throw new Error("Missing access token from backend response");
 
+      // ✅ store tokens first
       localStorage.setItem("access", access);
       if (refresh) localStorage.setItem("refresh", refresh);
 
+      // ✅ NOW fetch real user info (includes roles/role)
+      const meRes = await axios.get(`${API_BASE}/me/`, {
+        headers: { Authorization: `Bearer ${access}` },
+      });
+
+      const me = meRes?.data || {};
+      const roles = Array.isArray(me.roles) ? me.roles : [];
+
+      const isAdmin =
+        roles.map((r) => String(r).toLowerCase()).includes("admin") ||
+        String(me.role || "").toLowerCase() === "admin" ||
+        me.is_staff === true ||
+        me.is_superuser === true;
+
       const userObj = {
-        id: apiUser?.id ?? null,
-        name: apiUser?.name || apiUser?.first_name || formData.email,
-        email: apiUser?.email || formData.email,
-        role: apiUser?.role || (apiUser?.is_staff ? "admin" : "user"),
+        id: me?.id ?? null,
+        name: me?.full_name || me?.name || me?.first_name || formData.email,
+        email: me?.email || formData.email,
+        role: isAdmin ? "admin" : "user",
+        roles, // optional: keep all roles if you want
         rememberMe,
       };
 
@@ -140,7 +159,11 @@ export default function LoginModal({
       localStorage.setItem("name", userObj.name || "");
       localStorage.setItem("email", userObj.email || "");
 
+      window.dispatchEvent(new Event("auth:changed"));
+
       onAuthSuccess?.(userObj);
+
+      // ✅ admin -> /admin, others -> saved or /
       redirectAfterLogin(userObj.role);
     } catch (err) {
       setErrors({ submit: getLoginErrorMessage(err) });
@@ -148,6 +171,7 @@ export default function LoginModal({
       setIsSubmitting(false);
     }
   };
+
 
   const handleChange = (e) => {
     const { id, value } = e.target;
