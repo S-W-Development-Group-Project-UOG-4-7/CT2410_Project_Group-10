@@ -8,7 +8,7 @@ export default function NewsCorner() {
       id: 1,
       title: "Sri Lanka Coconut Industry Boosts Local Economy",
       shortDescription:
-        "Sri Lanka’s coconut exports show strong growth this quarter.",
+        "Sri Lanka’s coconut exports show steady growth this quarter.",
       fullDescription:
         "Sri Lanka’s coconut industry has shown remarkable growth this year, contributing significantly to rural employment and foreign exchange earnings.\n\nExperts say sustainable farming and global demand are the key drivers behind this success.",
       date: "2025-12-20",
