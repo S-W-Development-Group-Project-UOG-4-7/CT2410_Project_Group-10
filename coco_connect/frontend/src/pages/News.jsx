@@ -50,7 +50,7 @@ export default function NewsCorner() {
         "Global demand for Sri Lankan coconut-based products continues to rise.",
       fullDescription:
         "Exporters report increased orders for coconut oil, desiccated coconut, and value-added products.\n\nIndustry analysts believe this trend will strengthen Sri Lanka’s agricultural export sector.",
-      date: "2027-12-10",
+      date: "2027-12-05",
       image:
         "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2",
     },
