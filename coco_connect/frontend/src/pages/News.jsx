@@ -10,7 +10,7 @@ export default function NewsCorner() {
       shortDescription:
         "Sri Lanka’s coconut exports show steady growth this quarter.",
       fullDescription:
-        "Sri Lanka’s coconut exports have shown strong and consistent growth during this quarter, driven by increased global demand for coconut-based products such as coconut oil, desiccated coconut, and value-added food items.\n\nIndustry experts state that improved farming practices, better export facilities, and rising international interest in natural and sustainable products have significantly contributed to this positive trend.",
+        "Sri Lanka’s coconut exports have shown strong and consistent growth during this quarter, driven by increased global demand for coconut-based products such as coconut oil, desiccated coconut, and value-added food items.\n\nIndustry experts state that improved farming practices, better export facilities, and rising international interest in natural and sustainable products have remarkably contributed to this positive trend.",
       date: "2025-12-20",
       image:
         "https://images.unsplash.com/photo-1502741126161-f7a638e2f2bd",
