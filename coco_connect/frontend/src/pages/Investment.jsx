@@ -1,7 +1,7 @@
 // InvestmentPage.jsx
 // src/pages/InvestmentPage.jsx
 import React, { useState, useEffect } from "react";
-import CreateProjectModal from "../components/CreateProjectModal";
+import CreateInvestmentModal from "../components/CreateInvestmentModal";
 
 const API = "http://127.0.0.1:8000";
 
@@ -41,18 +41,21 @@ const InvestmentPage = () => {
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
 
-  // ✅ category should be PK (number/string id), not name
+  /**
+   * IMPORTANT:
+   * Your backend Create serializer expects:
+   *  - expected_roi
+   *  - duration_months
+   * NOT roi / duration
+   */
   const [newProject, setNewProject] = useState({
     title: "",
     description: "",
-    category: "", // ✅ will be set to category ID after categories load
+    category: "", // should be category PK (id) if your API expects FK id
     location: "Colombo",
-    farmer_name: "",
-    farmer_experience: "",
-    farmer_rating: 4.5,
-    roi: 15,
-    duration: 12,
     target_amount: "",
+    expected_roi: 15,
+    duration_months: 12,
     investment_type: "equity",
     risk_level: "medium",
     tags: "",
@@ -62,46 +65,12 @@ const InvestmentPage = () => {
     total_units: 1000,
   });
 
-  // ✅ categories from backend: [{id, name}, ...]
-  const [categoryOptions, setCategoryOptions] = useState([]);
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const token = localStorage.getItem("access");
-        if (!token) return;
-
-        const res = await fetch(`${API}/categories/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const data = await res.json();
-        if (res.ok && Array.isArray(data)) {
-          setCategoryOptions(data);
-
-          // set default category if empty
-          if (!newProject.category && data.length > 0) {
-            setNewProject((p) => ({ ...p, category: String(data[0].id) }));
-          }
-        } else {
-          console.error("Unexpected categories response:", data);
-        }
-      } catch (e) {
-        console.error("Failed to load categories", e);
-      }
-    };
-
-    loadCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Mock data - Fallback if API fails
   const mockProjects = [
     {
       id: 1,
       title: "Organic Coconut Oil Production",
-      description:
-        "Small-scale organic coconut oil production unit in Kurunegala",
+      description: "Small-scale organic coconut oil production unit in Kurunegala",
       category: "Coconut Oil Production",
       location: "Kurunegala",
       farmerName: "R.M. Perera",
@@ -253,7 +222,6 @@ const InvestmentPage = () => {
         params.append("status", "active");
 
         const response = await fetch(`${API}/api/projects/?${params}`);
-
         if (!response.ok) throw new Error("Failed to fetch projects");
 
         const data = await response.json();
@@ -265,20 +233,25 @@ const InvestmentPage = () => {
             const unitPrice =
               project.unit_price || calculateUnitPrice(targetAmount, totalUnits);
 
+            const currentAmount = parseFloat(project.current_amount) || 0;
+
             return {
               id: project.id,
               title: project.title,
               description: project.description,
               category: project.category, // name
               location: project.location,
+
+              // ✅ always provide these so UI doesn’t break
               farmerName: project.farmer_name || "Farmer",
-              farmerExperience: project.farmer_experience || 0,
-              farmerRating: project.farmer_rating || 4.5,
+              farmerExperience: project.farmer_experience ?? 0,
+              farmerRating: project.farmer_rating ?? 4.5,
+
               imageUrl: "",
-              roi: parseFloat(project.roi) || 0,
-              duration: project.duration || 12,
+              roi: parseFloat(project.roi) || 0, // from serializer (expected_roi)
+              duration: project.duration || 12, // from serializer (duration_months)
               targetAmount,
-              currentAmount: parseFloat(project.current_amount) || 0,
+              currentAmount,
               investorsCount: project.investors_count || 0,
               status: project.status || "active",
               daysLeft: project.days_left || 0,
@@ -292,11 +265,8 @@ const InvestmentPage = () => {
                 : [],
               totalUnits,
               availableUnits:
-                project.available_units ||
-                Math.floor(
-                  (targetAmount - parseFloat(project.current_amount || 0)) /
-                    unitPrice
-                ),
+                project.available_units ??
+                Math.floor((targetAmount - currentAmount) / unitPrice),
               unitPrice,
               investmentStructure:
                 project.investment_structure ||
@@ -353,12 +323,14 @@ const InvestmentPage = () => {
 
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      filtered = filtered.filter(
-        (project) =>
+      filtered = filtered.filter((project) => {
+        const farmer = (project.farmerName || "").toLowerCase();
+        return (
           project.title.toLowerCase().includes(searchTerm) ||
           project.description.toLowerCase().includes(searchTerm) ||
-          project.farmerName.toLowerCase().includes(searchTerm)
-      );
+          farmer.includes(searchTerm)
+        );
+      });
     }
 
     if (filters.sortBy) {
@@ -376,6 +348,8 @@ const InvestmentPage = () => {
             return b.targetAmount - b.currentAmount - (a.targetAmount - a.currentAmount);
           case "popularity":
             return b.investorsCount - a.investorsCount;
+          case "price_per_share":
+            return (a.unitPrice || 0) - (b.unitPrice || 0);
           default:
             return 0;
         }
@@ -491,7 +465,6 @@ const InvestmentPage = () => {
       });
 
       const data = await response.json();
-
       if (!response.ok) throw new Error(data.error || "Investment failed");
 
       alert("Investment successful!");
@@ -504,7 +477,7 @@ const InvestmentPage = () => {
     }
   };
 
-  // ✅ Corrected handleCreateProject (category is PK)
+  // ✅ Corrected handleCreateProject (sends expected_roi + duration_months)
   const handleCreateProject = async () => {
     let response;
 
@@ -517,25 +490,21 @@ const InvestmentPage = () => {
         return;
       }
 
-      if (!newProject.category) {
-        alert("Please select a category");
-        return;
-      }
-
       const formData = new FormData();
 
       Object.keys(newProject).forEach((key) => {
         const val = newProject[key];
-        if (val === null || val === undefined) return;
+        if (val === null || val === undefined || val === "") return;
 
         if (key === "image" || key === "business_plan" || key === "additional_docs") {
           if (val) formData.append(key, val);
           return;
         }
 
-        formData.append(key, val);
+        formData.append(key, String(val));
       });
 
+      // Auto-calc unit_price for equity projects
       if (
         newProject.investment_type === "equity" &&
         newProject.target_amount &&
@@ -545,6 +514,7 @@ const InvestmentPage = () => {
           Number(newProject.target_amount) / Number(newProject.total_units)
         );
         formData.append("unit_price", String(calculatedUnitPrice));
+        formData.append("investment_structure", "units");
       }
 
       response = await fetch(`${API}/api/create-project/`, {
@@ -846,7 +816,7 @@ const InvestmentPage = () => {
             {/* Tabs + Search and Sort Bar */}
             <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-accent5">
               <div className="flex flex-col gap-4">
-                {/* Tabs (All Projects | My Investments) */}
+                {/* Tabs */}
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => setTab("all")}
@@ -866,9 +836,8 @@ const InvestmentPage = () => {
                   </button>
                 </div>
 
-                {/* Search + Sort (only meaningful for All Projects) */}
+                {/* Search + Sort */}
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                  {/* Search */}
                   <div className="relative w-full md:w-auto md:flex-1">
                     <div className="relative">
                       <input
@@ -895,7 +864,6 @@ const InvestmentPage = () => {
                     </div>
                   </div>
 
-                  {/* Sort */}
                   <div className="flex items-center gap-4 w-full md:w-auto">
                     <span className="text-accent6 whitespace-nowrap">Sort by:</span>
                     <select
@@ -921,7 +889,6 @@ const InvestmentPage = () => {
             ========================== */}
             {tab === "all" && (
               <>
-                {/* Loading State */}
                 {loading && (
                   <div className="flex justify-center items-center h-64">
                     <div className="text-center">
@@ -931,7 +898,6 @@ const InvestmentPage = () => {
                   </div>
                 )}
 
-                {/* Empty State */}
                 {!loading && filteredProjects.length === 0 && (
                   <div className="text-center py-16 bg-white rounded-xl shadow">
                     <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1279,10 +1245,10 @@ const InvestmentPage = () => {
                       >
                         <div>
                           <p className="font-bold text-lg text-accent6">
-                            {inv.project?.title || "Project"}
+                            {inv.project?.title || inv.project_title || "Project"}
                           </p>
                           <p className="text-sm text-accent6">
-                            Location: {inv.project?.location || "-"}
+                            Location: {inv.project?.location || inv.project_location || "-"}
                           </p>
                           <p className="text-sm text-accent6">Date: {inv.created_at}</p>
                           <p className="text-sm text-accent6">
@@ -1388,7 +1354,6 @@ const InvestmentPage = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
         </svg>
 
-        {/* Tooltip */}
         <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-accent6 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
           Create New Project
         </div>
@@ -1405,15 +1370,13 @@ const InvestmentPage = () => {
         <span className="font-semibold">Create Project</span>
       </button>
 
-      {/* ✅ pass categoryOptions (objects) */}
-      <CreateProjectModal
+      <CreateInvestmentModal
         showCreatePanel={showCreatePanel}
         setShowCreatePanel={setShowCreatePanel}
         creatingProject={creatingProject}
         newProject={newProject}
         setNewProject={setNewProject}
         handleCreateProject={handleCreateProject}
-        categories={categoryOptions}
         locations={locations}
         formatCurrency={formatCurrency}
       />
@@ -1423,7 +1386,6 @@ const InvestmentPage = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              {/* Modal Header */}
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-2xl font-bold text-accent6">Confirm Investment</h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-accent3 hover:text-accent6">
@@ -1433,7 +1395,6 @@ const InvestmentPage = () => {
                 </button>
               </div>
 
-              {/* Project Info */}
               <div className="mb-6 p-4 bg-accent4 rounded-xl border border-accent5">
                 <h4 className="font-bold text-lg text-accent6 mb-2">{selectedProject.title}</h4>
                 <div className="flex items-center text-sm text-accent6 mb-2">
@@ -1451,7 +1412,6 @@ const InvestmentPage = () => {
                 </div>
               </div>
 
-              {/* Investment Details */}
               <div className="space-y-4 mb-6">
                 {selectedProject.investmentType === "equity" && selectedProject.investmentStructure === "units" && (
                   <div className="flex gap-2 mb-4">
@@ -1758,8 +1718,8 @@ const InvestmentPage = () => {
         </div>
       )}
 
-      {/* Add CSS for animation */}
-      <style jsx>{`
+      {/* ✅ React (Vite) does NOT support <style jsx>. Remove jsx attribute */}
+      <style>{`
         @keyframes slide-up {
           from {
             opacity: 0;

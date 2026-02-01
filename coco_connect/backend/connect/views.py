@@ -1210,6 +1210,8 @@ def get_projects_api(request):
     """
     try:
         queryset = InvestmentProject.objects.select_related('category', 'farmer')
+        sort_by = request.GET.get("sortBy", "")
+
         
         # Filter by status (default: active)
         status_param = request.GET.get('status', 'active')

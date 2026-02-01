@@ -183,9 +183,9 @@ class InvestmentProject(models.Model):
     )
     
     # New farmer fields for frontend display
-    farmer_name = models.CharField(max_length=255, blank=True)
-    farmer_experience = models.IntegerField(default=0)
-    farmer_rating = models.DecimalField(max_digits=3, decimal_places=2, default=4.5)
+    #farmer_name = models.CharField(max_length=255, blank=True)
+    #farmer_experience = models.IntegerField(default=0)
+    #farmer_rating = models.DecimalField(max_digits=3, decimal_places=2, default=4.5)
 
     target_amount = models.DecimalField(max_digits=12, decimal_places=2, default=100000)
     current_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -247,14 +247,13 @@ class InvestmentProject(models.Model):
             self.investment_structure = 'units'
         
         # Set farmer name if not provided
-        if not self.farmer_name and self.farmer:
-            self.farmer_name = f"{self.farmer.first_name} {self.farmer.last_name}".strip()
+        #if not self.farmer_name and self.farmer:
+        #    self.farmer_name = f"{self.farmer.first_name} {self.farmer.last_name}".strip()
         
         super().save(*args, **kwargs)
 
-
 # ----------------------------
-# INVESTMENT (UPDATED with new fields)
+# INVESTMENT (FINAL – KEEP THIS ONE)
 # ----------------------------
 class Investment(models.Model):
     STATUS_CHOICES = [
@@ -269,18 +268,23 @@ class Investment(models.Model):
         ("stripe", "Stripe/Card"),
         ("bank", "Bank Transfer"),
     ]
-    
+
     INVESTMENT_TYPE_CHOICES = [
         ("fixed_amount", "Fixed Amount"),
-        ("unit_purchase", "Share/Unit Purchase"),
-    ]
-    
-    INVESTMENT_STRUCTURE_CHOICES = [
-        ("fixed", "Fixed Amount"),
-        ("units", "Share/Unit Based"),
+        ("unit_purchase", "Share / Unit Purchase"),
     ]
 
-    investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="investments")
+    INVESTMENT_STRUCTURE_CHOICES = [
+        ("fixed", "Fixed Amount"),
+        ("units", "Share / Unit Based"),
+    ]
+
+    investor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="investments",
+    )
+
     project = models.ForeignKey(
         InvestmentProject,
         on_delete=models.CASCADE,
@@ -288,39 +292,63 @@ class Investment(models.Model):
     )
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=100)
-    
-    # New fields for share-based investment
-    units = models.IntegerField(null=True, blank=True)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    total_units = models.IntegerField(null=True, blank=True)
-    investment_type = models.CharField(max_length=20, choices=INVESTMENT_TYPE_CHOICES, default="fixed_amount")
-    investment_structure = models.CharField(max_length=20, choices=INVESTMENT_STRUCTURE_CHOICES, default="fixed")
-    ownership_percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="payhere")
+    # Unit-based investment fields
+    units = models.IntegerField(null=True, blank=True)
+    unit_price = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    total_units = models.IntegerField(null=True, blank=True)
+    ownership_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    investment_type = models.CharField(
+        max_length=20,
+        choices=INVESTMENT_TYPE_CHOICES,
+        default="fixed_amount",
+    )
+
+    investment_structure = models.CharField(
+        max_length=20,
+        choices=INVESTMENT_STRUCTURE_CHOICES,
+        default="fixed",
+    )
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        default="payhere",
+    )
+
     transaction_id = models.CharField(max_length=100, blank=True, default="")
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+    )
+
+    notes = models.TextField(blank=True, default="")
+    payment_status = models.CharField(max_length=20, default="pending")
 
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    notes = models.TextField(blank=True, default="")
-    payment_status = models.CharField(max_length=20, default="pending")
-
     def __str__(self):
-        return f"{self.investor.username} - {self.project.title} - RS.{self.amount}"
+        return f"{self.investor.username} → {self.project.title} → Rs.{self.amount}"
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         old_status = None
 
         if not is_new:
-            try:
-                old_status = Investment.objects.get(pk=self.pk).status
-            except Investment.DoesNotExist:
-                old_status = None
+            old_status = (
+                Investment.objects.filter(pk=self.pk)
+                .values_list("status", flat=True)
+                .first()
+            )
 
         super().save(*args, **kwargs)
 
@@ -330,23 +358,25 @@ class Investment(models.Model):
         )
 
         if became_completed:
-            # Update project amounts
-            self.project.current_amount += self.amount
-            self.project.investors_count += 1
-            
-            # Update available units for share-based investments
-            if self.units and self.investment_type == 'unit_purchase':
-                self.project.available_units -= self.units
-            
+            project = self.project
+
+            # Update funding
+            project.current_amount += self.amount
+            project.investors_count += 1
+
+            # Update units if unit-based
+            if self.units and self.investment_type == "unit_purchase":
+                project.available_units -= self.units
+
             if not self.completed_at:
                 self.completed_at = timezone.now()
                 super().save(update_fields=["completed_at"])
 
-            if self.project.current_amount >= self.project.target_amount:
-                self.project.status = "funded"
-                self.project.days_left = 0
+            if project.current_amount >= project.target_amount:
+                project.status = "funded"
+                project.days_left = 0
 
-            self.project.save()
+            project.save()
 
 
 # ----------------------------
@@ -432,79 +462,6 @@ class SimilarityAlert(models.Model):
             f"{round(self.similarity_score * 100)}%"
         )
 
-
-# ----------------------------
-# INVESTMENT
-# ----------------------------
-class Investment(models.Model):
-    STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("completed", "Completed"),
-        ("failed", "Failed"),
-        ("refunded", "Refunded"),
-    ]
-
-    PAYMENT_METHOD_CHOICES = [
-        ("payhere", "PayHere"),
-        ("stripe", "Stripe/Card"),
-        ("bank", "Bank Transfer"),
-    ]
-
-    investor = models.ForeignKey(User, on_delete=models.CASCADE, related_name="investments")
-    project = models.ForeignKey(
-        InvestmentProject,
-        on_delete=models.CASCADE,
-        related_name="project_investments",
-    )
-
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=100)
-
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default="payhere")
-    transaction_id = models.CharField(max_length=100, blank=True, default="")
-
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    notes = models.TextField(blank=True, default="")
-    payment_status = models.CharField(max_length=20, default="pending")
-
-    def __str__(self):
-        return f"{self.investor.username} - {self.project.title} - RS.{self.amount}"
-
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        old_status = None
-
-        if not is_new:
-            old_status = (
-                Investment.objects.filter(pk=self.pk)
-                .values_list("status", flat=True)
-                .first()
-            )
-
-        super().save(*args, **kwargs)
-
-        became_completed = (
-            (is_new and self.status == "completed")
-            or (old_status != "completed" and self.status == "completed")
-        )
-
-        if became_completed:
-            self.project.current_amount += self.amount
-            self.project.investors_count += 1
-
-            if not self.completed_at:
-                self.completed_at = timezone.now()
-                super().save(update_fields=["completed_at"])
-
-            if self.project.current_amount >= self.project.target_amount:
-                self.project.status = "funded"
-                self.project.days_left = 0
-
-            self.project.save()
 
 #---------------------------------
 #   Auth Log
