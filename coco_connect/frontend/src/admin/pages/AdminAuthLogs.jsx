@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const API = "http://127.0.0.1:8000";
 
@@ -12,7 +14,9 @@ function Badge({ value, type }) {
     <span
       className={cx(
         "text-[11px] px-2 py-1 rounded-full border font-extrabold",
-        type === "status" && isSuccess && "bg-emerald-50 text-emerald-900 border-emerald-200",
+        type === "status" &&
+          isSuccess &&
+          "bg-emerald-50 text-emerald-900 border-emerald-200",
         type === "status" && isFailed && "bg-red-50 text-red-900 border-red-200",
         type === "action" && "bg-gray-50 text-gray-800 border-gray-200"
       )}
@@ -20,6 +24,121 @@ function Badge({ value, type }) {
       {value}
     </span>
   );
+}
+
+function formatDuration(ms) {
+  if (!ms || ms < 0) return "—";
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function safeDate(d) {
+  const dt = d ? new Date(d) : null;
+  return dt && !isNaN(dt.getTime()) ? dt : null;
+}
+
+function fmtLocal(dt) {
+  return dt ? dt.toLocaleString() : "—";
+}
+
+/**
+ * Build session durations by pairing:
+ * LOGIN SUCCESS -> next LOGOUT SUCCESS (same user key)
+ * Key preference:
+ *  - row.user (id)
+ *  - row.email
+ *  - row.username
+ */
+function buildSessionsAndDecoratedRows(rows) {
+  const lastLoginByKey = new Map();
+  const sessions = []; // { key, username, email, loginAt, logoutAt, durationMs }
+
+  const decorated = rows.map((r) => ({ ...r, session_ms: null, session_text: "—" }));
+
+  for (let i = 0; i < decorated.length; i++) {
+    const row = decorated[i];
+    const action = String(row.action || "").toUpperCase();
+    const status = String(row.status || "").toUpperCase();
+    const createdAt = safeDate(row.created_at);
+
+    const key =
+      (row.user != null ? `id:${row.user}` : "") ||
+      (row.email ? `email:${row.email}` : "") ||
+      (row.username ? `u:${row.username}` : "") ||
+      `row:${row.id}`;
+
+    // Track LOGIN SUCCESS
+    if (action === "LOGIN" && status === "SUCCESS" && createdAt) {
+      // store the latest login we see (logs are usually newest->oldest;
+      // but your endpoint returns order_by("-created_at"), so newest first.
+      // For session pairing, we should process oldest->newest.
+      // So: we'll do a second pass below in chronological order.
+    }
+  }
+
+  // IMPORTANT: your API returns newest first, but session pairing must be oldest->newest.
+  const chronological = [...decorated].sort((a, b) => {
+    const da = safeDate(a.created_at)?.getTime() ?? 0;
+    const db = safeDate(b.created_at)?.getTime() ?? 0;
+    return da - db;
+  });
+
+  for (const row of chronological) {
+    const action = String(row.action || "").toUpperCase();
+    const status = String(row.status || "").toUpperCase();
+    const createdAt = safeDate(row.created_at);
+
+    const key =
+      (row.user != null ? `id:${row.user}` : "") ||
+      (row.email ? `email:${row.email}` : "") ||
+      (row.username ? `u:${row.username}` : "") ||
+      `row:${row.id}`;
+
+    if (!createdAt) continue;
+
+    if (action === "LOGIN" && status === "SUCCESS") {
+      lastLoginByKey.set(key, {
+        at: createdAt,
+        username: row.username || "UnknownUser",
+        email: row.email || "",
+      });
+    }
+
+    if (action === "LOGOUT" && status === "SUCCESS") {
+      const last = lastLoginByKey.get(key);
+      if (last?.at) {
+        const durationMs = createdAt.getTime() - last.at.getTime();
+
+        // decorate THIS logout row (in the original decorated array by id)
+        const target = decorated.find((x) => x.id === row.id);
+        if (target) {
+          target.session_ms = durationMs;
+          target.session_text = formatDuration(durationMs);
+        }
+
+        sessions.push({
+          key,
+          username: last.username || row.username || "UnknownUser",
+          email: last.email || row.email || "",
+          loginAt: last.at,
+          logoutAt: createdAt,
+          durationMs,
+        });
+
+        // clear last login so next logout doesn't reuse it
+        lastLoginByKey.delete(key);
+      }
+    }
+  }
+
+  // sort sessions newest first (nice for UI/PDF)
+  sessions.sort((a, b) => b.logoutAt.getTime() - a.logoutAt.getTime());
+
+  return { decorated, sessions };
 }
 
 export default function AdminAuthLogs() {
@@ -34,7 +153,8 @@ export default function AdminAuthLogs() {
   const [err, setErr] = useState("");
   const [data, setData] = useState({ count: 0, limit: 100, results: [] });
 
-  const token = useMemo(() => localStorage.getItem("access"), []);
+  // ✅ do NOT freeze token with useMemo([]) — always read latest
+  const token = localStorage.getItem("access");
 
   const buildUrl = () => {
     const params = new URLSearchParams();
@@ -54,7 +174,7 @@ export default function AdminAuthLogs() {
       const res = await fetch(buildUrl(), {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${localStorage.getItem("access") || ""}`,
         },
       });
 
@@ -84,8 +204,108 @@ export default function AdminAuthLogs() {
     setFrom("");
     setTo("");
     setLimit(100);
-    // fetch after state update
     setTimeout(fetchLogs, 0);
+  };
+
+  const { decoratedRows, sessions, stats } = useMemo(() => {
+    const rows = Array.isArray(data?.results) ? data.results : [];
+    const { decorated, sessions } = buildSessionsAndDecoratedRows(rows);
+
+    const totalSessions = sessions.length;
+    const totalMs = sessions.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+    const avgMs = totalSessions ? Math.floor(totalMs / totalSessions) : 0;
+
+    return {
+      decoratedRows: decorated,
+      sessions,
+      stats: {
+        totalSessions,
+        totalMs,
+        avgMs,
+      },
+    };
+  }, [data]);
+
+  const downloadPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+    const title = "CocoConnect - Auth Logs Report";
+    const generatedAt = new Date();
+
+    doc.setFontSize(16);
+    doc.text(title, 40, 40);
+
+    doc.setFontSize(10);
+    doc.text(`Generated: ${generatedAt.toLocaleString()}`, 40, 58);
+
+    // Filters summary
+    const f = [
+      q?.trim() ? `q="${q.trim()}"` : null,
+      action ? `action=${action}` : null,
+      status ? `status=${status}` : null,
+      from ? `from=${from}` : null,
+      to ? `to=${to}` : null,
+      `limit=${limit || 100}`,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    doc.text(`Filters: ${f || "none"}`, 40, 74);
+
+    // Sessions stats
+    doc.text(
+      `Sessions: ${stats.totalSessions} | Total Session Time: ${formatDuration(
+        stats.totalMs
+      )} | Avg Session: ${formatDuration(stats.avgMs)}`,
+      40,
+      90
+    );
+
+    // Main logs table
+    autoTable(doc, {
+      startY: 110,
+      head: [["Time", "User", "Email/UserID", "Action", "Status", "Session Time", "Message"]],
+      body: decoratedRows.map((row) => {
+        const dt = safeDate(row.created_at);
+        return [
+          fmtLocal(dt),
+          row.username || "UnknownUser",
+          row.email || (row.user ? `UserID: ${row.user}` : "—"),
+          row.action || "—",
+          row.status || "—",
+          row.session_text || "—",
+          row.message || "—",
+        ];
+      }),
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fontStyle: "bold" },
+      theme: "grid",
+      margin: { left: 40, right: 40 },
+    });
+
+    // Sessions summary table (optional but useful)
+    const y = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 20 : 130;
+    doc.setFontSize(12);
+    doc.text("Sessions Summary (LOGIN → LOGOUT)", 40, y);
+
+    autoTable(doc, {
+      startY: y + 10,
+      head: [["User", "Email", "Login Time", "Logout Time", "Duration"]],
+      body: sessions.map((s) => [
+        s.username || "UnknownUser",
+        s.email || "—",
+        fmtLocal(s.loginAt),
+        fmtLocal(s.logoutAt),
+        formatDuration(s.durationMs),
+      ]),
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fontStyle: "bold" },
+      theme: "grid",
+      margin: { left: 40, right: 40 },
+      pageBreak: "auto",
+    });
+
+    doc.save(`auth-logs-${generatedAt.toISOString().slice(0, 10)}.pdf`);
   };
 
   return (
@@ -94,16 +314,40 @@ export default function AdminAuthLogs() {
         <div>
           <h1 className="text-2xl font-extrabold text-emerald-950">Auth Logs</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Track admin-visible login/logout activity (success & failed).
+            Track login/logout activity (success & failed). Logout rows show session duration.
           </p>
+
+          <div className="mt-2 text-xs text-gray-600">
+            <b>Sessions:</b> {stats.totalSessions}{" "}
+            <span className="mx-2">•</span>
+            <b>Total:</b> {formatDuration(stats.totalMs)}{" "}
+            <span className="mx-2">•</span>
+            <b>Avg:</b> {formatDuration(stats.avgMs)}
+          </div>
         </div>
 
-        <button
-          onClick={fetchLogs}
-          className="rounded-xl px-4 py-2 font-semibold bg-emerald-700 text-white hover:bg-emerald-800"
-        >
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchLogs}
+            className="rounded-xl px-4 py-2 font-semibold bg-emerald-700 text-white hover:bg-emerald-800"
+          >
+            Refresh
+          </button>
+
+          <button
+            onClick={downloadPdf}
+            disabled={loading || (decoratedRows?.length || 0) === 0}
+            className={cx(
+              "rounded-xl px-4 py-2 font-semibold border",
+              loading || (decoratedRows?.length || 0) === 0
+                ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+            )}
+            title={!token ? "Login as admin first" : "Download PDF"}
+          >
+            Download PDF
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -201,12 +445,10 @@ export default function AdminAuthLogs() {
       <div className="rounded-2xl border border-[#ece7e1] bg-white overflow-hidden">
         <div className="p-4 sm:p-5 flex items-center justify-between">
           <div className="text-sm text-gray-700">
-            Showing <b>{data?.results?.length || 0}</b> of <b>{data?.count ?? 0}</b>
+            Showing <b>{decoratedRows?.length || 0}</b> of <b>{data?.count ?? 0}</b>
           </div>
 
-          {err ? (
-            <div className="text-sm font-semibold text-red-700">{err}</div>
-          ) : null}
+          {err ? <div className="text-sm font-semibold text-red-700">{err}</div> : null}
         </div>
 
         <div className="overflow-x-auto">
@@ -217,6 +459,7 @@ export default function AdminAuthLogs() {
                 <th className="px-4 py-3 font-extrabold">User</th>
                 <th className="px-4 py-3 font-extrabold">Action</th>
                 <th className="px-4 py-3 font-extrabold">Status</th>
+                <th className="px-4 py-3 font-extrabold">Session Time</th>
                 <th className="px-4 py-3 font-extrabold">Message</th>
               </tr>
             </thead>
@@ -224,18 +467,18 @@ export default function AdminAuthLogs() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td className="px-4 py-4 text-gray-600" colSpan={5}>
+                  <td className="px-4 py-4 text-gray-600" colSpan={6}>
                     Loading...
                   </td>
                 </tr>
-              ) : (data?.results || []).length === 0 ? (
+              ) : (decoratedRows || []).length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-gray-600" colSpan={5}>
+                  <td className="px-4 py-6 text-gray-600" colSpan={6}>
                     No logs found.
                   </td>
                 </tr>
               ) : (
-                data.results.map((row) => (
+                decoratedRows.map((row) => (
                   <tr key={row.id} className="hover:bg-gray-50/60">
                     <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                       {row.created_at ? new Date(row.created_at).toLocaleString() : "-"}
@@ -258,8 +501,61 @@ export default function AdminAuthLogs() {
                       <Badge value={row.status} type="status" />
                     </td>
 
-                    <td className="px-4 py-3 text-gray-700">
-                      {row.message || "—"}
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700 font-semibold">
+                      {row.session_text || "—"}
+                    </td>
+
+                    <td className="px-4 py-3 text-gray-700">{row.message || "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Sessions Summary (UI) */}
+      <div className="rounded-2xl border border-[#ece7e1] bg-white overflow-hidden">
+        <div className="p-4 sm:p-5 flex items-center justify-between">
+          <div className="text-sm font-extrabold text-emerald-950">Sessions Summary</div>
+          <div className="text-xs text-gray-600">
+            Pairs LOGIN SUCCESS → LOGOUT SUCCESS per user.
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#f9faf7] text-left text-gray-700">
+              <tr>
+                <th className="px-4 py-3 font-extrabold">User</th>
+                <th className="px-4 py-3 font-extrabold">Login</th>
+                <th className="px-4 py-3 font-extrabold">Logout</th>
+                <th className="px-4 py-3 font-extrabold">Duration</th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-gray-100">
+              {sessions.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-gray-600" colSpan={4}>
+                    No complete sessions found (need both LOGIN SUCCESS and LOGOUT SUCCESS).
+                  </td>
+                </tr>
+              ) : (
+                sessions.map((s, idx) => (
+                  <tr key={`${s.key}-${idx}`} className="hover:bg-gray-50/60">
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-emerald-950">{s.username}</div>
+                      <div className="text-xs text-gray-500">{s.email || "—"}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                      {fmtLocal(s.loginAt)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                      {fmtLocal(s.logoutAt)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700 font-semibold">
+                      {formatDuration(s.durationMs)}
                     </td>
                   </tr>
                 ))

@@ -5,6 +5,9 @@ import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import { debounce } from "lodash";
 import { useCart } from "../context/CartContext";
+import axios from "axios";
+
+const API_BASE = "http://localhost:8000/api"; 
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 const REDIRECT_KEY = "redirectAfterLogin";
@@ -217,20 +220,36 @@ const Navbar = () => {
     setShowLogoutModal(true);
   };
 
-  const confirmLogout = () => {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
-    localStorage.removeItem("name");
-    localStorage.removeItem("email");
-    localStorage.removeItem(REDIRECT_KEY);
+  const confirmLogout = async () => {
+    const access = localStorage.getItem("access");
 
-    setUser(null);
-    window.dispatchEvent(new Event("auth:changed")); // ✅ NEW: instantly update navbar UI
-    setShowLogoutModal(false);
-    navigate("/");
+    try {
+      if (access) {
+        // ✅ this triggers logout_view -> logs AuthLog(LOGOUT SUCCESS)
+        await axios.post(
+          `${API_BASE}/logout/`,
+          {},
+          { headers: { Authorization: `Bearer ${access}` } }
+        );
+      }
+    } catch (e) {
+      // even if API fails (expired token), still log out locally
+      console.warn("Logout API failed:", e?.response?.data || e?.message);
+    } finally {
+      // ✅ clear local session
+      localStorage.removeItem("access");
+      localStorage.removeItem("refresh");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("name");
+      localStorage.removeItem("email");
+      localStorage.removeItem(REDIRECT_KEY);
 
+      setUser(null);
+      window.dispatchEvent(new Event("auth:changed"));
+      setShowLogoutModal(false);
+      navigate("/");
+    }
   };
 
   const displayName = user?.name || user?.email?.split("@")[0] || "User";
