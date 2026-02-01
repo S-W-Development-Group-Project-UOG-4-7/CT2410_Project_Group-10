@@ -21,7 +21,7 @@ export default function NewsCorner() {
       shortDescription:
         "IoT and AI technologies are transforming coconut plantations.",
       fullDescription:
-        "IoT and AI technologies are improving coconut plantations by enabling farmers to monitor soil moisture, weather conditions, and tree health in real time.\n\nThese technologies help optimize irrigation, detect diseases early, and improve overall crop productivity while reducing resource wastage.",
+        "IoT and AI technologies are improving coconut plantations by enabling farmers to monitor soil moisture, weather conditions, and tree health in real time.\n\nThese technologies help optimize irrigation, detect diseases early, and improve overall crop productivity while reducing resource wastage.IoT and AI technologies are improving coconut plantations through the use of smart sensors and data analytics.\n\nSensors collect real-time data on soil moisture, temperature, and humidity, while AI systems analyze this data to support better decision-making, resulting in healthier trees and increased yields.",
       date: "2025-12-18",
       image:
         "https://images.unsplash.com/photo-1501004318641-b39e6451bec6",
