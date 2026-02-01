@@ -73,6 +73,7 @@ export default function NewsCorner() {
     source: "Health & Nutrition Weekly",
     category: "Health",
     location: "Global",
+    readTime: "3 min",
     },
   ];
 
