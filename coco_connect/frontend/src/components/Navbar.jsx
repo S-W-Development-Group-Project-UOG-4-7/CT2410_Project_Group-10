@@ -1,19 +1,21 @@
 // src/components/Navbar.jsx
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import LoginModal from "./LoginModal";
 import RegisterModal from "./RegisterModal";
 import { debounce } from "lodash";
 import { useCart } from "../context/CartContext";
-import axios from "axios";
-
-const API_BASE = "http://localhost:8000/api"; 
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
-const REDIRECT_KEY = "redirectAfterLogin";
 
 const Navbar = () => {
-  const { cartCount } = useCart();
+  const { cartCount } = useCart(); // ✅ from CartContext
 
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -25,9 +27,11 @@ const Navbar = () => {
   const [activeLanguage, setActiveLanguage] = useState("en");
   const [isSearching, setIsSearching] = useState(false);
 
+  // ✅ "More" dropdown
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreMenuRef = useRef(null);
 
+  // ✅ Custom Logout Modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const location = useLocation();
@@ -49,33 +53,7 @@ const Navbar = () => {
     }
   });
 
-  // ✅ NEW: keep navbar user in sync with localStorage (instant update without refresh)
-  useEffect(() => {
-    const syncUser = () => {
-        try {
-          const stored = localStorage.getItem("user");
-          setUser(stored ? JSON.parse(stored) : null);
-        } catch {
-          setUser(null);
-        }
-      };
-
-    // run once (safe)
-    syncUser();
-
-    // same-tab updates (we will dispatch this event from LoginModal + Logout)
-    window.addEventListener("auth:changed", syncUser);
-
-    // cross-tab updates
-    window.addEventListener("storage", syncUser);
-
-    return () => {
-      window.removeEventListener("auth:changed", syncUser);
-      window.removeEventListener("storage", syncUser);
-    };
-  }, []);
-
-
+  // Main nav (no icons, no News Corner here)
   const navItems = useMemo(
     () => [
       { path: "/", label: "Home", mobileOnly: false },
@@ -83,12 +61,17 @@ const Navbar = () => {
       { path: "/shop", label: "Shop", mobileOnly: false },
       { path: "/investment", label: "Investment", mobileOnly: false },
       { path: "/ideas", label: "Idea Sharing", mobileOnly: false },
+      { path: "/projects/create", label: "Create Project", mobileOnly: false },
       { path: "/contact", label: "Contact", mobileOnly: true },
     ],
     []
   );
 
-  const moreItems = useMemo(() => [{ path: "/news", label: "News Corner" }], []);
+  // ✅ "More" items (News Corner goes here)
+  const moreItems = useMemo(
+    () => [{ path: "/news", label: "News Corner" }],
+    []
+  );
 
   const languages = useMemo(
     () => [
@@ -99,6 +82,7 @@ const Navbar = () => {
     []
   );
 
+  // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -117,7 +101,10 @@ const Navbar = () => {
         setIsMoreOpen(false);
       }
 
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target)
+      ) {
         const hitMobileBtn = event.target.closest(
           'button[aria-label="Mobile menu"]'
         );
@@ -168,6 +155,7 @@ const Navbar = () => {
     [navigate]
   );
 
+  // cleanup debounce on unmount
   useEffect(() => {
     return () => handleSearch.cancel?.();
   }, [handleSearch]);
@@ -200,7 +188,7 @@ const Navbar = () => {
     }
   };
 
-  // ✅ LOGIN SUCCESS -> DON'T FORCE HOME HERE (LoginModal will navigate correctly)
+  // ✅ LOGIN SUCCESS -> go to HOME PAGE
   const handleAuthSuccess = (userObj) => {
     setUser(userObj);
     setIsLoginOpen(false);
@@ -209,9 +197,11 @@ const Navbar = () => {
     setIsMobileOpen(false);
     setIsMoreOpen(false);
     setIsSearchExpanded(false);
-    // ❌ removed navigate("/") so "return to page" works
+
+    navigate("/"); // ✅ always go to homepage after login
   };
 
+  // ✅ open custom logout modal (NO browser popup)
   const handleLogout = () => {
     setIsUserMenuOpen(false);
     setIsMobileOpen(false);
@@ -220,36 +210,18 @@ const Navbar = () => {
     setShowLogoutModal(true);
   };
 
-  const confirmLogout = async () => {
-    const access = localStorage.getItem("access");
+  // ✅ confirm logout action
+  const confirmLogout = () => {
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    localStorage.removeItem("name");
+    localStorage.removeItem("email");
 
-    try {
-      if (access) {
-        // ✅ this triggers logout_view -> logs AuthLog(LOGOUT SUCCESS)
-        await axios.post(
-          `${API_BASE}/logout/`,
-          {},
-          { headers: { Authorization: `Bearer ${access}` } }
-        );
-      }
-    } catch (e) {
-      // even if API fails (expired token), still log out locally
-      console.warn("Logout API failed:", e?.response?.data || e?.message);
-    } finally {
-      // ✅ clear local session
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
-      localStorage.removeItem("name");
-      localStorage.removeItem("email");
-      localStorage.removeItem(REDIRECT_KEY);
-
-      setUser(null);
-      window.dispatchEvent(new Event("auth:changed"));
-      setShowLogoutModal(false);
-      navigate("/");
-    }
+    setUser(null);
+    setShowLogoutModal(false);
+    navigate("/");
   };
 
   const displayName = user?.name || user?.email?.split("@")[0] || "User";
@@ -261,9 +233,7 @@ const Navbar = () => {
     setIsMoreOpen(false);
   };
 
-  // ✅ Save current page before opening login
   const openLoginModal = () => {
-    localStorage.setItem(REDIRECT_KEY, location.pathname + location.search);
     setIsLoginOpen(true);
     setIsMobileOpen(false);
   };
@@ -279,6 +249,7 @@ const Navbar = () => {
 
   return (
     <>
+      {/* ✅ CUSTOM LOGOUT MODAL */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center px-4">
           <div
@@ -345,6 +316,7 @@ const Navbar = () => {
       >
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center py-3 lg:py-4">
+            {/* ✅ Logo UNCHANGED */}
             <Link
               to="/"
               className="flex items-center hover:opacity-90 transition-opacity active:scale-95 min-w-0"
@@ -370,6 +342,7 @@ const Navbar = () => {
               </div>
             </Link>
 
+            {/* Desktop Nav + More dropdown */}
             <nav className="hidden lg:flex flex-1 justify-center mx-4">
               <div
                 className="flex items-center gap-1 px-2 py-1 rounded-2xl"
@@ -397,6 +370,7 @@ const Navbar = () => {
                     </Link>
                   ))}
 
+                {/* ✅ More dropdown */}
                 <div className="relative" ref={moreMenuRef}>
                   <button
                     onClick={() => setIsMoreOpen((v) => !v)}
@@ -441,7 +415,9 @@ const Navbar = () => {
               </div>
             </nav>
 
+            {/* Right Actions */}
             <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3">
+              {/* Language */}
               <div className="hidden sm:block relative group">
                 <button
                   className="flex items-center text-accent2 hover:text-[#4caf50] transition-all p-2 rounded-full hover:bg-accent5/10 active:scale-95"
@@ -474,6 +450,7 @@ const Navbar = () => {
                 </div>
               </div>
 
+              {/* Search */}
               <div className="relative" ref={searchWrapRef}>
                 <button
                   onClick={handleSearchToggle}
@@ -508,7 +485,9 @@ const Navbar = () => {
                         value={searchQuery}
                         onChange={handleSearchChange}
                         onKeyDown={handleSearchKeyDown}
-                        onBlur={() => !searchQuery && setIsSearchExpanded(false)}
+                        onBlur={() =>
+                          !searchQuery && setIsSearchExpanded(false)
+                        }
                         placeholder="Search products, ideas..."
                         className="w-full min-w-[280px] sm:w-64 md:w-72 lg:w-80 bg-transparent text-accent6 px-4 py-3 focus:outline-none"
                         aria-label="Search input"
@@ -543,6 +522,7 @@ const Navbar = () => {
                 </div>
               </div>
 
+              {/* ✅ Cart (context-based) */}
               <Link
                 to="/cart"
                 className="relative p-2 rounded-full text-accent2 hover:text-[#4caf50] hover:bg-accent5/10 transition-all active:scale-95"
@@ -556,6 +536,7 @@ const Navbar = () => {
                 )}
               </Link>
 
+              {/* User */}
               <div className="relative" ref={userMenuRef}>
                 {user ? (
                   <>
@@ -614,6 +595,7 @@ const Navbar = () => {
                 )}
               </div>
 
+              {/* Mobile menu */}
               <button
                 onClick={toggleMobileMenu}
                 className="lg:hidden text-accent2 hover:text-[#4caf50] p-2 rounded-lg hover:bg-accent5/10 transition-all active:scale-95 ml-1"
@@ -664,6 +646,7 @@ const Navbar = () => {
                     </div>
                   )}
 
+                  {/* ✅ Cart in mobile */}
                   <div className="mb-4">
                     <Link
                       to="/cart"
@@ -712,6 +695,7 @@ const Navbar = () => {
                     </Link>
                   </div>
 
+                  {/* ✅ Logout in mobile (opens modal) */}
                   {user && (
                     <div className="pt-3 border-t border-accent5/20">
                       <button
@@ -747,7 +731,6 @@ const Navbar = () => {
         onAuthSuccess={handleAuthSuccess}
         onOpenLogin={() => {
           setIsRegisterOpen(false);
-          // ✅ keep redirect as register was opened from same page
           setIsLoginOpen(true);
         }}
       />
