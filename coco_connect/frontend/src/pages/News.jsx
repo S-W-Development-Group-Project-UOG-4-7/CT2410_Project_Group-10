@@ -37,6 +37,19 @@ export default function NewsCorner() {
       image:
         "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38",
     },
+    {
+      id: 4,
+      title: "Export Demand for Coconut Products Increases",
+      source: "International Trade Review",
+      shortDescription:
+        "Global demand for Sri Lankan coconut-based products continues to rise.",
+      fullDescription:
+        "Exporters report increased orders for coconut oil, desiccated coconut, and value-added products.\n\nIndustry analysts believe this trend will strengthen Sri Lanka’s agricultural export sector.",
+      date: "2025-12-10",
+      image:
+        "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2",
+    },
+
   ];
 
   return (
