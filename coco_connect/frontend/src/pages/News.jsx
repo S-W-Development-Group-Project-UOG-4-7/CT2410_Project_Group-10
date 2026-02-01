@@ -6,7 +6,7 @@ export default function NewsCorner() {
   const newsList = [
     {
       id: 1,
-      title: "Coconut Industry Boosts Local Economy",
+      title: "Sri Lanka Coconut Industry Boosts Local Economy",
       shortDescription:
         "Sri Lanka’s coconut exports show strong growth this quarter.",
       fullDescription:
