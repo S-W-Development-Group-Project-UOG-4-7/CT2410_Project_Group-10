@@ -64,6 +64,9 @@ export default function IdeaSharing() {
   const [isPaid, setIsPaid] = useState(false);
   const [price, setPrice] = useState("");
 
+  // ✅ STEP 4: Add priority state
+  const [priority, setPriority] = useState("medium");
+
   const [isPublishing, setIsPublishing] = useState(false);
 
   // similarity states
@@ -182,6 +185,8 @@ export default function IdeaSharing() {
     setIsPaid(false);
     setPrice("");
     setEditing(null);
+    // ✅ STEP 5: include priority in reset
+    setPriority("medium");
   };
 
   const openAddIdea = () => {
@@ -197,6 +202,8 @@ export default function IdeaSharing() {
     setFullDesc(safeStr(selected.full_description, ""));
     setIsPaid(!!selected.is_paid);
     setPrice(selected.price ? String(selected.price) : "");
+    // ✅ STEP 5: include priority in edit
+    setPriority(safeStr(selected.priority, "medium"));
     setShowForm(true);
   };
 
@@ -274,6 +281,8 @@ export default function IdeaSharing() {
     formData.append("short_description", shortDesc);
     formData.append("full_description", fullDesc);
     formData.append("is_paid", String(isPaid));
+    // ✅ STEP 6: Send priority to backend when publishing
+    formData.append("priority", priority);
     if (isPaid) formData.append("price", price);
     if (file) formData.append("document", file);
 
@@ -307,6 +316,7 @@ export default function IdeaSharing() {
           is_paid: isPaid,
           price,
           file,
+          priority, // ✅ include priority
         });
         setSimilarWarning(data);
         return;
@@ -322,11 +332,11 @@ export default function IdeaSharing() {
       setIdeas((prev) =>
         editing
           ? prev.map((i) => (i.id === data.id ? data : i))
-          : [data, ...prev]
+          : [data, ...prev],
       );
 
       toast.success(
-        editing ? "✅ Idea updated successfully" : "🎉 Idea added successfully"
+        editing ? "✅ Idea updated successfully" : "🎉 Idea added successfully",
       );
 
       if (editing && selectedId === data.id) {
@@ -527,6 +537,19 @@ export default function IdeaSharing() {
                             : "FREE"}
                         </span>
 
+                        {/* ✅ STEP 8: Show priority badge in the idea card */}
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            idea.priority === "high"
+                              ? "bg-red-100 text-red-700"
+                              : idea.priority === "low"
+                                ? "bg-gray-100 text-gray-700"
+                                : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {String(idea.priority || "medium").toUpperCase()}
+                        </span>
+
                         {isMyIdea && hasAlert && (
                           <button
                             onClick={(e) => {
@@ -603,7 +626,7 @@ export default function IdeaSharing() {
                           dateTime={idea.created_at || new Date().toISOString()}
                         >
                           {new Date(
-                            idea.created_at || Date.now()
+                            idea.created_at || Date.now(),
                           ).toLocaleDateString("en-GB", {
                             day: "numeric",
                             month: "short",
@@ -669,8 +692,8 @@ export default function IdeaSharing() {
               {search
                 ? `No results for "${search}". Try different keywords or clear search.`
                 : filter === "mine"
-                ? "You haven't shared any ideas yet. Start creating!"
-                : "This category is empty. Be the first to share your idea."}
+                  ? "You haven't shared any ideas yet. Start creating!"
+                  : "This category is empty. Be the first to share your idea."}
             </p>
 
             {!search && filter !== "mine" && (
@@ -745,6 +768,21 @@ export default function IdeaSharing() {
             <h2 className="text-3xl font-bold mb-6 text-gray-800">
               {selected.title}
             </h2>
+
+            {/* ✅ STEP 9: Show priority in the VIEW MODAL */}
+            <div className="mb-4">
+              <span
+                className={`inline-flex px-3 py-1 rounded-full text-xs font-bold ${
+                  selected.priority === "high"
+                    ? "bg-red-100 text-red-700"
+                    : selected.priority === "low"
+                      ? "bg-gray-100 text-gray-700"
+                      : "bg-blue-100 text-blue-700"
+                }`}
+              >
+                Priority: {String(selected.priority || "medium").toUpperCase()}
+              </span>
+            </div>
 
             <div className="mb-6 pb-6 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
@@ -886,6 +924,51 @@ export default function IdeaSharing() {
                 />
               </div>
 
+              {/* ✅ STEP 7: Add the UI for Priority */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Priority
+                </label>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPriority("low")}
+                    className={`py-3 rounded-xl font-semibold border transition ${
+                      priority === "low"
+                        ? "bg-gray-800 text-white border-gray-800"
+                        : "bg-white text-gray-700 border-gray-300"
+                    }`}
+                  >
+                    Low
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPriority("medium")}
+                    className={`py-3 rounded-xl font-semibold border transition ${
+                      priority === "medium"
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-700 border-gray-300"
+                    }`}
+                  >
+                    Medium
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPriority("high")}
+                    className={`py-3 rounded-xl font-semibold border transition ${
+                      priority === "high"
+                        ? "bg-red-600 text-white border-red-600"
+                        : "bg-white text-gray-700 border-gray-300"
+                    }`}
+                  >
+                    High
+                  </button>
+                </div>
+              </div>
+
               {/* Pricing */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -985,8 +1068,8 @@ export default function IdeaSharing() {
                 {isPublishing
                   ? "Publishing..."
                   : editing
-                  ? "Update Idea"
-                  : "Publish Idea"}
+                    ? "Update Idea"
+                    : "Publish Idea"}
               </button>
             </div>
           </div>
