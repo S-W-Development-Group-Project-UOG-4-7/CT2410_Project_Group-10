@@ -119,8 +119,10 @@ cococonnect/
 * Git
 
 ### 1️⃣ Clone the Repository
+```bash
 git clone https://github.com/your-username/cococonnect.git
 cd cococonnect
+```
 
 ### 2️⃣ Frontend Setup
 
@@ -189,5 +191,3 @@ All rights reserved to the project team.
 * Mobile application / PWA
 * Payment gateway integration
 * Government & export authority integrations
-
-Just tell me 😄
